@@ -1,0 +1,57 @@
+[package]
+name = "pebble"
+version = "1.0.0"
+edition = "2021"
+default-run = "pebble"
+
+[dependencies]
+# Primary crates
+axum = { version = "0.8", features = ["multipart", "macros"] }
+tokio = { version = "1", features = ["full"] }
+sqlx = { version = "0.8", features = ["sqlite", "runtime-tokio-native-tls", "chrono", "json"] }
+redis = "0.28"
+
+# Important secondary crates
+bb8 = "0.9"
+bb8-redis = "0.20"
+
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+minijinja = { version = "2.6", features = ["loader"] }
+
+tower = "0.5"
+tower-http = { version = "0.5", features = ["full"] }
+
+validator = { version = "0.20", features = ["derive"] }
+
+regex = "1.10"
+
+chrono = { version = "0.4", features = ["serde"] }
+
+tokio-util = { version = "0.7", features = ["io"] }
+
+image = "0.25"
+kamadak-exif = "0.6"
+
+uuid = { version = "1.12", features = ["v4"] }
+
+tokio-cron-scheduler = "0.13"
+
+# Auxilliary crates
+dotenvy = "0.15"
+derive_more = { version = "1.0", features = ["from", "display"] }
+
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }
+
+lazy_static = "1.5.0"
+
+anyhow = "1.0"
+
+futures = "0.3"
+futures-util = "0.3"
+
+jieba-rs = "0.7"
+
+[dev-dependencies]

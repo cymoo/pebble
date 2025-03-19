@@ -1,0 +1,70 @@
+# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+
+# dependencies
+node_modules
+venv
+.venv
+
+# testing
+test-results
+playwright-report
+playwright/.cache
+coverage
+
+# production
+build
+dist
+target
+.next
+
+# local
+*.local
+
+# log
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# tmp or cache
+tmp
+.cache
+.eslintcache
+__pycache__
+*.py[cod]
+.pytest_cache
+*.db-shm
+*.db-wal
+*.css.map
+stats.html
+
+# runtime data
+*.pid
+*.pid.lock
+dump.rdb
+
+# editor
+.idea
+*.iws
+*.iml
+*.ipr
+.vscode/*
+!.vscode/extensions.json
+
+# Spring Tool Suite (STS) 和 Eclipse
+.apt_generated
+.classpath
+.factorypath
+.project
+.settings
+.springBeans
+.sts4-cache
+
+# misc
+!.mvn/wrapper/maven-wrapper.jar
+*~
+.DS_Store
+._*
+
+e2e/.auth/

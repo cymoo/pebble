@@ -1,0 +1,99 @@
+spring:
+  profiles:
+    active: ${SPRING_PROFILES_ACTIVE:dev}  # switch via maven config
+  main:
+    banner-mode: off
+  application:
+    name: api-kt
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 10MB
+  flyway:
+    locations: classpath:db/migration
+    baseline-on-migrate: true
+    validate-on-migrate: true
+    out-of-order: false
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      database: ${REDIS_DATABASE:0}
+      timeout: 3
+      max-total: 20
+      max-idle: 5
+  mvc:
+    static-path-pattern: /static/**
+server:
+  port: 8000
+app:
+  search:
+    max-result: 500
+    partial-match: true
+    key-prefix: ""
+  upload:
+    upload-url: uploads
+    upload-dir: ../data/uploads
+    thumbnail-size: 128
+    image-formats: [ jpeg, jpg, png, webp, gif ]
+  cors:
+    allowed-origins:
+      - "http://localhost:8081"
+      - "http://localhost:3000"
+    allowed-methods:
+      - GET
+      - POST
+      - PUT
+      - DELETE
+      - OPTIONS
+    allowed-headers: [ "*" ]
+    allow-credentials: true
+    max-age: 3600
+  misc:
+    about-url: ${ABOUT_URL:}
+pebble:
+  expose-request-attributes: true
+  suffix:
+
+---
+spring:
+  config:
+    activate:
+      on-profile: dev
+  datasource:
+    url: jdbc:sqlite:../data/app-dev.db?foreign_keys=on
+    driver-class-name: org.sqlite.JDBC
+pebble:
+  cache: false
+logging:
+  level:
+    root: INFO
+    com.example: DEBUG
+
+---
+spring:
+  config:
+    activate:
+      on-profile: test
+  datasource:
+    url: jdbc:sqlite:file::memory:?cache=shared&foreign_keys=on
+    driver-class-name: org.sqlite.JDBC
+app:
+  search:
+    key-prefix: "test:"
+logging:
+  level:
+    root: warn
+
+---
+spring:
+  config:
+    activate:
+      on-profile: prod
+  datasource:
+    url: jdbc:sqlite:../data/app.db?foreign_keys=on
+    driver-class-name: org.sqlite.JDBC
+logging:
+  level:
+    root: WARN
+    com.example: INFO

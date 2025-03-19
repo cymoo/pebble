@@ -1,0 +1,338 @@
+@import 'tailwindcss';
+
+@plugin "@tailwindcss/typography";
+
+@custom-variant dark (&:where([data-theme=dark], [data-theme=dark] *));
+
+/* `inline`: use the theme variable value instead of referencing the actual theme variable. */
+@theme inline {
+  --radius-lg: var(--radius);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-sm: calc(var(--radius) - 4px);
+
+  /* Default background color of <body />...etc */
+  --color-background: hsl(var(--background));
+  --color-foreground: hsl(var(--foreground));
+
+  /* Muted backgrounds such as <TabsList />, <Skeleton /> and <Switch /> */
+  --color-muted: hsl(var(--muted));
+  --color-muted-foreground: hsl(var(--muted-foreground));
+
+  /* Background color for <Card /> */
+  --color-card: hsl(var(--card));
+  --color-card-foreground: hsl(var(--card-foreground));
+
+  /* Background color for popovers such as <DropdownMenu />, <HoverCard />, <Popover /> */
+  --color-popover: hsl(var(--popover));
+  --color-popover-foreground: hsl(var(--popover-foreground));
+
+  /* Primary colors for <Button /> */
+  --color-primary: hsl(var(--primary));
+  --color-primary-foreground: hsl(var(--primary-foreground));
+
+  /* Secondary colors for <Button /> */
+  --color-secondary: hsl(var(--secondary));
+  --color--secondary-foreground: hsl(var(--secondary-foreground));
+
+  /* Used for accents such as hover effects on <DropdownMenuItem>, <SelectItem>...etc */
+  --color-accent: hsl(var(--accent));
+  --color-accent-foreground: hsl(var(--accent-foreground));
+
+  /* Used for destructive actions such as <Button variant="destructive"> */
+  --color-destructive: hsl(var(--destructive));
+  --color-destructive-foreground: hsl(var(--destructive-foreground));
+
+  /* Default border color */
+  --color-border: hsl(var(--border));
+
+  /* Border color for inputs such as <Input />, <Select />, <Textarea /> */
+  --color-input: hsl(var(--input));
+
+  /* Used for focus ring */
+  --color-ring: hsl(var(--ring));
+}
+
+
+@layer base {
+  :root {
+    --vh: 1vh;
+    --font-family: -apple-system, BlinkMacSystemFont, Helvetica Neue, PingFang SC, Microsoft YaHei, Source Han Sans SC, Noto Sans CJK SC, WenQuanYi Micro Hei, sans-serif;
+    --font-family-mono: Consolas, Menlo, Monaco, source-code-pro, Courier New, monospace;
+    --sidebar-width: 270px; /* 240px width +  2 * 15px padding */
+    --content-width: 610px; /* 580px width + 2 * 15px padding */
+  }
+
+  [data-theme='light'] {
+    --neutral: 214 20% 21%;
+    --neutral-foreground: 212 19% 87%;
+
+    /* Theme generator: https://ui.jln.dev */
+    --background: 0 0% 100%;
+    --foreground: 222.2 84% 4.9%;
+    --muted: 210 40% 96.1%;
+    --muted-foreground: 215.4 16.3% 46.9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222.2 84% 4.9%;
+    --card: 0 0% 100%;
+    --card-foreground: 222.2 84% 4.9%;
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 91.4%;
+    --primary: 220.47 98.26% 36.08%;
+    --primary-foreground: 210 40% 98%;
+    --secondary: 210 40% 96.1%;
+    --secondary-foreground: 222.2 47.4% 11.2%;
+    --accent: 210 40% 96.1%;
+    --accent-foreground: 222.2 47.4% 11.2%;
+    --destructive: 0 92.99% 56.11%;
+    --destructive-foreground: 210 40% 98%;
+    --ring: 220.67 97.83% 36.08%;
+    --radius: 0.5rem;
+
+  }
+
+  [data-theme='dark'] {
+    --neutral: 220 21% 14%;
+    --neutral-foreground: 197 31% 77%;
+
+    --background: 229 20% 20%;
+    --foreground: 232 28% 79%;
+    --muted: 229 12% 24%;
+    --muted-foreground: 229 12% 74%;
+    --popover: 229 20% 17%;
+    --popover-foreground: 232 28% 89%;
+    --card: 229 20% 18%;
+    --card-foreground: 232 28% 84%;
+    --border: 229 10% 25%;
+    --input: 229 10% 28%;
+    --primary: 174 42% 65%;
+    --primary-foreground: 174 42% 5%;
+    --secondary: 174 30% 25%;
+    --secondary-foreground: 174 30% 85%;
+    --accent: 229 20% 35%;
+    --accent-foreground: 229 20% 95%;
+    --destructive: 8 91% 59%;
+    --destructive-foreground: 0 0% 100%;
+    --ring: 174 42% 65%;
+  }
+
+  * {
+    border-color: hsl(var(--border))
+  }
+
+  html, body {
+    position: relative;
+  }
+  html {
+    font-size: 16px;
+  }
+  body {
+    font-family: var(--font-family);
+    font-size: 1rem;
+    font-weight: 400;
+    line-height: 1.5;
+    color: hsl(var(--foreground));
+    background-color: hsl(var(--background));
+    transition: color 300ms ease;
+    word-wrap: break-word;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  ::-webkit-scrollbar {
+    width: 5px;
+    height: 5px;
+  }
+  ::-webkit-scrollbar-thumb {
+    background-color: rgba(0, 0, 0, 0.3);
+    border-radius: 10px;
+  }
+  ::-webkit-scrollbar-track {
+    background-color: transparent;
+    margin-bottom: 32px;
+  }
+  body::-webkit-scrollbar-track {
+    margin-top: 75px;
+    margin-bottom: 90px;
+  }
+
+  /* https://stackoverflow.com/questions/9421551/how-do-i-remove-all-default-webkit-search-field-styling */
+  input[type="search"]::-webkit-search-decoration,
+  input[type="search"]::-webkit-search-cancel-button,
+  input[type="search"]::-webkit-search-results-button,
+  input[type="search"]::-webkit-search-results-decoration {
+    -webkit-appearance:none;
+  }
+
+  button:not(:disabled),
+  [role="button"]:not(:disabled) {
+    cursor: pointer;
+  }
+}
+
+/* This will always be included in the compiled CSS without using the @layer directive */
+.prose {
+  --tw-prose-body: hsl(var(--foreground)/0.83);
+  --tw-prose-headings: hsl(var(--foreground));
+  --tw-prose-lead: hsl(var(--foreground));
+  --tw-prose-links: hsl(var(--foreground));
+  --tw-prose-bold: hsl(var(--foreground));
+  --tw-prose-counters: hsl(var(--foreground));
+  --tw-prose-bullets: hsl(var(--foreground)/0.5);
+  --tw-prose-hr: hsl(var(--foreground)/0.2);
+  --tw-prose-quotes: hsl(var(--foreground));
+  --tw-prose-quote-borders:hsl(var(--foreground)/0.2);
+  --tw-prose-captions: hsl(var(--foreground)/0.65);
+  --tw-prose-code: hsl(var(--foreground));
+  --tw-prose-pre-code: hsl(var(--neutral-foreground));
+  --tw-prose-pre-bg: hsl(var(--neutral));
+  --tw-prose-th-borders: hsl(var(--foreground)/0.5);
+  --tw-prose-td-borders: hsl(var(--foreground)/0.2);
+
+  max-width: 100%;
+
+  h1 {
+    font-size: 2em;
+  }
+
+  a {
+    text-underline-offset: 0.25em;
+  }
+  li > p {
+    margin-top: 0;
+    margin-bottom: 1em;
+  }
+  img {
+    border-radius: 0.25rem;
+  }
+
+  ul {
+    list-style-type: disc;
+  }
+  ul ul {
+    list-style-type: circle;
+  }
+  ul ul ul {
+    list-style-type: square;
+  }
+}
+
+.clamp-mask {
+  position: relative;
+  background-color: hsl(var(--card));
+
+  &::after {
+    position: absolute;
+    content: '';
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(hsl(var(--card)/0) 70%, hsl(var(--card)/0.95));
+    pointer-events: none;
+  }
+}
+
+.hash-tag {
+  background-color: hsl(var(--accent)/0.85);
+  color: hsl(var(--accent-foreground));
+  margin: 0 0.25em;
+  padding: 0.25em;
+  cursor: pointer;
+  font-size: 0.9em;
+  border-radius: 0.2em;
+
+  p > &:nth-of-type(2) {
+    margin-left: 0;
+  }
+}
+
+.check-list {
+  position: relative;
+
+  + .check-list {
+    margin-top: 0.5em;
+  }
+
+  input {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    margin: auto 0;
+    padding: 0;
+    width: 2em;
+    height: 2em;
+    background: none;
+    border: none;
+    opacity: 0;
+    text-align: center;
+    appearance: none;
+
+    + label {
+      background-image: url('data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2240%22%20height%3D%2240%22%20viewBox%3D%22-10%20-18%20100%20135%22%3E%3Ccircle%20cx%3D%2250%22%20cy%3D%2250%22%20r%3D%2250%22%20fill%3D%22none%22%20stroke%3D%22%23adb5bd%22%20stroke-width%3D%223%22%2F%3E%3C%2Fsvg%3E');
+      background-repeat: no-repeat;
+      background-position: center left;
+      background-size: 2em;
+    }
+
+    &:checked + label {
+      background-image: url('data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2240%22%20height%3D%2240%22%20viewBox%3D%22-10%20-18%20100%20135%22%3E%3Ccircle%20cx%3D%2250%22%20cy%3D%2250%22%20r%3D%2250%22%20fill%3D%22none%22%20stroke%3D%22%23bddad5%22%20stroke-width%3D%223%22%2F%3E%3Cpath%20fill%3D%22%232eb88a%22%20d%3D%22M72%2025L42%2071%2027%2056l-4%204%2020%2020%2034-52z%22%2F%3E%3C%2Fsvg%3E');
+      color: hsl(var(--foreground)/0.55);
+      text-decoration: line-through;
+    }
+  }
+
+  label {
+    display: block;
+    padding: 0.5em 0.5em 0.5em 2.5em;
+    max-width: 100%;
+    color: hsl(var(--foreground)/0.85);
+    word-break: break-all;
+    transition: color 250ms;
+    cursor: text;
+  }
+}
+
+@layer utilities {
+  .vh-full {
+    height: calc(var(--vh) * 100);
+  }
+  .vh-50 {
+    height: calc(var(--vh) * 50);
+  }
+
+  .scrollbar-none::-webkit-scrollbar {
+    display: none;
+    width: 0;
+    height: 0;
+  }
+
+  .abs-center {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+  }
+
+  /* https://github.com/saadeghi/daisyui/blob/master/src/components/styled/button.css */
+  .animate-pulsate {
+    animation: pulsate 0.25s ease-out;
+    transition-property: color, background-color, border-color, opacity, transform;
+    &:active:hover,
+    &:active:focus {
+      animation: pulsate 0s ease-out;
+      transform: scale(0.97);
+    }
+    @keyframes pulsate {
+      0% {
+        transform: scale(0.98);
+      }
+      40% {
+        transform: scale(1.02);
+      }
+      100% {
+        transform: scale(1);
+      }
+    }
+  }
+}

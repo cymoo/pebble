@@ -1,0 +1,25 @@
+{
+  "cookies": [
+    {
+      "name": "token",
+      "value": "foobar",
+      "domain": "localhost",
+      "path": "/",
+      "expires": 1776964261.26039,
+      "httpOnly": false,
+      "secure": false,
+      "sameSite": "Lax"
+    }
+  ],
+  "origins": [
+    {
+      "origin": "http://localhost:3000",
+      "localStorage": [
+        {
+          "name": "token",
+          "value": "foobar"
+        }
+      ]
+    }
+  ]
+}
