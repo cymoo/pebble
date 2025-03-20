@@ -2,6 +2,8 @@
 
 Pebble 是一个简单的个人笔记本和博客。
 
+![screenshot](./data/screenshot.png)
+
 ## 功能
 
 * 分享笔记以作为博客

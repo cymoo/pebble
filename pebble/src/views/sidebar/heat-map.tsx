@@ -40,7 +40,7 @@ export const HeatMap = React.memo(function HeatMap({
 
   return (
     <div
-      className={cx('grid grid-flow-col grid-rows-7 gap-1 *:aspect-square', className)}
+      className={cx('grid grid-flow-col grid-rows-7 gap-1 *:aspect-square opacity-80', className)}
       role="grid"
       aria-label="heatmap of activities"
       {...props}
@@ -94,29 +94,29 @@ export function HeatMapWithTooltip({ className, ...props }: ComponentProps<typeo
 const getColor = (count: number, theme = 'light'): string => {
   if (theme === 'dark') {
     if (count >= 9) {
-      return 'bg-green-300'
+      return 'bg-emerald-300'
     } else if (count >= 7) {
-      return 'bg-green-400'
+      return 'bg-emerald-400'
     } else if (count >= 5) {
-      return 'bg-green-500'
+      return 'bg-emerald-500'
     } else if (count >= 3) {
-      return 'bg-green-600'
+      return 'bg-emerald-600'
     } else if (count >= 1) {
-      return 'bg-green-700'
+      return 'bg-emerald-700'
     } else {
       return 'bg-border'
     }
   } else {
     if (count >= 9) {
-      return 'bg-green-700'
+      return 'bg-emerald-700'
     } else if (count >= 7) {
-      return 'bg-green-600'
+      return 'bg-emerald-600'
     } else if (count >= 5) {
-      return 'bg-green-500'
+      return 'bg-emerald-500'
     } else if (count >= 3) {
-      return 'bg-green-400'
+      return 'bg-emerald-400'
     } else if (count >= 1) {
-      return 'bg-green-300'
+      return 'bg-emerald-300'
     } else {
       return 'bg-border'
     }

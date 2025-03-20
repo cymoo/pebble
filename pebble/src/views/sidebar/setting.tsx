@@ -21,7 +21,7 @@ export function SettingDialog({ className, ...props }: ComponentProps<typeof But
     <Dialog>
       <DialogTrigger asChild={true}>
         <Button
-          className={cx('text-foreground/85 justify-start! ring-inset', className)}
+          className={cx('text-foreground/85 justify-start! ring-inset text-base!', className)}
           variant="ghost"
           {...props}
         >

@@ -4,6 +4,8 @@
 
 Pebble is a simple personal notebook and blog web APP.
 
+![screenshot](./data/screenshot-en.png)
+
 ## Features
 
 * Share memos as blog

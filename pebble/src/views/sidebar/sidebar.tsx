@@ -48,7 +48,7 @@ export const Sidebar = memo(function SideBar() {
       <div className="-mx-4 flex flex-col space-y-2">
         <SettingDialog />
         <Button
-          className={cx('text-foreground/80 justify-start! ring-inset', {
+          className={cx('text-foreground/75 justify-start! ring-inset text-base!', {
             [HIGHLIGHT_STYLE]: params.get('deleted') === 'true',
           })}
           variant="ghost"

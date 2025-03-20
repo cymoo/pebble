@@ -178,7 +178,7 @@ export function PostMenu({ post, mutator, standalone = false, className }: PostM
                 void handleQuotePost()
               }}
             >
-              <T name="reference" />
+              <T name="quote" />
             </Button>
           </li>
         )}
