@@ -50,6 +50,10 @@ export function HashTagSelect({ tags, ...props }: HashTagSelectProps) {
 
     Editor.withoutNormalizing(editor, () => {
       Transforms.select(editor, target)
+      tag = tag.trim()
+      tag = tag.replace(/\/{2,}/g, '/')
+      if (tag.startsWith('/')) tag = tag.substring(1)
+      if (tag.endsWith('/')) tag = tag.substring(0, tag.length - 1)
       insertHashTag(editor, tag)
     })
 
