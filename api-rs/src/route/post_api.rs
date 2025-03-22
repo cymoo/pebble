@@ -63,12 +63,12 @@ async fn rename_tag(State(state): State<AppState>, Json(tag): Json<TagRename>) -
 }
 
 async fn delete_tag(State(state): State<AppState>, Json(name): Json<Name>) -> ApiResult<StatusCode> {
-    Tag::delete_posts(&state.db, &name.name).await?;
+    Tag::delete_associated_posts(&state.db, &name.name).await?;
     Ok(StatusCode::NO_CONTENT)
 }
 
 async fn stick_tag(State(state): State<AppState>, Json(tag): Json<TagStick>) -> ApiResult<StatusCode> {
-    Tag::update(&state.db, &tag.name, tag.sticky).await?;
+    Tag::stick(&state.db, &tag.name, tag.sticky).await?;
     Ok(StatusCode::NO_CONTENT)
 }
 

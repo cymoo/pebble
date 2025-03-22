@@ -7,10 +7,9 @@ use std::cmp::Reverse;
 
 impl Tag {
     pub async fn get_count(pool: &SqlitePool) -> ApiResult<i64> {
-        let count = query!("SELECT COUNT(*) as count FROM tags")
-            .fetch_one(pool)
-            .await?
-            .count;
+        let count = query!(
+            "SELECT COUNT(*) as count FROM tags"
+        ).fetch_one(pool).await?.count;
 
         Ok(count)
     }
@@ -24,17 +23,15 @@ impl Tag {
                     SELECT COUNT(DISTINCT a.post_id)
                     FROM tag_post_assoc a
                     WHERE a.tag_id IN (
-                        SELECT id 
-                        FROM tags 
-                        WHERE name = t.name 
+                        SELECT id
+                        FROM tags
+                        WHERE name = t.name
                            OR name LIKE t.name || '/%'
                     )
             ) AS post_count
             FROM tags t;
             "#
-        )
-            .fetch_all(pool)
-            .await?;
+        ).fetch_all(pool).await?;
 
         Ok(tags)
     }
@@ -58,49 +55,41 @@ impl Tag {
             "#,
             name,
             name_like,
-        )
-            .fetch_all(pool)
-            .await?;
+        ).fetch_all(pool).await?;
 
         Ok(posts)
     }
 
     pub async fn find_or_create(tx: &mut Transaction<'_, Sqlite>, name: &str) -> ApiResult<Tag> {
-        let mut current_tag = None;
-        let parts: Vec<&str> = name.split('/').collect();
-
-        for i in 0..parts.len() {
-            let full_name = parts[..=i].join("/");
-            current_tag = if let Some(tag) = Tag::find_by_name(tx, &full_name).await? {
-                Some(tag)
-            } else {
-                Some(Tag::save(tx, &full_name).await?)
-            };
-        }
-
-        Ok(current_tag.unwrap())
+        let tag = if let Some(tag) = Tag::find_by_name(tx, &name).await? {
+            tag
+        } else {
+            Tag::create(tx, &name).await?
+        };
+        Ok(tag)
     }
 
-    pub async fn update(pool: &SqlitePool, name: &str, sticky: bool) -> ApiResult<u64> {
+    pub async fn stick(pool: &SqlitePool, name: &str, sticky: bool) -> ApiResult<()> {
         let now = Utc::now().timestamp_millis();
-        let rows_affected = query!(
+
+        sqlx::query!(
             r#"
-            UPDATE tags
-            SET sticky = ?,
-                updated_at = ?
-            WHERE name = ?
+            INSERT INTO tags (name, sticky, created_at, updated_at)
+            VALUES (?, ?, ?, ?)
+            ON CONFLICT(name) DO UPDATE SET
+                sticky = excluded.sticky,
+                updated_at = excluded.updated_at
             "#,
+            name,
             sticky,
             now,
-            name
-        )
-            .execute(pool)
-            .await?
-            .rows_affected();
+            now,
+        ).execute(pool).await?;
 
-        Ok(rows_affected)
+        Ok(())
     }
-    pub async fn delete_posts(pool: &SqlitePool, name: &str) -> ApiResult<()> {
+
+    pub async fn delete_associated_posts(pool: &SqlitePool, name: &str) -> ApiResult<()> {
         let now = Utc::now().timestamp_millis();
         let name_like = format!("{}/%", name);
 
@@ -121,9 +110,8 @@ impl Tag {
             now,
             name,
             name_like
-        )
-            .execute(pool)
-            .await?;
+        ).execute(pool).await?;
+
         Ok(())
     }
 
@@ -132,14 +120,12 @@ impl Tag {
             Tag,
             "SELECT * FROM tags WHERE name = ?",
             name,
-        )
-            .fetch_optional(&mut **tx)
-            .await?;
+        ).fetch_optional(&mut **tx).await?;
 
         Ok(tag)
     }
 
-    async fn save(tx: &mut Transaction<'_, Sqlite>, name: &str) -> ApiResult<Tag> {
+    async fn create(tx: &mut Transaction<'_, Sqlite>, name: &str) -> ApiResult<Tag> {
         let now = Utc::now().timestamp_millis();
 
         let id = query!(
@@ -151,10 +137,7 @@ impl Tag {
             name,
             now,
             now
-        )
-            .fetch_one(&mut **tx)
-            .await?
-            .id;
+        ).fetch_one(&mut **tx).await?.id;
 
         Ok(Tag {
             id,
@@ -191,9 +174,7 @@ impl Tag {
             name,
             new_name,
             name_like
-        )
-            .fetch_all(pool)
-            .await?;
+        ).fetch_all(pool).await?;
 
         // Split into source tag, target tag and descendants
         let source_tag = affected_tags
@@ -211,29 +192,22 @@ impl Tag {
 
         let mut tx = pool.begin().await?;
 
-        if let Some(target_tag) = target_tag {
-            // Merge case: process all descendants first
-            for descendant in descendants {
-                let new_descendant_name = descendant.name.replace(name, new_name);
-                let target_descendant = Tag::find_by_name(&mut tx, &new_descendant_name).await?;
+        for descendant in descendants {
+            let new_descendant_name = descendant.name.replace(name, new_name);
+            let target_descendant = Tag::find_by_name(&mut tx, &new_descendant_name).await?;
 
-                if let Some(target_descendant) = target_descendant {
-                    // Target exists - merge
-                    Tag::merge(&mut tx, descendant, &target_descendant).await?;
-                } else {
-                    // Target doesn't exist - rename
-                    Tag::rename(&mut tx, descendant, &new_descendant_name).await?;
-                }
-            }
-            // Finally merge the source tag
-            Tag::merge(&mut tx, source_tag, target_tag).await?;
-        } else {
-            // Rename case: process all descendants first
-            for descendant in descendants {
-                let new_descendant_name = descendant.name.replace(name, new_name);
+            if let Some(target_descendant) = target_descendant {
+                // Target exists - merge
+                Tag::merge(&mut tx, descendant, &target_descendant).await?;
+            } else {
+                // Target doesn't exist - rename
                 Tag::rename(&mut tx, descendant, &new_descendant_name).await?;
             }
-            // Finally rename the source tag
+        }
+
+        if let Some(target_tag) = target_tag {
+            Tag::merge(&mut tx, source_tag, target_tag).await?;
+        } else {
             Tag::rename(&mut tx, source_tag, new_name).await?;
         }
 
@@ -259,9 +233,7 @@ impl Tag {
             new_name,
             now,
             tag.id
-        )
-            .execute(&mut **tx)
-            .await?;
+        ).execute(&mut **tx).await?;
 
         let source_pattern = format!(">#{}<", tag.name);
         let target_pattern = format!(">#{}<", new_name);
@@ -280,9 +252,7 @@ impl Tag {
             source_pattern,
             target_pattern,
             tag.id
-        )
-            .execute(&mut **tx)
-            .await?;
+        ).execute(&mut **tx).await?;
 
         Ok(())
     }
@@ -310,9 +280,7 @@ impl Tag {
             source_pattern,
             target_pattern,
             source_tag.id
-        )
-            .execute(&mut **tx)
-            .await?;
+        ).execute(&mut **tx).await?;
 
         // Insert new tag associations (ignoring if they already exist)
         sqlx::query!(
@@ -324,9 +292,7 @@ impl Tag {
             "#,
             target_tag.id,
             source_tag.id
-        )
-            .execute(&mut **tx)
-            .await?;
+        ).execute(&mut **tx).await?;
 
         // Delete old tag associations
         sqlx::query!(
@@ -335,9 +301,7 @@ impl Tag {
             WHERE tag_id = ?
             "#,
             source_tag.id
-        )
-            .execute(&mut **tx)
-            .await?;
+        ).execute(&mut **tx).await?;
 
         Ok(())
     }
