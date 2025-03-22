@@ -77,7 +77,6 @@ export function TagMenu({ tag, className }: TagMenuProps) {
                     <Input
                       ref={inputRef}
                       className="border-b-border rounded-none border-b border-transparent pr-0 pl-0 focus-visible:ring-transparent"
-                      placeholder={tag.name}
                       defaultValue={tag.name}
                       autoFocus={true}
                     />

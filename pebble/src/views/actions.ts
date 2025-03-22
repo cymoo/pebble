@@ -160,7 +160,7 @@ export let tagActions: TagActions = {
   stickTag: async function (name, sticky) {
     await this.tagsMutator?.(fetcher(STICK_TAG, { name, sticky }), {
       populateCache: false,
-      revalidate: false,
+      revalidate: true,
       rollbackOnError: true,
       optimisticData: (tags) => {
         return tags!.map((tag) => (tag.name === name ? { ...tag, sticky } : tag))

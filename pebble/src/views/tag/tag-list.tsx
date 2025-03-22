@@ -10,10 +10,9 @@ import { tagActions as actions } from '@/views/actions.ts'
 import { GET_TAGS } from '@/api.ts'
 
 import { TagItem } from './tag-item.tsx'
-import { getStickyTags, getTreeTags } from './utils.ts'
+import { buildTagTree, getStickyTags } from './utils.ts'
 
 export interface Tag {
-  id: number
   name: string
   post_count: number
   sticky: boolean
@@ -26,7 +25,7 @@ export interface TagNode extends Tag {
 export const TagList = (props: ComponentProps<'div'>) => {
   const { data: tags, mutate } = useSWR<Tag[]>(GET_TAGS, { fallbackData: [] })
 
-  const treeTags = useMemo(() => getTreeTags(tags!), [tags])
+  const treeTags = useMemo(() => buildTagTree(tags!), [tags])
   const stickyTags = useMemo(() => getStickyTags(tags!), [tags])
 
   useEffect(() => {

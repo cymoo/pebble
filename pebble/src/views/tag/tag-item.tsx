@@ -10,7 +10,7 @@ import { HIGHLIGHT_STYLE } from '@/views/sidebar/sidebar.tsx'
 
 import { TagNode } from './tag-list.tsx'
 import { TagMenu } from './tag-menu.tsx'
-import { extractLastSegment } from './utils.ts'
+import { getLastSegment } from './utils.ts'
 
 interface TagItemProps extends ComponentProps<'li'> {
   tag: TagNode
@@ -50,7 +50,7 @@ export const TagItem = memo(function TreeItem({
             window.toggleSidebar()
           }}
         >
-          {showPath ? tag.name : extractLastSegment(tag.name)}
+          {showPath ? tag.name : getLastSegment(tag.name)}
         </Button>
         {tag.children.length > 0 && (
           <Button

@@ -1,4 +1,4 @@
-use crate::errors::{bad_request, ApiError, ApiResult};
+use crate::errors::{bad_request, ApiResult};
 use crate::model::post::PostRow;
 use crate::model::tag::{Tag, TagWithPostCount};
 use chrono::Utc;
@@ -165,7 +165,7 @@ impl Tag {
         let name_like = format!("{}/%", name);
 
         // Get all affected tags in a single query
-        let affected_tags = sqlx::query_as!(
+        let mut affected_tags = sqlx::query_as!(
             Tag,
             r#"
             SELECT * FROM tags
@@ -176,11 +176,16 @@ impl Tag {
             name_like
         ).fetch_all(pool).await?;
 
+        let mut tx = pool.begin().await?;
+
         // Split into source tag, target tag and descendants
-        let source_tag = affected_tags
-            .iter()
-            .find(|t| t.name == name)
-            .ok_or(ApiError::NotFound(format!(r#"Tag "{}" not found"#, name)))?;
+        let source_tag = if let Some(tag) = affected_tags.iter().find(|t| t.name == name) {
+            tag
+        } else {
+            let new_tag = Tag::create(&mut tx, name).await?;
+            affected_tags.push(new_tag);
+            affected_tags.last().unwrap()
+        };
 
         let target_tag = affected_tags.iter().find(|t| t.name == new_name);
 
@@ -189,8 +194,6 @@ impl Tag {
             .filter(|t| t.name != name && t.name != new_name)
             .collect();
         descendants.sort_by_key(|t| Reverse(t.name.matches('/').count()));
-
-        let mut tx = pool.begin().await?;
 
         for descendant in descendants {
             let new_descendant_name = descendant.name.replace(name, new_name);
