@@ -18,18 +18,19 @@ impl Tag {
         let tags = query_as!(
             TagWithPostCount,
             r#"
-            SELECT t.name, t.sticky,
-                (
-                    SELECT COUNT(DISTINCT a.post_id)
-                    FROM tag_post_assoc a
-                    WHERE a.tag_id IN (
-                        SELECT id
-                        FROM tags
-                        WHERE name = t.name
-                           OR name LIKE t.name || '/%'
-                    )
-            ) AS post_count
-            FROM tags t;
+            WITH tag_posts AS (
+                SELECT t.name AS tag_name, p.id AS post_id
+                FROM tags t
+                JOIN tag_post_assoc tpa ON t.id = tpa.tag_id
+                JOIN posts p ON tpa.post_id = p.id
+                WHERE p.deleted_at IS NULL
+            )
+            SELECT t.name AS name, 
+                   t.sticky AS sticky,
+                   COUNT(DISTINCT tp.post_id) AS post_count
+            FROM tags t
+            LEFT JOIN tag_posts tp ON tp.tag_name = t.name OR tp.tag_name LIKE (t.name || '/%')
+            GROUP BY t.name
             "#
         ).fetch_all(pool).await?;
 
