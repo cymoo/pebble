@@ -58,13 +58,13 @@ class PostApiController(
     @PostMapping("/delete-tag")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     fun deleteTag(@Validated @RequestBody payload: Name) {
-        tagService.deletePosts(name = payload.name)
+        tagService.deleteAssociatedPosts(name = payload.name)
     }
 
     @PostMapping("/stick-tag")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     fun stickTag(@RequestBody payload: TagStick) {
-        tagService.update(payload.name, payload.sticky)
+        tagService.insertOrUpdate(payload.name, payload.sticky)
     }
 
     @PostMapping("/create-post")

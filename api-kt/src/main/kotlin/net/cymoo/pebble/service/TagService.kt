@@ -1,13 +1,13 @@
 package net.cymoo.pebble.service
 
 import net.cymoo.pebble.exception.BadRequestException
-import net.cymoo.pebble.exception.NotFoundException
 import net.cymoo.pebble.generated.Tables.POSTS
 import net.cymoo.pebble.generated.Tables.TAGS
 import net.cymoo.pebble.model.Post
 import net.cymoo.pebble.model.Tag
 import net.cymoo.pebble.model.TagWithPostCount
 import net.cymoo.pebble.util.count
+import net.cymoo.pebble.util.replaceFromStart
 import org.jooq.DSLContext
 import org.jooq.impl.DSL
 import org.jooq.impl.DSL.selectOne
@@ -30,18 +30,19 @@ class TagService(private val dsl: DSLContext) {
 
     fun getAllWithPostCount(): List<TagWithPostCount> {
         val sql = """
-            SELECT t.name, t.sticky,
-                (
-                    SELECT COUNT(DISTINCT a.post_id)
-                    FROM tag_post_assoc a
-                    WHERE a.tag_id IN (
-                        SELECT id
-                        FROM tags
-                        WHERE name = t.name
-                           OR name LIKE t.name || '/%'
-                    )
-                ) AS post_count
+            WITH tag_posts AS (
+                SELECT t.name AS tag_name, p.id AS post_id
+                FROM tags t
+                JOIN tag_post_assoc tpa ON t.id = tpa.tag_id
+                JOIN posts p ON tpa.post_id = p.id
+                WHERE p.deleted_at IS NULL
+            )
+            SELECT t.name AS name,
+                   t.sticky AS sticky,
+                   COUNT(DISTINCT tp.post_id) AS post_count
             FROM tags t
+            LEFT JOIN tag_posts tp ON tp.tag_name = t.name OR tp.tag_name LIKE (t.name || '/%')
+            GROUP BY t.name
         """
         return dsl.resultQuery(sql).fetchAllIntoClass()
     }
@@ -60,24 +61,23 @@ class TagService(private val dsl: DSLContext) {
     }
 
     fun findOrCreate(name: String): Tag {
-        var currentTag: Tag? = null
-
-        name.split("/").fold("") { prefix, part ->
-            val fullName = if (prefix.isEmpty()) part else "$prefix/$part"
-            currentTag = findByName(fullName) ?: save(fullName)
-            fullName
-        }
-
-        return currentTag!!
+        return findByName(name) ?: create(name)
     }
 
-    fun update(name: String, sticky: Boolean) =
-        dsl.update(TAGS)
-            .set(TAGS.STICKY, sticky)
-            .where(TAGS.NAME.eq(name))
-            .execute()
+    fun insertOrUpdate(name: String, sticky: Boolean) {
+        val now = Instant.now().toEpochMilli()
 
-    fun save(name: String): Tag {
+        dsl.insertInto(TAGS)
+            .columns(TAGS.NAME, TAGS.STICKY, TAGS.CREATED_AT, TAGS.UPDATED_AT)
+            .values(name, sticky, now, now)
+            .onConflict(TAGS.NAME)
+            .doUpdate()
+            .set(TAGS.STICKY, sticky)
+            .set(TAGS.UPDATED_AT, now)
+            .execute()
+    }
+
+    fun create(name: String): Tag {
         val record = dsl.newRecord(TAGS, Tag(name = name))
         record.store()
         return Tag(id = record.id, name = record.name)
@@ -87,7 +87,7 @@ class TagService(private val dsl: DSLContext) {
      * Soft delete all posts under this tag and its descendant tags.
      * Performs the operation in a single transaction with minimal database access.
      */
-    fun deletePosts(name: String) {
+    fun deleteAssociatedPosts(name: String) {
         val now = Instant.now().toEpochMilli()
 
         dsl.update(POSTS)
@@ -127,34 +127,27 @@ class TagService(private val dsl: DSLContext) {
             .fetchAllIntoClass<Tag>()
 
         // Split into source tag, target tag and descendants
-        val sourceTag = affectedTags.find { it.name == name } ?: tagNotFound()
+        val sourceTag = affectedTags.find { it.name == name } ?: create(name)
         val targetTag = affectedTags.find { it.name == newName }
         val descendants = affectedTags
             .filter { it.name != name && it.name != newName }
             .sortedByDescending { it.name.count('/') }
 
-        if (targetTag != null) {
-            // Merge case: process all descendants first
-            descendants.forEach { descendant ->
-                val newDescendantName = descendant.name.replaceFirst(name, newName)
-                val targetDescendant = findByName(newDescendantName)
-                if (targetDescendant != null) {
-                    // Target exists - merge
-                    merge(descendant, targetDescendant)
-                } else {
-                    // Target doesn't exist - rename
-                    rename(descendant, newDescendantName)
-                }
-            }
-            // Finally merge the source tag
-            merge(sourceTag, targetTag)
-        } else {
-            // Rename case: process all descendants first
-            descendants.forEach { descendant ->
-                val newDescendantName = descendant.name.replaceFirst(name, newName)
+        descendants.forEach { descendant ->
+            val newDescendantName = descendant.name.replaceFromStart(name, newName)
+            val targetDescendant = findByName(newDescendantName)
+            if (targetDescendant != null) {
+                // Target exists - merge
+                merge(descendant, targetDescendant)
+            } else {
+                // Target doesn't exist - rename
                 rename(descendant, newDescendantName)
             }
-            // Finally rename the source tag
+        }
+
+        if (targetTag != null) {
+            merge(sourceTag, targetTag)
+        } else {
             rename(sourceTag, newName)
         }
     }
@@ -229,5 +222,3 @@ class TagService(private val dsl: DSLContext) {
             .execute()
     }
 }
-
-fun tagNotFound(): Nothing = throw NotFoundException("tag not found")
