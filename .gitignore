@@ -68,3 +68,4 @@ dump.rdb
 ._*
 
 e2e/.auth/
+app-test.db

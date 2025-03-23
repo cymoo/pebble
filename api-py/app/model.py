@@ -67,11 +67,7 @@ class Tag(db.Model):
 
     @classmethod
     def find_or_create(cls, name: str) -> Self:
-        tag = Tag.find_by_name(name)
-        if not tag:
-            tag = Tag(name=name)
-            tag.save()
-        return tag
+        return Tag.find_by_name(name) or Tag(name=name).save()
 
     @classmethod
     def find_by_name(cls, name: str) -> Optional[Self]:
@@ -206,9 +202,10 @@ class Tag(db.Model):
                 db.session.add(post)
         db.session.commit()
 
-    def save(self) -> None:
+    def save(self) -> Self:
         db.session.add(self)
         db.session.commit()
+        return self
 
     def __repr__(self) -> str:
         return f'<Tag id={self.id} name="{self.name}">'
@@ -251,7 +248,6 @@ class Post(db.Model):
     # https://stackoverflow.com/questions/16156650/sqlalchemy-init-not-running
     def __init__(self, **kwargs):
         content, parent_id = kwargs.get('content'), kwargs.get('parent_id')
-
         tags = [Tag.find_or_create(tag) for tag in HASH_PATTERN.findall(content)]
         super().__init__(**kwargs, tags=tags)
 
@@ -463,6 +459,7 @@ class Post(db.Model):
         db.session.delete(self)
         db.session.commit()
 
-    def save(self) -> None:
+    def save(self) -> Self:
         db.session.add(self)
         db.session.commit()
+        return self
