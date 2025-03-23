@@ -68,7 +68,7 @@ async fn delete_tag(State(state): State<AppState>, Json(name): Json<Name>) -> Ap
 }
 
 async fn stick_tag(State(state): State<AppState>, Json(tag): Json<TagStick>) -> ApiResult<StatusCode> {
-    Tag::stick(&state.db, &tag.name, tag.sticky).await?;
+    Tag::insert_or_update(&state.db, &tag.name, tag.sticky).await?;
     Ok(StatusCode::NO_CONTENT)
 }
 

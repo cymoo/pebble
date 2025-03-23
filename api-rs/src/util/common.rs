@@ -178,6 +178,15 @@ where
     frequencies
 }
 
+pub fn replace_from_start(s: &str, from: &str, to: &str) -> String {
+    if s.starts_with(from) {
+        let remainder = &s[from.len()..];
+        format!("{}{}", to, remainder)
+    } else {
+        s.to_string()
+    }
+}
+
 /// Check if a character is Chinese
 fn is_chinese_character(c: char) -> bool {
     ('\u{4e00}'..='\u{9fff}').contains(&c)
@@ -324,6 +333,42 @@ macro_rules! timeit {
 mod tests {
     use super::*;
     use chrono::Timelike;
+
+    #[cfg(test)]
+    mod replace_tests {
+        use crate::util::common::replace_from_start;
+
+        #[test]
+        fn test_basic_replacement() {
+            assert_eq!(replace_from_start("foobar", "foo", "new"), "newbar");
+            assert_eq!(replace_from_start("apple banana", "apple", "fruit"), "fruit banana");
+        }
+
+        #[test]
+        fn test_no_replacement() {
+            assert_eq!(replace_from_start("foobar", "bar", "new"), "foobar");
+            assert_eq!(replace_from_start("test", "longer", "x"), "test");
+        }
+
+        #[test]
+        fn test_empty_from() {
+            assert_eq!(replace_from_start("foobar", "", "prefix"), "prefixfoobar");
+            assert_eq!(replace_from_start("", "", "x"), "x");
+        }
+
+        #[test]
+        fn test_empty_string() {
+            assert_eq!(replace_from_start("", "abc", "x"), "");
+            assert_eq!(replace_from_start("", "", ""), "");
+        }
+
+        #[test]
+        fn test_unicode() {
+            assert_eq!(replace_from_start("你好啊世界", "你好啊", "美好的"), "美好的世界");
+            assert_eq!(replace_from_start("🦀🍰", "🦀", "🐻"), "🐻🍰");
+            assert_eq!(replace_from_start("こんにちは", "こん", "おは"), "おはにちは");
+        }
+    }
 
     #[test]
     fn test_parse_size() {

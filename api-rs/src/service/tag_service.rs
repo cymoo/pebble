@@ -1,6 +1,7 @@
 use crate::errors::{bad_request, ApiResult};
 use crate::model::post::PostRow;
 use crate::model::tag::{Tag, TagWithPostCount};
+use crate::util::common::replace_from_start;
 use chrono::Utc;
 use sqlx::{query, query_as, Sqlite, SqlitePool, Transaction};
 use std::cmp::Reverse;
@@ -25,7 +26,7 @@ impl Tag {
                 JOIN posts p ON tpa.post_id = p.id
                 WHERE p.deleted_at IS NULL
             )
-            SELECT t.name AS name, 
+            SELECT t.name AS name,
                    t.sticky AS sticky,
                    COUNT(DISTINCT tp.post_id) AS post_count
             FROM tags t
@@ -40,7 +41,7 @@ impl Tag {
     // It will be useful in tests
     #[allow(dead_code)]
     pub async fn get_posts(pool: &SqlitePool, name: &str) -> ApiResult<Vec<PostRow>> {
-        let name_like = format!("{}/%", name);
+        let name_pattern = format!("{}/%", name);
         let posts = query_as!(
             PostRow,
             r#"
@@ -55,7 +56,7 @@ impl Tag {
             AND p.deleted_at IS NULL
             "#,
             name,
-            name_like,
+            name_pattern,
         ).fetch_all(pool).await?;
 
         Ok(posts)
@@ -70,7 +71,7 @@ impl Tag {
         Ok(tag)
     }
 
-    pub async fn stick(pool: &SqlitePool, name: &str, sticky: bool) -> ApiResult<()> {
+    pub async fn insert_or_update(pool: &SqlitePool, name: &str, sticky: bool) -> ApiResult<()> {
         let now = Utc::now().timestamp_millis();
 
         sqlx::query!(
@@ -92,7 +93,7 @@ impl Tag {
 
     pub async fn delete_associated_posts(pool: &SqlitePool, name: &str) -> ApiResult<()> {
         let now = Utc::now().timestamp_millis();
-        let name_like = format!("{}/%", name);
+        let name_pattern = format!("{}/%", name);
 
         sqlx::query!(
             r#"
@@ -110,7 +111,7 @@ impl Tag {
             "#,
             now,
             name,
-            name_like
+            name_pattern
         ).execute(pool).await?;
 
         Ok(())
@@ -163,7 +164,7 @@ impl Tag {
             ));
         }
 
-        let name_like = format!("{}/%", name);
+        let name_pattern = format!("{}/%", name);
 
         // Get all affected tags in a single query
         let mut affected_tags = sqlx::query_as!(
@@ -174,7 +175,7 @@ impl Tag {
             "#,
             name,
             new_name,
-            name_like
+            name_pattern
         ).fetch_all(pool).await?;
 
         let mut tx = pool.begin().await?;
@@ -197,7 +198,7 @@ impl Tag {
         descendants.sort_by_key(|t| Reverse(t.name.matches('/').count()));
 
         for descendant in descendants {
-            let new_descendant_name = descendant.name.replace(name, new_name);
+            let new_descendant_name = replace_from_start(&descendant.name, name, new_name);
             let target_descendant = Tag::find_by_name(&mut tx, &new_descendant_name).await?;
 
             if let Some(target_descendant) = target_descendant {
