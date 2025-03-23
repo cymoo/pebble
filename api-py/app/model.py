@@ -1,14 +1,15 @@
 import re
 from datetime import datetime, timedelta
-from itertools import accumulate
 from typing import Optional, Tuple, Self, Iterable, Literal
 
 from flask import abort
 from flask_sqlalchemy import SQLAlchemy
+from sqlalchemy.dialects.sqlite import insert
+
 from sqlalchemy import MetaData, func, or_, text
 from sqlalchemy.orm import backref, subqueryload, Query
 
-from .util import deprecated, ms_now
+from .util import deprecated, ms_now, replace_from_start
 
 # https://stackoverflow.com/questions/45527323
 naming_convention = {
@@ -66,23 +67,11 @@ class Tag(db.Model):
 
     @classmethod
     def find_or_create(cls, name: str) -> Self:
-        """Find or create a tag, and if the parent tag does not exist, create it as well."""
-
-        instance = None
-        created = False
-
-        for name in accumulate(name.split('/'), lambda x, y: f'{x}/{y}'):
-            tag = Tag.find_by_name(name)
-            if not tag:
-                tag = Tag(name=name)
-                db.session.add(tag)
-                created = True
-            instance = tag
-
-        if created:
-            db.session.commit()
-
-        return instance
+        tag = Tag.find_by_name(name)
+        if not tag:
+            tag = Tag(name=name)
+            tag.save()
+        return tag
 
     @classmethod
     def find_by_name(cls, name: str) -> Optional[Self]:
@@ -100,18 +89,19 @@ class Tag(db.Model):
         result = db.session.execute(
             text(
                 """
-                SELECT t.name, t.sticky,
-                    (
-                        SELECT COUNT(DISTINCT a.post_id)
-                        FROM tag_post_assoc a
-                        WHERE a.tag_id IN (
-                            SELECT id
-                            FROM tags
-                            WHERE name = t.name
-                                OR name LIKE t.name || '/%'
-                        )
-                ) AS post_count
+                WITH tag_posts AS (
+                    SELECT t.name AS tag_name, p.id AS post_id
+                    FROM tags t
+                    JOIN tag_post_assoc tpa ON t.id = tpa.tag_id
+                    JOIN posts p ON tpa.post_id = p.id
+                    WHERE p.deleted_at IS NULL
+                )
+                SELECT t.name AS name,
+                       t.sticky AS sticky,
+                       COUNT(DISTINCT tp.post_id) AS post_count
                 FROM tags t
+                LEFT JOIN tag_posts tp ON tp.tag_name = t.name OR tp.tag_name LIKE (t.name || '/%')
+                GROUP BY t.name
             """
             )
         )
@@ -123,32 +113,45 @@ class Tag(db.Model):
         # NOTE: Avoid using `Tag.query.count()`, the generated SQL is so good...
         return db.session.query(func.count(Tag.id)).scalar()
 
-    def rename_or_merge(self, new_name: str) -> None:
+    @classmethod
+    def insert_or_update(cls, name: str, sticky: bool) -> None:
+        now = ms_now()
+        stmt = (
+            insert(Tag)
+            .values(name=name, sticky=sticky, created_at=now, updated_at=now)
+            .on_conflict_do_update(
+                index_elements=['name'], set_={'sticky': sticky, 'updated_at': now}
+            )
+        )
+        db.session.execute(stmt)
+        db.session.commit()
+
+    @classmethod
+    def rename_or_merge(cls, name: str, new_name: str) -> None:
         """Rename a tag, and if the new tag already exists, merge the tags."""
 
-        name = self.name
         if name == new_name:
             return
 
         if new_name.startswith(name) and new_name.count('/') > name.count('/'):
             abort(400, f'cannot move "{name}" to a subtag of itself "{new_name}"')
 
-        new_tag = Tag.find_by_name(new_name)
+        source_tag = Tag.find_or_create(name=name)
+        target_tag = Tag.find_by_name(new_name)
 
-        if new_tag:
-            for descendant in self.descendants:
-                new_descendant_name = descendant.name.replace(name, new_name, 1)
-                new_descendant = Tag.find_by_name(new_descendant_name)
-                if new_descendant:
-                    descendant._merge(new_descendant)
-                else:
-                    descendant._rename(new_descendant_name)
-            self._merge(new_tag)
-        else:
-            for descendant in self.descendants:
-                new_descendant_name = descendant.name.replace(name, new_name, 1)
+        for descendant in source_tag.descendants:
+            new_descendant_name = replace_from_start(descendant.name, name, new_name)
+            new_descendant = Tag.find_by_name(new_descendant_name)
+            if new_descendant:
+                descendant._merge(new_descendant)
+            else:
                 descendant._rename(new_descendant_name)
-            self._rename(new_name)
+
+        if target_tag:
+            source_tag._merge(target_tag)
+        else:
+            source_tag._rename(new_name)
+
         db.session.commit()
 
     def _rename(self, new_name: str) -> None:

@@ -62,12 +62,7 @@ def get_tags() -> list[TagDto]:
 @api.post('/stick-tag')
 @validate
 def stick_tag(payload: TagStick) -> NoContent:
-    tag = Tag.find_by_name(payload.name)
-    if not tag:
-        bad_request('tag not found')
-    tag.sticky = payload.sticky
-    tag.save()
-
+    Tag.insert_or_update(payload.name, payload.sticky)
     return NO_CONTENT
 
 
@@ -75,11 +70,7 @@ def stick_tag(payload: TagStick) -> NoContent:
 @limit_request(count=5, interval=60)
 @validate
 def rename_tag(payload: TagRename) -> NoContent:
-    tag = Tag.find_by_name(payload.name)
-    if not tag:
-        bad_request('tag not found')
-    tag.rename_or_merge(payload.new_name)
-
+    Tag.rename_or_merge(payload.name, payload.new_name)
     return NO_CONTENT
 
 

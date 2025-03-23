@@ -195,6 +195,13 @@ def get_parent_path(path: str) -> str:
         return path.rsplit('/', maxsplit=1)[0]
 
 
+def replace_from_start(s: str, from_str: str, to: str) -> str:
+    if s.startswith(from_str):
+        return to + s[len(from_str) :]
+    else:
+        return s
+
+
 def get_real_ip() -> Optional[str]:
     """A simple method to obtain the real IP address:
     Priority:
