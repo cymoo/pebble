@@ -1,8 +1,10 @@
-import { ComponentProps, memo, useEffect, useMemo } from 'react'
+import { ComponentProps, memo, useEffect, useMemo, useState } from 'react'
+import toast from 'react-hot-toast'
 import useSWR from 'swr'
 
 import { cx } from '@/utils/css.ts'
 
+import { MultiClickTrigger } from '@/components/multi-click-trigger.tsx'
 import { T } from '@/components/translation.tsx'
 
 import { tagActions as actions } from '@/views/actions.ts'
@@ -25,7 +27,13 @@ export interface TagNode extends Tag {
 export const TagList = (props: ComponentProps<'div'>) => {
   const { data: tags, mutate } = useSWR<Tag[]>(GET_TAGS, { fallbackData: [] })
 
-  const treeTags = useMemo(() => buildTagTree(tags!), [tags])
+  const [showHiddenTags, setShowHiddenTags] = useState(false)
+
+  const treeTags = useMemo(() => {
+    const tree = buildTagTree(tags!)
+    return showHiddenTags ? tree : tree.filter((tag: Tag) => tag.name !== 'hidden')
+  }, [showHiddenTags, tags])
+
   const stickyTags = useMemo(() => getStickyTags(tags!), [tags])
 
   useEffect(() => {
@@ -48,8 +56,16 @@ export const TagList = (props: ComponentProps<'div'>) => {
         </>
       )}
 
-      <h3 className="flex items-center font-semibold">
+      <h3 className="flex items-center font-semibold justify-between">
         <T name="allTags" />
+        <MultiClickTrigger
+          className="w-1/4! cursor-default! opacity-0"
+          tabIndex={-1}
+          onTrigger={() => {
+            setShowHiddenTags((x) => !x)
+            toast.success('Bingo')
+          }}
+        />
       </h3>
       <div className="-mx-4 mt-2 mb-4 *:ml-0">
         <Tree treeData={treeTags} />

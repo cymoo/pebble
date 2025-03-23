@@ -64,11 +64,20 @@ export const PostList = memo(function PostList({
 
   if (mutateRef) mutateRef.current = mutate
 
-  const orderedPosts = useMemo(() => {
-    if (orderBy === undefined) return posts
+  const filteredAndSortedPosts = useMemo(() => {
+    // NOTE: Possible optimizations
+    // 1. Optimize with regex - Use /(^|\\s)#hidden(\\s|$)/ for exact tag matching.
+    // 2. Check start/end first - Prefer startsWith/endsWith over includes if applicable.
+    // 3. Make the backend API return data that includes tags.
+    const isHiddenList = queryString?.includes('tag=hidden')
+    const filteredPosts = isHiddenList
+      ? posts
+      : posts.filter((post) => !post.content.includes('#hidden'))
+
+    if (!orderBy) return filteredPosts
     const key = orderBy
-    return toSorted(posts, (x, y) => (ascending ? x[key]! - y[key]! : y[key]! - x[key]!))
-  }, [orderBy, ascending, posts])
+    return toSorted(filteredPosts, (x, y) => (ascending ? x[key]! - y[key]! : y[key]! - x[key]!))
+  }, [queryString, posts, orderBy, ascending])
 
   const listHandle = useRef<VirtuosoHandle>(null!)
 
@@ -104,7 +113,7 @@ export const PostList = memo(function PostList({
       className={className}
       useWindowScroll={useWindowScroll}
       customScrollParent={scrollParent}
-      data={orderedPosts}
+      data={filteredAndSortedPosts}
       endReached={() => {
         if (isLoadingMore || isReachingEnd) return
         void setSize((size) => size + 1)
