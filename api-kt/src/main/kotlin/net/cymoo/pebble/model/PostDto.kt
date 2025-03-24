@@ -31,9 +31,6 @@ data class Post(
     @JsonIgnore
     val parentId: Int? = null,
 
-    @JsonInclude(JsonInclude.Include.NON_NULL)
-    val parent: Post? = null,
-
     val childrenCount: Int = 0,
 
     @JsonInclude(JsonInclude.Include.NON_NULL)
@@ -41,7 +38,13 @@ data class Post(
 
     // Search relevance score
     @JsonInclude(JsonInclude.Include.NON_NULL)
-    val score: Double? = null
+    val score: Double? = null,
+
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    var parent: Post? = null,
+
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    var tags: List<String>? = null
 )
 
 enum class CategoryColor { RED, BLUE, GREEN }

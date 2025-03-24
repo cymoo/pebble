@@ -132,7 +132,7 @@ def get_post(payload: Id) -> PostDto:
     if post.deleted:
         abort(404, 'post not found')
 
-    return PostDto.from_model(post, with_children=True)
+    return PostDto.from_model(post)
 
 
 @api.post('/create-post')

@@ -210,7 +210,10 @@ class PostService(
                 .orderBy(orderClause)
                 .limit(perPage)
                 .fetchInto(Post::class.java)
-                .toMutableList().apply { attachParents(this) }
+                .toMutableList().apply {
+                    attachParents(this)
+                    attachTags(this)
+                }
         }
     }
 
@@ -329,6 +332,7 @@ class PostService(
         }
 
         if (tags.isEmpty()) return
+        
         // Insert new relationships
         dsl.batch(
             tags.map { tag ->
@@ -339,14 +343,33 @@ class PostService(
         ).execute()
     }
 
+    private fun attachTags(posts: MutableList<Post>) {
+        if (posts.isEmpty()) return
+        val postIds = posts.map { it.id }
+
+        val tags = dsl.select(ASSOC.POST_ID, TAGS.NAME)
+            .from(ASSOC)
+            .join(TAGS).on(ASSOC.TAG_ID.eq(TAGS.ID))
+            .where(ASSOC.POST_ID.`in`(postIds))
+            .fetchGroups(
+                { it.get(0, Int::class.java) },
+                { it.get(1, String::class.java) }
+            )
+
+        posts.forEach {
+            it.tags = tags[it.id] ?: emptyList()
+        }
+    }
+
     private fun attachParents(posts: MutableList<Post>) {
         if (posts.isEmpty()) return
         val parentIds = posts.mapNotNull { it.parentId }.distinct()
+
         if (parentIds.isNotEmpty()) {
             val parents = findByIds(parentIds).associateBy { it.id }
-            posts.forEachIndexed { index, post ->
-                if (post.parentId != null) {
-                    posts[index] = post.copy(parent = parents[post.parentId])
+            posts.forEach {
+                if (it.parentId != null) {
+                    it.parent = parents[it.parentId]
                 }
             }
         }
