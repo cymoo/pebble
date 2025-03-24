@@ -36,6 +36,8 @@ pub struct Post {
 
     #[serde(skip_serializing_if = "Option::is_none")]
     pub score: Option<f64>,
+
+    pub tags: Vec<String>,
 }
 
 impl From<PostRow> for Post {
@@ -45,6 +47,7 @@ impl From<PostRow> for Post {
             parent: None,
             children: None,
             score: None,
+            tags: vec![],
         }
     }
 }

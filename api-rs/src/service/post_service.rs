@@ -244,6 +244,8 @@ impl Post {
             Self::attach_parents(pool, &mut posts).await?;
         }
 
+        Self::attach_tags(pool, &mut posts).await?;
+
         Ok(posts)
     }
 
@@ -527,6 +529,36 @@ impl Post {
             .bind(parent_id)
             .execute(&mut **tx)
             .await?;
+
+        Ok(())
+    }
+
+    async fn attach_tags(pool: &SqlitePool, posts: &mut Vec<Post>) -> ApiResult<()> {
+        if posts.is_empty() {
+            return Ok(());
+        }
+
+        let post_ids: Vec<i64> = posts.iter().map(|post| post.row.id).collect();
+        let post_ids = serde_json::to_string(&post_ids).unwrap();
+
+        let rows = sqlx::query!(
+            r#"
+            SELECT tp.post_id, tags.name as "tag_name!"
+            FROM tag_post_assoc as tp
+            INNER JOIN tags ON tp.tag_id = tags.id
+            WHERE tp.post_id IN (SELECT value FROM json_each(?1))
+            "#,
+            post_ids
+        ).fetch_all(pool).await?;
+
+        let mut tags: HashMap<i64, Vec<String>> = HashMap::new();
+        for row in rows {
+            tags.entry(row.post_id).or_default().push(row.tag_name);
+        }
+
+        for post in posts {
+            post.tags = tags.get(&post.row.id).cloned().unwrap_or_default();
+        }
 
         Ok(())
     }

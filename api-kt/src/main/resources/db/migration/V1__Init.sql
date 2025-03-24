@@ -26,8 +26,8 @@ CREATE TABLE IF NOT EXISTS tags
 
 CREATE TABLE IF NOT EXISTS tag_post_assoc
 (
-  tag_id  INTEGER,
-  post_id INTEGER,
+  tag_id  INTEGER NOT NULL,
+  post_id INTEGER NOT NULL,
   FOREIGN KEY (tag_id) REFERENCES tags (id) ON DELETE CASCADE,
   FOREIGN KEY (post_id) REFERENCES posts (id) ON DELETE CASCADE,
   UNIQUE (tag_id, post_id)
