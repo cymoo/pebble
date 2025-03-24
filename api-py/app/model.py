@@ -33,12 +33,14 @@ tag_post_assoc = db.Table(
         db.Integer,
         db.ForeignKey('tags.id', ondelete='CASCADE'),
         primary_key=True,
+        nullable=False,
     ),
     db.Column(
         'post_id',
         db.Integer,
         db.ForeignKey('posts.id', ondelete='CASCADE'),
         primary_key=True,
+        nullable=False,
     ),
 )
 
