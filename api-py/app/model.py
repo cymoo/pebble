@@ -100,7 +100,7 @@ class Tag(db.Model):
                 FROM tags t
                 LEFT JOIN tag_posts tp ON tp.tag_name = t.name OR tp.tag_name LIKE (t.name || '/%')
                 GROUP BY t.name
-            """
+                """
             )
         )
 
