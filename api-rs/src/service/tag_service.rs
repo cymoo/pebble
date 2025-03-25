@@ -19,6 +19,29 @@ impl Tag {
         let tags = query_as!(
             TagWithPostCount,
             r#"
+            SELECT t.name, t.sticky,
+                (
+                    SELECT COUNT(DISTINCT a.post_id)
+                    FROM tag_post_assoc a
+                    WHERE a.tag_id IN (
+                        SELECT id
+                        FROM tags
+                        WHERE name = t.name
+                           OR name LIKE t.name || '/%'
+                    )
+            ) AS post_count
+            FROM tags t;
+            "#
+        ).fetch_all(pool).await?;
+
+        Ok(tags)
+    }
+
+    #[allow(dead_code)]
+    pub async fn get_all_with_undeleted_post_count(pool: &SqlitePool) -> ApiResult<Vec<TagWithPostCount>> {
+        let tags = query_as!(
+            TagWithPostCount,
+            r#"
             WITH tag_posts AS (
                 SELECT t.name AS tag_name, p.id AS post_id
                 FROM tags t
