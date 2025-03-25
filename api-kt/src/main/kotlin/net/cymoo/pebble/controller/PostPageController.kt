@@ -39,8 +39,11 @@ class PostSharedController(
         val post = postService.findById(id) ?: return "404.html"
         if (!post.shared) return "404.html"
 
+        val (title, _) = extractHeaderAndDescriptionFromHtml(post.content)
+
         val images = post.files?.let { objectMapper.readValue(it, Array<FileInfo>::class.java) } ?: emptyArray()
         model.addAttribute("post", post)
+        model.addAttribute("title", title)
         model.addAttribute("images", images)
         model.addAttribute("aboutUrl", env.getProperty("app.misc.about-url"))
         return "post-item.html"

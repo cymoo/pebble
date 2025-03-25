@@ -39,6 +39,10 @@
 </style>
 {% endblock css %}
 
+{% block title %}
+<title>{{ title | default('Pebble') }}</title>
+{% endblock %}
+
 {% block content %}
 <article class="prose">
   {{ post.content | raw }}
@@ -54,7 +58,7 @@
      tabindex="0"
      target="_blank"
   >
-    <img alt="" src="{{ image.thumb_url or image.url }}">
+    <img alt="" src="{{ image.thumb_url | default(image.url) }}">
   </a>
   {% endfor %}
 </div>

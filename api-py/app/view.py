@@ -37,12 +37,16 @@ def post_item(id: int):
     if not post.shared or post.deleted_at is not None:
         return render_template('404.html'), 404
 
+    title, _ = extract_header_and_description_from_html(post.content)
+
     if post.files:
         post.files = json.loads(post.files)
     if not post:
         return render_template('404.html')
 
-    return render_template('post-item.html', post=post, about_url=config.ABOUT_URL)
+    return render_template(
+        'post-item.html', title=title, post=post, about_url=config.ABOUT_URL
+    )
 
 
 HEADER_BOLD_PARAGRAPH_PATTERN = re.compile(

@@ -79,6 +79,8 @@ async fn post_item(State(state): State<AppState>, Path(id): Path<i64>, Extension
         .filter(|p| p.deleted_at.is_none())
         .ok_or(HtmlError::NotFound)?;
 
+    let (title, _) = extract_header_and_description_from_html(&post.content);
+
     let images: Vec<FileInfo> = match post.files {
         Some(ref files) => {
             serde_json::from_str(files).expect("JSON decode error")
@@ -89,7 +91,7 @@ async fn post_item(State(state): State<AppState>, Path(id): Path<i64>, Extension
     let about_url = get_env_or("ABOUT_URL", "".to_string())?;
     let template = env.get_template("post-item.html")?;
 
-    Ok(Html(template.render(context! { about_url, post, images })?))
+    Ok(Html(template.render(context! { about_url, post, title, images })?))
 }
 
 #[derive(Debug)]
