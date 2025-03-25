@@ -323,7 +323,7 @@ export function fromHtml(
     return {
       type: CHECK_LIST,
       checked,
-      children: children.filter((node) => SlateText.isText(node) && node.text !== ''),
+      children: children.filter((node) => isInlineElementOrText(node)),
     } as CheckListElement
   }
 
