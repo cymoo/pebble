@@ -69,7 +69,7 @@ export const PostList = memo(function PostList({
     const isHiddenPage = queryString?.includes('tag=hidden')
     const filteredPosts = isHiddenPage
       ? posts
-      : posts.filter((post) => !(post.tags ?? []).some((tag) => tag.startsWith('hidden/')))
+      : posts.filter((post) => !(post.tags ?? []).some((tag) => tag.startsWith('hidden')))
 
     if (!orderBy) return filteredPosts
     const key = orderBy

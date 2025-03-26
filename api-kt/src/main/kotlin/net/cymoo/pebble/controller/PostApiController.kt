@@ -149,7 +149,7 @@ class PostApiController(
 
     @GetMapping("/get-post")
     fun getPost(@Validated @RequestParam id: Int): Post {
-        return postService.findById(id, withParent = true, withChildren = true)
+        return postService.findWithParent(id)
     }
 
 

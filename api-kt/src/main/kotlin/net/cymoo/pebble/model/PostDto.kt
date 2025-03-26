@@ -33,9 +33,6 @@ data class Post(
 
     val childrenCount: Int = 0,
 
-    @JsonInclude(JsonInclude.Include.NON_NULL)
-    val children: List<Post>? = null,
-
     // Search relevance score
     @JsonInclude(JsonInclude.Include.NON_NULL)
     val score: Double? = null,
