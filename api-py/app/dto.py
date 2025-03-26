@@ -156,13 +156,12 @@ class PostDto:
 
     deleted_at: Optional[int] = None
     parent: Optional[Self] = None
-    children: Optional[list[Self]] = None
     tags: Optional[list[str]] = None
 
     score: Optional[float] = None
 
     @classmethod
-    def from_model(cls, post: Post, with_parent=True) -> Self:
+    def from_model(cls, post: Post) -> Self:
         rv = cls(
             id=post.id,
             content=post.content,
@@ -176,7 +175,7 @@ class PostDto:
             tags=[tag.name for tag in post.tags],
         )
 
-        if with_parent and post.parent and not post.parent.deleted:
+        if post.parent and not post.parent.deleted:
             rv.parent = cls.from_model(post.parent)
 
         return rv

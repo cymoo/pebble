@@ -7,33 +7,25 @@ use sqlx::{query, query_as, QueryBuilder, Sqlite, SqlitePool, Transaction};
 use std::collections::{HashMap, HashSet};
 
 impl Post {
-    pub async fn find_by_id(
+    pub async fn find_with_parent(
         pool: &SqlitePool,
         id: i64,
-        with_parent: bool,
-        with_children: bool,
     ) -> ApiResult<Post> {
-        let row = Post::find_by_id_simple(pool, id).await?.ok_or(post_not_found())?;
+        let row = Post::find_by_id(pool, id).await?.ok_or(post_not_found())?;
         let mut post = Post::from(row);
 
-        if with_parent && post.row.parent_id.is_some() {
-            let parent_row = Post::find_by_id_simple(pool, post.row.parent_id.unwrap()).await?;
+        if let Some(parent_id) = post.row.parent_id {
+            let parent_row = Post::find_by_id(pool, parent_id).await?;
             if let Some(parent_row) = parent_row {
                 post.parent = Some(Box::new(Post::from(parent_row)));
             } else {
                 post.parent = None;
             }
         }
-
-        if with_children && post.row.children_count > 0 {
-            let children = Post::find_children(pool, post.row.id).await?;
-            post.children = Some(children.into_iter().map(Post::from).collect());
-        }
-
         Ok(post)
     }
 
-    pub async fn find_by_id_simple(pool: &SqlitePool, id: i64) -> ApiResult<Option<PostRow>> {
+    pub async fn find_by_id(pool: &SqlitePool, id: i64) -> ApiResult<Option<PostRow>> {
         Ok(sqlx::query_as!(
             PostRow,
             "SELECT * FROM posts WHERE id = ? AND deleted_at IS NULL",
@@ -46,7 +38,6 @@ impl Post {
     pub async fn find_by_ids(
         pool: &SqlitePool,
         ids: &[i64],
-        with_parent: bool,
     ) -> ApiResult<Vec<Post>> {
         let ids = serde_json::to_string(&ids).unwrap();
         let rows = sqlx::query_as!(
@@ -65,14 +56,13 @@ impl Post {
         // Convert rows to Post structs
         let mut posts: Vec<Post> = rows.into_iter().map(Post::from).collect();
 
-        // Attach parents if requested
-        if with_parent {
-            Self::attach_parents(pool, &mut posts).await?;
-        }
+        Self::attach_parents(pool, &mut posts).await?;
+        Self::attach_tags(pool, &mut posts).await?;
 
         Ok(posts)
     }
 
+    #[allow(dead_code)]
     pub async fn find_children(pool: &SqlitePool, parent_id: i64) -> ApiResult<Vec<PostRow>> {
         Ok(sqlx::query_as!(
             PostRow,
@@ -239,11 +229,7 @@ impl Post {
             .map(Post::from)
             .collect::<Vec<_>>();
 
-        // Attach parents if needed
-        if posts.iter().any(|p| p.row.parent_id.is_some()) {
-            Self::attach_parents(pool, &mut posts).await?;
-        }
-
+        Self::attach_parents(pool, &mut posts).await?;
         Self::attach_tags(pool, &mut posts).await?;
 
         Ok(posts)

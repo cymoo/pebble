@@ -23,28 +23,17 @@ class PostService(
     private val dsl: DSLContext,
     private val objectMapper: ObjectMapper,
 ) {
-    fun findById(id: Int, withParent: Boolean, withChildren: Boolean): Post {
+    fun findWithParent(id: Int): Post {
         // Get main post
         val post = findById(id) ?: postNotFound()
 
-        // Get parent
-        val parent = if (withParent && post.parentId != null) {
+        post.parent = if (post.parentId != null) {
             findById(post.parentId)
         } else {
             null
         }
 
-        // Get children
-        val children = if (withChildren && post.childrenCount != 0) {
-            findChildren(id)
-        } else {
-            emptyList()
-        }
-
-        return post.copy(
-            parent = parent,
-            children = children.ifEmpty { null }
-        )
+        return post
     }
 
     fun findById(id: Int?): Post? {
@@ -64,19 +53,19 @@ class PostService(
             .fetchAllIntoClass()
     }
 
-    fun findByIds(ids: List<Int>, withParent: Boolean = true): List<Post> {
+    fun findByIds(ids: List<Int>): List<Post> {
         val posts = dsl.selectFrom(POSTS)
             .where(POSTS.ID.`in`(ids))
             .and(POSTS.DELETED_AT.isNull)
             .fetchAllIntoClass<Post>()
 
-        return if (withParent) {
-            posts.toMutableList().apply { attachParents(this) }
-        } else {
-            posts
+        return posts.toMutableList().apply {
+            attachParents(this)
+            attachTags(this)
         }
     }
 
+    @Suppress("UNUSED")
     fun findChildren(parentId: Int): List<Post> {
         return dsl.selectFrom(POSTS)
             .where(POSTS.PARENT_ID.eq(parentId))
@@ -332,7 +321,7 @@ class PostService(
         }
 
         if (tags.isEmpty()) return
-        
+
         // Insert new relationships
         dsl.batch(
             tags.map { tag ->

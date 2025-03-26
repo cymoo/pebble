@@ -84,7 +84,7 @@ async fn get_posts(State(state): State<AppState>, Query(query): Query<PostFilter
 }
 
 async fn get_post(State(state): State<AppState>, Query(query): Query<Id>) -> ApiResult<Json<Post>> {
-    let post = Post::find_by_id(&state.db, query.id, true, true).await?;
+    let post = Post::find_with_parent(&state.db, query.id).await?;
     Ok(Json(post))
 }
 
@@ -100,7 +100,7 @@ async fn search_posts(State(state): State<AppState>, ValidatedQuery(query): Vali
     let id_to_score: HashMap<i64, f64> = results.into_iter().map(|r| (r.0, r.1)).collect();
     let ids: Vec<i64> = id_to_score.keys().cloned().collect();
 
-    let mut posts = Post::find_by_ids(&state.db, &ids, true).await?;
+    let mut posts = Post::find_by_ids(&state.db, &ids).await?;
 
     for post in posts.iter_mut() {
         let score = id_to_score[&post.row.id];
@@ -133,7 +133,7 @@ async fn create_post(State(state): State<AppState>, ValidatedJson(post): Validat
 }
 
 async fn update_post(State(state): State<AppState>, Json(post): Json<PostUpdate>) -> ApiResult<StatusCode> {
-    let record = Post::find_by_id_simple(&state.db, post.id).await?;
+    let record = Post::find_by_id(&state.db, post.id).await?;
 
     record.filter(|p| p.deleted_at.is_none())
         .ok_or_else(|| not_found("Post not found"))?;
