@@ -68,7 +68,7 @@ This project provides a deployment example using Rust and Axum as the backend se
 
   The only minor issue was the relatively high runtime memory usage, and my cloud server also hosts other services.
 
-  Then I rewrote it in Rust, and the memory usage dropped to about 1/5 of the previous version.
+  Then I rewrote it in Rust, and the memory usage dropped to about 1/8 of the previous version.
 
 * Slate-based rich text editor
 

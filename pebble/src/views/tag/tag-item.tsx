@@ -46,7 +46,7 @@ export const TagItem = memo(function TreeItem({
           })}
           variant="ghost"
           onClick={() => {
-            setParams({ tag: tag.name }, { replace: tag.name.startsWith('hidden') })
+            setParams({ tag: tag.name })
             window.toggleSidebar()
           }}
         >
