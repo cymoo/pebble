@@ -34,10 +34,15 @@ export const Sidebar = memo(function SideBar() {
             const { date, count } = event.target.dataset
             if (!date || !count) return
             if (Number(count) > 0) {
-              setParams({
-                start_date: getTimestampOfDayStart(date).toString(),
-                end_date: getTimestampOfDayEnd(date).toString(),
-              })
+              setParams(
+                {
+                  start_date: getTimestampOfDayStart(date).toString(),
+                  end_date: getTimestampOfDayEnd(date).toString(),
+                },
+                {
+                  replace: params.get('tag')?.includes('hidden'),
+                },
+              )
               window.toggleSidebar()
             }
           }
@@ -53,7 +58,7 @@ export const Sidebar = memo(function SideBar() {
           })}
           variant="ghost"
           onClick={() => {
-            setParams({ deleted: 'true' })
+            setParams({ deleted: 'true' }, { replace: params.get('tag')?.includes('hidden') })
             window.toggleSidebar()
           }}
         >
