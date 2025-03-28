@@ -29,7 +29,7 @@ export function NavLinks({ className, ...props }: ComponentProps<'nav'>) {
         className={params.size === 0 ? HIGHLIGHT_STYLE : undefined}
         variant="ghost"
         onClick={() => {
-          void navigate('/')
+          void navigate('/', { replace: params.get('tag')?.includes('hidden') })
           window.toggleSidebar()
         }}
       >
@@ -44,7 +44,7 @@ export function NavLinks({ className, ...props }: ComponentProps<'nav'>) {
           )}
           variant="ghost"
           onClick={() => {
-            setParams({ shared: 'true' })
+            setParams({ shared: 'true' }, { replace: params.get('tag')?.includes('hidden') })
             window.toggleSidebar()
           }}
         >
@@ -68,7 +68,7 @@ export function NavLinks({ className, ...props }: ComponentProps<'nav'>) {
           className={params.get('color') === color ? HIGHLIGHT_STYLE : undefined}
           variant="ghost"
           onClick={() => {
-            setParams({ color })
+            setParams({ color }, { replace: params.get('tag')?.includes('hidden') })
             window.toggleSidebar()
           }}
         >

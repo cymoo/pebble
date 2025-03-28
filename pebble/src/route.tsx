@@ -42,7 +42,7 @@ const Play = lazy(() => import('./views/play.tsx'))
 
 export const App = () => {
   const location = useLocation()
-  const state = location.state as { backgroundLocation?: Location } | null
+  const state = location.state as { backgroundLocation?: Location; fromInternal?: boolean } | null
 
   const backgroundLocation = state?.backgroundLocation ?? location
   const navigate = useStableNavigate()
@@ -104,6 +104,10 @@ export const App = () => {
     ),
     [backgroundLocation],
   )
+
+  if (location.search.includes('hidden') && !state?.fromInternal) {
+    return <Navigate to="/404" replace />
+  }
 
   return (
     // Move `swrOptions` outside to prevent its "identity" change from triggering useSWR re-fetching.
