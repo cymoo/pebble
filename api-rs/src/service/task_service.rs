@@ -11,10 +11,10 @@ pub async fn start_jobs(state: AppState) -> Result<(), Box<dyn Error + Send + Sy
         Box::pin(async move {
             info!("[Daily] Checking the posts to be deleted...");
 
-            let sixty_days_ago = (Utc::now() - Duration::days(60)).timestamp_millis();
+            let thirty_days_ago = (Utc::now() - Duration::days(30)).timestamp_millis();
             let rv = sqlx::query!(
                 "DELETE FROM posts WHERE deleted_at < $1",
-                sixty_days_ago,
+                thirty_days_ago,
             ).execute(&db).await.ok();
 
             if let Some(rv) = rv {

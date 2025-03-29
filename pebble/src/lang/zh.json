@@ -65,7 +65,7 @@
   "relevance": "最相关",
   "newest": "最新",
   "oldest": "最早",
-  "recycleAlert": "回收站中笔记最多保留60天",
+  "recycleAlert": "回收站中笔记最多保留30天",
   "emptyRecycler": "清空回收站",
   "irreversible": "注意，此操作不可逆",
   "deleteTag": "删除标签",

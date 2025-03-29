@@ -10,9 +10,9 @@ huey = MiniHuey()
 @huey.task(crontab(minute='0', hour='3'))
 def clear_posts():
     with db.app.app_context():
-        sixty_days_ago = datetime.now(UTC) - timedelta(days=60)
+        thirty_days_ago = datetime.now(UTC) - timedelta(days=30)
         deleted_count = Post.query.filter(
-            Post.deleted_at < int(sixty_days_ago.timestamp() * 1000)
+            Post.deleted_at < int(thirty_days_ago.timestamp() * 1000)
         ).delete()
         db.session.commit()
 

@@ -14,10 +14,10 @@ class TaskService(private val searchService: SearchService, private val dsl: DSL
 
     @Scheduled(cron = "0 0 3 * * ?")
     fun clearPosts() {
-        val sixtyDaysAgo = Instant.now().minus(60, ChronoUnit.DAYS).toEpochMilli()
-        logger.info("Clearing posts deleted before: ${Instant.ofEpochMilli(sixtyDaysAgo)}")
+        val thirtyDaysAgo = Instant.now().minus(30, ChronoUnit.DAYS).toEpochMilli()
+        logger.info("Clearing posts deleted before: ${Instant.ofEpochMilli(thirtyDaysAgo)}")
         val deletedCount = dsl.deleteFrom(POSTS)
-            .where(POSTS.DELETED_AT.lessThan(sixtyDaysAgo))
+            .where(POSTS.DELETED_AT.lessThan(thirtyDaysAgo))
             .execute()
         if (deletedCount > 0) {
             logger.info("Successfully deleted $deletedCount posts.")

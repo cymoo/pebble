@@ -65,7 +65,7 @@
   "relevance": "relevance",
   "newest": "newest",
   "oldest": "oldest",
-  "recycleAlert": "memos in the recycle bin will be kept for up to 60 days",
+  "recycleAlert": "memos in the recycle bin will be kept for up to 30 days",
   "emptyRecycler": "empty the recycle bin",
   "irreversible": "this action cannot be undone...",
   "deleteTag": "delete tag",
