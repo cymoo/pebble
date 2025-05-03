@@ -17,8 +17,6 @@ from .logger import setup_logger
 
 
 def create_app(config) -> Flask:
-    # take environment variables from .env
-    load_dotenv()
     setup_logger(config)
 
     app = Flask('app', static_folder='../static', template_folder='../templates')

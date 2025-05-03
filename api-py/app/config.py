@@ -1,8 +1,11 @@
 import os
 from pathlib import PurePath
 
+from app.util import load_env_files
 
 BASE_DIR = str(PurePath(__file__).parent.parent.parent)
+
+load_env_files()
 
 
 class BaseConfig:

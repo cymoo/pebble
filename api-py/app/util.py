@@ -1,4 +1,5 @@
 import inspect
+import os
 import random
 import re
 import string
@@ -12,6 +13,7 @@ from uuid import uuid4
 
 import pydantic
 from PIL import Image
+from dotenv import load_dotenv
 from flask import abort, request, current_app as app
 from pydantic import BaseModel
 
@@ -26,6 +28,42 @@ def deprecated(func):
         return func(*args, **kwargs)
 
     return wrapper
+
+
+def load_env_files(flask_env: Optional[str] = None) -> None:
+    """
+    Load environment files based on FLASK_ENV with the following priority:
+    1. .env (base configuration)
+    2. .env.[environment] (environment-specific configuration)
+    3. .env.local (local overrides)
+
+    Args:
+        flask_env (str, optional): Explicitly specify the environment (e.g., 'dev', 'prod').
+            If not provided, uses the FLASK_ENV environment variable (defaults to 'development').
+    """
+    # 1. Determine environment (priority: argument > FLASK_ENV variable > default 'development')
+    env = (flask_env or os.getenv("FLASK_ENV", "development")).lower()
+
+    # 2. Load base .env file if exists
+    if os.path.exists(".env"):
+        load_dotenv(".env")
+
+    # 3. Load environment-specific file
+    env_mappings = {
+        "dev": ".env.dev",
+        "development": ".env.dev",
+        "prod": ".env.prod",
+        "production": ".env.prod",
+        "test": ".env.test",
+    }
+
+    env_file = env_mappings.get(env)
+    if env_file and os.path.exists(env_file):
+        load_dotenv(env_file, override=True)
+
+    # 4. Always load .env.local last for final overrides
+    if os.path.exists(".env.local"):
+        load_dotenv(".env.local", override=True)
 
 
 class Missing:
