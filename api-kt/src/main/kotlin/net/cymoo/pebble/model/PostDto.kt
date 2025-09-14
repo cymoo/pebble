@@ -8,6 +8,7 @@ import com.fasterxml.jackson.databind.JsonSerializer
 import com.fasterxml.jackson.databind.SerializerProvider
 import com.fasterxml.jackson.databind.annotation.JsonSerialize
 import jakarta.validation.constraints.NotBlank
+import net.cymoo.pebble.util.maybe.MaybeMissing
 import org.springframework.web.bind.annotation.BindParam
 import java.time.Instant
 
@@ -130,9 +131,9 @@ data class PostUpdate(
     val content: String?,
     val shared: Boolean?,
 
-    val files: net.cymoo.pebble.util.maybe.MaybeMissing<List<FileInfo>?>,
-    val color: net.cymoo.pebble.util.maybe.MaybeMissing<CategoryColor?>,
-    val parentId: net.cymoo.pebble.util.maybe.MaybeMissing<Int?>,
+    val files: MaybeMissing<List<FileInfo>?>,
+    val color: MaybeMissing<CategoryColor?>,
+    val parentId: MaybeMissing<Int?>,
 )
 
 data class PostDelete(
