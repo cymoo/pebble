@@ -12,4 +12,5 @@ require (
 	github.com/joho/godotenv v1.5.1 // indirect
 	github.com/mattn/go-sqlite3 v1.14.32 // indirect
 	github.com/redis/go-redis/v9 v9.3.0 // indirect
+	github.com/yanyiwu/gojieba v1.4.6 // indirect
 )
