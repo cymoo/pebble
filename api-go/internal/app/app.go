@@ -40,10 +40,9 @@ func (app *App) Initialize() error {
 		return fmt.Errorf("failed to initialize database: %w", err)
 	}
 
-	// TODO: 初始化Redis
-	// if err := app.initRedis(); err != nil {
-	// 	return fmt.Errorf("failed to initialize redis: %w", err)
-	// }
+	if err := app.initRedis(); err != nil {
+		return fmt.Errorf("failed to initialize redis: %w", err)
+	}
 
 	// 运行数据库迁移
 	// if err := database.Migrate(app.db); err != nil {
@@ -112,12 +111,9 @@ func (app *App) setupRoutes() {
 
 	mux.HandleFunc("/hello", m.H(postHandler.HelloWorld))
 
-	// // 注册路由
-	// mux.HandleFunc("GET /health", app.healthHandler)
+	// 注册路由
+	mux.HandleFunc("GET /health", app.healthHandler)
 	// mux.HandleFunc("GET /users/{id}", userHandler.GetUser)
-	// mux.HandleFunc("POST /users", userHandler.CreateUser)
-	// mux.HandleFunc("PUT /users/{id}", userHandler.UpdateUser)
-	// mux.HandleFunc("DELETE /users/{id}", userHandler.DeleteUser)
 
 	app.server = &http.Server{
 		Addr:         fmt.Sprintf("%s:%d", app.config.HTTP.IP, app.config.HTTP.Port),
