@@ -2,54 +2,114 @@ package config
 
 import (
 	"time"
+
+	"github.com/cymoo/pebble/pkg/env"
 )
 
 type Config struct {
-	HTTP  HTTPConfig
-	DB    DBConfig
-	Redis RedisConfig
+	// 各模块配置
+	HTTP   HTTPConfig
+	Upload UploadConfig
+	Search SearchConfig
+	DB     DBConfig
+	Redis  RedisConfig
+
+	// 基本信息
+	AppName     string
+	AppVersion  string
+	Environment string
+	Debug       bool
+
+	// 业务配置
+	PostsPerPage int
+	StaticDir    string
+	StaticURL    string
 }
 
-type HTTPConfig struct {
-	Host         string
-	Port         string
-	ReadTimeout  time.Duration
-	WriteTimeout time.Duration
-	IdleTimeout  time.Duration
+type UploadConfig struct {
+	MaxSize      int64
+	BaseURL      string
+	UploadPath   string
+	ImageFormats []string
+	ThumbSize    int
+}
+
+type SearchConfig struct {
+	MaxResults   int
+	PartialMatch bool
 }
 
 type DBConfig struct {
-	DSN          string
-	MaxOpenConns int
-	MaxIdleConns int
-	MaxIdleTime  time.Duration
+	URL      string
+	PoolSize int
 }
 
 type RedisConfig struct {
-	Addr     string
+	URL      string
 	Password string
 	DB       int
+	PoolSize int
+}
+
+type HTTPConfig struct {
+	IP           string
+	Port         int
+	MaxBodySize  string
+	ReadTimeout  time.Duration
+	WriteTimeout time.Duration
+	IdleTimeout  time.Duration
+	CORSOrigins  []string
 }
 
 func Load() *Config {
-	return &Config{
-		HTTP: HTTPConfig{
-			Host:         "localhost",
-			Port:         "8080",
-			ReadTimeout:  10 * time.Second,
-			WriteTimeout: 10 * time.Second,
-			IdleTimeout:  30 * time.Second,
-		},
-		DB: DBConfig{
-			DSN:          "file:app.db?cache=shared&_fk=true&_journal_mode=WAL",
-			MaxOpenConns: 25,
-			MaxIdleConns: 25,
-			MaxIdleTime:  15 * time.Minute,
-		},
-		Redis: RedisConfig{
-			Addr:     "localhost:6379",
-			Password: "",
-			DB:       0,
-		},
+	config := &Config{}
+	envType := env.GetString("APP_ENV", "development")
+	config.Environment = envType
+	config.Debug = envType == "development" || envType == "dev"
+
+	env.LoadConfigFiles(envType)
+
+	config.HTTP = HTTPConfig{
+		IP:           env.GetString("HTTP_IP", "localhost"),
+		Port:         env.GetInt("HTTP_PORT", 8080),
+		ReadTimeout:  env.GetDuration("HTTP_READ_TIMEOUT", 10*time.Second),
+		WriteTimeout: env.GetDuration("HTTP_WRITE_TIMEOUT", 10*time.Second),
+		IdleTimeout:  env.GetDuration("HTTP_IDLE_TIMEOUT", 30*time.Second),
+		CORSOrigins:  []string{}, // TODO: 从环境变量加载
 	}
+
+	config.DB = DBConfig{
+		URL:      env.GetString("DB_URL", "file:app.db?cache=shared&_fk=true&_journal_mode=WAL"),
+		PoolSize: env.GetInt("DB_POOL_SIZE", 10),
+	}
+
+	config.Redis = RedisConfig{
+		URL:      env.GetString("REDIS_URL", "localhost:6379"),
+		Password: env.GetString("REDIS_PASSWORD", ""),
+		DB:       env.GetInt("REDIS_DB", 0),
+		PoolSize: env.GetInt("REDIS_POOL_SIZE", 10),
+	}
+
+	config.Upload = UploadConfig{
+		// MaxSize:    env.GetByteSize("UPLOAD_MAX_SIZE", 10*1024*1024), // 10 MB
+		BaseURL:    env.GetString("UPLOAD_BASE_URL", "/uploads/"),
+		UploadPath: env.GetString("UPLOAD_PATH", "./uploads"),
+		// ImageFormats: []string{"jpg", "jpeg", "png", "gif"},
+		ImageFormats: env.GetSlice("UPLOAD_IMAGE_FORMATS"),
+		ThumbSize:    env.GetInt("UPLOAD_THUMB_SIZE", 200),
+	}
+
+	config.Search = SearchConfig{
+		MaxResults:   env.GetInt("SEARCH_MAX_RESULTS", 100),
+		PartialMatch: env.GetBool("SEARCH_PARTIAL_MATCH", true),
+	}
+
+	config.AppName = env.GetString("APP_NAME", "Pebble")
+	config.AppVersion = env.GetString("APP_VERSION", "0.1.0")
+
+	config.PostsPerPage = env.GetInt("POSTS_PER_PAGE", 30)
+	config.StaticDir = env.GetString("STATIC_DIR", "./static")
+	config.StaticURL = env.GetString("STATIC_URL", "/static/")
+
+	return config
 }

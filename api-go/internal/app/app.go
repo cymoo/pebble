@@ -10,10 +10,13 @@ import (
 	"syscall"
 	"time"
 
+	m "github.com/cymoo/mint"
 	"github.com/cymoo/pebble/internal/config"
-	// "github.com/cymoo/pebble/internal/database"
+	"github.com/cymoo/pebble/internal/handlers"
+	"github.com/cymoo/pebble/internal/services"
 
 	"github.com/jmoiron/sqlx"
+	_ "github.com/mattn/go-sqlite3"
 	"github.com/redis/go-redis/v9"
 )
 
@@ -37,10 +40,10 @@ func (app *App) Initialize() error {
 		return fmt.Errorf("failed to initialize database: %w", err)
 	}
 
-	// 初始化Redis
-	if err := app.initRedis(); err != nil {
-		return fmt.Errorf("failed to initialize redis: %w", err)
-	}
+	// TODO: 初始化Redis
+	// if err := app.initRedis(); err != nil {
+	// 	return fmt.Errorf("failed to initialize redis: %w", err)
+	// }
 
 	// 运行数据库迁移
 	// if err := database.Migrate(app.db); err != nil {
@@ -54,15 +57,17 @@ func (app *App) Initialize() error {
 }
 
 func (app *App) initDatabase() error {
-	db, err := sqlx.Connect("sqlite3", app.config.DB.DSN)
+	db, err := sqlx.Connect("sqlite3", app.config.DB.URL)
 	if err != nil {
+		log.Printf("Database connection error: %v", app.config.DB.URL)
 		return err
 	}
 
 	// 配置连接池
-	db.SetMaxOpenConns(app.config.DB.MaxOpenConns)
-	db.SetMaxIdleConns(app.config.DB.MaxIdleConns)
-	db.SetConnMaxIdleTime(app.config.DB.MaxIdleTime)
+	// db.SetMaxOpenConns(app.config.DB.PoolSize) // SQLite 通常只需要 1 个连接
+	// db.SetMaxOpenConns(app.config.DB.MaxOpenConns)
+	// db.SetMaxIdleConns(app.config.DB.MaxIdleConns)
+	// db.SetConnMaxIdleTime(app.config.DB.MaxIdleTime)
 
 	// 测试连接
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -79,7 +84,7 @@ func (app *App) initDatabase() error {
 
 func (app *App) initRedis() error {
 	app.redis = redis.NewClient(&redis.Options{
-		Addr:     app.config.Redis.Addr,
+		Addr:     app.config.Redis.URL,
 		Password: app.config.Redis.Password,
 		DB:       app.config.Redis.DB,
 	})
@@ -102,6 +107,11 @@ func (app *App) setupRoutes() {
 
 	mux := http.NewServeMux()
 
+	postService := services.NewPostService(app.db)
+	postHandler := handlers.NewPostHandler(postService)
+
+	mux.HandleFunc("/hello", m.H(postHandler.HelloWorld))
+
 	// // 注册路由
 	// mux.HandleFunc("GET /health", app.healthHandler)
 	// mux.HandleFunc("GET /users/{id}", userHandler.GetUser)
@@ -110,7 +120,7 @@ func (app *App) setupRoutes() {
 	// mux.HandleFunc("DELETE /users/{id}", userHandler.DeleteUser)
 
 	app.server = &http.Server{
-		Addr:         fmt.Sprintf("%s:%s", app.config.HTTP.Host, app.config.HTTP.Port),
+		Addr:         fmt.Sprintf("%s:%d", app.config.HTTP.IP, app.config.HTTP.Port),
 		Handler:      mux,
 		ReadTimeout:  app.config.HTTP.ReadTimeout,
 		WriteTimeout: app.config.HTTP.WriteTimeout,
