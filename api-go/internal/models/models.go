@@ -101,6 +101,18 @@ type TagWithPostCount struct {
 	PostCount int64  `json:"post_count" db:"post_count"`
 }
 
+// RenameTagRequest represents the request to rename or merge a tag
+type RenameTagRequest struct {
+	Name    string `json:"name"`
+	NewName string `json:"new_name"`
+}
+
+// StickyTagRequest represents the request to set a tag's sticky status
+type StickyTagRequest struct {
+	Name   string `json:"name"`
+	Sticky bool   `json:"sticky"`
+}
+
 // CreatePostRequest represents the request to create a post
 type CreatePostRequest struct {
 	Content  string     `json:"content"`
@@ -158,5 +170,16 @@ type CreateResponse struct {
 
 // Id represents a simple ID query string parameter
 type Id struct {
-	Id int64 `json:"id"`
+	Id int64 `json:"id" schema:"id"`
+}
+
+// Name represents a simple Name query string parameter
+type Name struct {
+	Name string `json:"name" schema:"name"`
+}
+
+type DateRange struct {
+	StartDate string `json:"start_date" schema:"start_date"`
+	EndDate   string `json:"end_date" schema:"end_date"`
+	Offset    int    `json:"offset" schema:"offset"` // in minutes
 }

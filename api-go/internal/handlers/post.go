@@ -3,6 +3,7 @@ package handlers
 import (
 	"errors"
 	"net/http"
+	"time"
 
 	m "github.com/cymoo/mint"
 	"github.com/cymoo/pebble/internal/models"
@@ -40,4 +41,49 @@ func (h *PostHandler) GetPost(r *http.Request, query m.Query[models.Id]) (*model
 		return nil, errors.New("post not found")
 	}
 	return post, nil
+}
+
+func (h *PostHandler) GetStats(r *http.Request) (*models.PostStats, error) {
+	postCount, err := h.postService.GetCount(r.Context())
+	if err != nil {
+		return nil, err
+	}
+
+	tagCount, err := h.postService.GetCount(r.Context())
+	if err != nil {
+		return nil, err
+	}
+
+	dayCount, err := h.postService.GetActiveDays(r.Context())
+	if err != nil {
+		return nil, err
+	}
+
+	return &models.PostStats{
+		PostCount: postCount,
+		TagCount:  tagCount,
+		DayCount:  dayCount,
+	}, nil
+}
+
+func (h *PostHandler) GetDailyCounts(r *http.Request, query m.Query[models.DateRange]) ([]int64, error) {
+	startDate, err := time.Parse(time.DateOnly, query.Value.StartDate)
+	if err != nil {
+		return nil, err
+	}
+
+	endDate, err := time.Parse(time.DateOnly, query.Value.EndDate)
+	if err != nil {
+		return nil, err
+	}
+
+	if endDate.Before(startDate) {
+		return nil, errors.New("end_date must be after start_date")
+	}
+
+	counts, err := h.postService.GetDailyCounts(r.Context(), startDate, endDate, query.Value.Offset*60)
+	if err != nil {
+		return nil, err
+	}
+	return counts, nil
 }

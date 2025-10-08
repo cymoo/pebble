@@ -106,16 +106,27 @@ func (app *App) setupRoutes() {
 
 	mux := http.NewServeMux()
 
+	tagService := services.NewTagService(app.db)
+	tagHandler := handlers.NewTagHandler(tagService)
+
+	mux.HandleFunc("/api/get-tags", m.H(tagHandler.GetTags))
+	mux.HandleFunc("/api/rename-tag", m.H(tagHandler.RenameTag))
+	mux.HandleFunc("/api/delete-tag", m.H(tagHandler.DeleteTag))
+	mux.HandleFunc("/api/stick-tag", m.H(tagHandler.StickTag))
+
 	postService := services.NewPostService(app.db)
 	postHandler := handlers.NewPostHandler(postService)
 
 	mux.HandleFunc("/hello", m.H(postHandler.HelloWorld))
+
 	mux.HandleFunc("/api/get-posts", m.H(postHandler.GetPosts))
 	mux.HandleFunc("/api/get-post", m.H(postHandler.GetPost))
 
+	mux.HandleFunc("/api/get-overall-counts", m.H(postHandler.GetStats))
+	mux.HandleFunc("/api/get-daily-post-counts", m.H(postHandler.GetDailyCounts))
+
 	// 注册路由
 	mux.HandleFunc("GET /health", app.healthHandler)
-	// mux.HandleFunc("GET /users/{id}", userHandler.GetUser)
 
 	app.server = &http.Server{
 		Addr:         fmt.Sprintf("%s:%d", app.config.HTTP.IP, app.config.HTTP.Port),
