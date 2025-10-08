@@ -100,3 +100,53 @@ func (h *PostHandler) GetDailyCounts(r *http.Request, query m.Query[models.DateR
 	}
 	return counts, nil
 }
+
+func (h *PostHandler) CreatePost(r *http.Request, body m.JSON[models.CreatePostRequest]) (*models.CreateResponse, error) {
+	rv, err := h.postService.Create(r.Context(), body.Value)
+	if err != nil {
+		return nil, err
+	}
+	return rv, nil
+}
+
+func (h *PostHandler) UpdatePost(r *http.Request, body m.JSON[models.UpdatePostRequest]) (m.StatusCode, error) {
+	err := h.postService.Update(r.Context(), body.Value)
+	if err != nil {
+		return 0, err
+	}
+	return 204, nil
+}
+
+func (h *PostHandler) DeletePost(r *http.Request, payload m.JSON[models.DeletePostRequest]) (m.StatusCode, error) {
+	if payload.Value.Hard {
+		err := h.postService.HardDelete(r.Context(), payload.Value.ID)
+		if err != nil {
+			return 0, err
+		}
+	} else {
+		err := h.postService.Delete(r.Context(), payload.Value.ID)
+		if err != nil {
+			log.Printf("Error deleting post: %v", err)
+			return 0, err
+		}
+	}
+
+	return 204, nil
+}
+
+func (h *PostHandler) RestorePost(r *http.Request, payload m.JSON[models.Id]) (m.StatusCode, error) {
+	err := h.postService.Restore(r.Context(), payload.Value.Id)
+	if err != nil {
+		return 0, err
+	}
+	return 204, nil
+}
+
+func (h *PostHandler) ClearPosts(r *http.Request) (m.StatusCode, error) {
+	ids, err := h.postService.ClearAll(r.Context())
+	if err != nil {
+		return 0, err
+	}
+	log.Printf("Cleared posts: %v", ids)
+	return 204, nil
+}

@@ -101,29 +101,37 @@ func (app *App) initRedis() error {
 }
 
 func (app *App) setupRoutes() {
-	// 初始化处理器
-	// userHandler := handlers.NewUserHandler(app.db, app.redis)
-
 	mux := http.NewServeMux()
+
+	mux.Handle(app.config.Upload.BaseURL, http.StripPrefix(
+		app.config.Upload.BaseURL,
+		http.FileServer(http.Dir(app.config.Upload.Path))),
+	)
 
 	tagService := services.NewTagService(app.db)
 	tagHandler := handlers.NewTagHandler(tagService)
 
-	mux.HandleFunc("/api/get-tags", m.H(tagHandler.GetTags))
-	mux.HandleFunc("/api/rename-tag", m.H(tagHandler.RenameTag))
-	mux.HandleFunc("/api/delete-tag", m.H(tagHandler.DeleteTag))
-	mux.HandleFunc("/api/stick-tag", m.H(tagHandler.StickTag))
+	mux.HandleFunc("GET /api/get-tags", m.H(tagHandler.GetTags))
+	mux.HandleFunc("POST /api/rename-tag", m.H(tagHandler.RenameTag))
+	mux.HandleFunc("POST /api/delete-tag", m.H(tagHandler.DeleteTag))
+	mux.HandleFunc("POST /api/stick-tag", m.H(tagHandler.StickTag))
 
 	postService := services.NewPostService(app.db)
 	postHandler := handlers.NewPostHandler(postService)
 
 	mux.HandleFunc("/hello", m.H(postHandler.HelloWorld))
 
-	mux.HandleFunc("/api/get-posts", m.H(postHandler.GetPosts))
-	mux.HandleFunc("/api/get-post", m.H(postHandler.GetPost))
+	mux.HandleFunc("GET /api/get-posts", m.H(postHandler.GetPosts))
+	mux.HandleFunc("GET /api/get-post", m.H(postHandler.GetPost))
 
-	mux.HandleFunc("/api/get-overall-counts", m.H(postHandler.GetStats))
-	mux.HandleFunc("/api/get-daily-post-counts", m.H(postHandler.GetDailyCounts))
+	mux.HandleFunc("POST /api/create-post", m.H(postHandler.CreatePost))
+	mux.HandleFunc("POST /api/update-post", m.H(postHandler.UpdatePost))
+	mux.HandleFunc("POST /api/delete-post", m.H(postHandler.DeletePost))
+	mux.HandleFunc("POST /api/restore-post", m.H(postHandler.RestorePost))
+	mux.HandleFunc("POST /api/clear-posts", m.H(postHandler.ClearPosts))
+
+	mux.HandleFunc("GET /api/get-overall-counts", m.H(postHandler.GetStats))
+	mux.HandleFunc("GET /api/get-daily-post-counts", m.H(postHandler.GetDailyCounts))
 
 	// 注册路由
 	mux.HandleFunc("GET /health", app.healthHandler)

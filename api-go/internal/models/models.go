@@ -158,6 +158,11 @@ type UpdatePostRequest struct {
 	ParentID *int64      `json:"parent_id,omitempty"`
 }
 
+type DeletePostRequest struct {
+	ID   int64 `json:"id"`
+	Hard bool  `json:"hard,omitempty"`
+}
+
 // PostFilterOptions represents filtering options for posts
 type PostFilterOptions struct {
 	Cursor    *int64  `json:"cursor,omitempty"`
