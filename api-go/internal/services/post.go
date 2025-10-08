@@ -301,14 +301,14 @@ func (s *PostService) Create(ctx context.Context, req models.CreatePostRequest) 
 		shared = *req.Shared
 	}
 
-	var color sql.NullString
+	var color models.NullString
 	if req.Color != nil {
-		color = sql.NullString{String: *req.Color, Valid: true}
+		color = models.NullString{sql.NullString{String: *req.Color, Valid: true}}
 	}
 
-	var parentID sql.NullInt64
+	var parentID models.NullInt64
 	if req.ParentID != nil {
-		parentID = sql.NullInt64{Int64: *req.ParentID, Valid: true}
+		parentID = models.NullInt64{sql.NullInt64{Int64: *req.ParentID, Valid: true}}
 	}
 
 	// Insert post
@@ -374,7 +374,7 @@ func (s *PostService) Update(ctx context.Context, req models.UpdatePostRequest) 
 	defer tx.Rollback()
 
 	// Get old parent_id if parent_id is being updated
-	var oldParentID sql.NullInt64
+	var oldParentID models.NullInt64
 	if req.ParentID != nil {
 		err := tx.GetContext(ctx, &oldParentID,
 			"SELECT parent_id FROM posts WHERE id = ?", req.ID)

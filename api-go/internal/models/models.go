@@ -2,21 +2,73 @@ package models
 
 import (
 	"database/sql"
+	"encoding/json"
 )
+
+// NullString is a custom type that serializes to null or string
+type NullString struct {
+	sql.NullString
+}
+
+func (ns NullString) MarshalJSON() ([]byte, error) {
+	if !ns.Valid {
+		return []byte("null"), nil
+	}
+	return json.Marshal(ns.String)
+}
+
+func (ns *NullString) UnmarshalJSON(data []byte) error {
+	var s *string
+	if err := json.Unmarshal(data, &s); err != nil {
+		return err
+	}
+	if s == nil {
+		ns.Valid = false
+		return nil
+	}
+	ns.String = *s
+	ns.Valid = true
+	return nil
+}
+
+// NullInt64 is a custom type that serializes to null or int64
+type NullInt64 struct {
+	sql.NullInt64
+}
+
+func (ni NullInt64) MarshalJSON() ([]byte, error) {
+	if !ni.Valid {
+		return []byte("null"), nil
+	}
+	return json.Marshal(ni.Int64)
+}
+
+func (ni *NullInt64) UnmarshalJSON(data []byte) error {
+	var i *int64
+	if err := json.Unmarshal(data, &i); err != nil {
+		return err
+	}
+	if i == nil {
+		ni.Valid = false
+		return nil
+	}
+	ni.Int64 = *i
+	ni.Valid = true
+	return nil
+}
 
 // Post represents a post entity
 type Post struct {
-	ID      int64  `json:"id" db:"id"`
-	Content string `json:"content" db:"content"`
-	// Files         json.RawMessage `json:"files,omitempty" db:"files"`
-	Files         string         `json:"files,omitempty" db:"files"`
-	Color         sql.NullString `json:"color,omitempty" db:"color"`
-	Shared        bool           `json:"shared" db:"shared"`
-	DeletedAt     sql.NullInt64  `json:"deleted_at,omitempty" db:"deleted_at"`
-	CreatedAt     int64          `json:"created_at" db:"created_at"`
-	UpdatedAt     int64          `json:"updated_at" db:"updated_at"`
-	ParentID      sql.NullInt64  `json:"-" db:"parent_id"`
-	ChildrenCount int64          `json:"children_count" db:"children_count"`
+	ID            int64      `json:"id" db:"id"`
+	Content       string     `json:"content" db:"content"`
+	Files         string     `json:"files,omitempty" db:"files"`
+	Color         NullString `json:"color,omitempty" db:"color"`
+	Shared        bool       `json:"shared" db:"shared"`
+	DeletedAt     NullInt64  `json:"deleted_at,omitempty" db:"deleted_at"`
+	CreatedAt     int64      `json:"created_at" db:"created_at"`
+	UpdatedAt     int64      `json:"updated_at" db:"updated_at"`
+	ParentID      NullInt64  `json:"-" db:"parent_id"`
+	ChildrenCount int64      `json:"children_count" db:"children_count"`
 
 	// Additional fields not in DB
 	Parent *Post    `json:"parent,omitempty"`
@@ -104,6 +156,7 @@ type CreateResponse struct {
 	UpdatedAt int64 `json:"updated_at"`
 }
 
+// Id represents a simple ID query string parameter
 type Id struct {
 	Id int64 `json:"id"`
 }
