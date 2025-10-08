@@ -40,9 +40,9 @@ func (app *App) Initialize() error {
 		return fmt.Errorf("failed to initialize database: %w", err)
 	}
 
-	if err := app.initRedis(); err != nil {
-		return fmt.Errorf("failed to initialize redis: %w", err)
-	}
+	// if err := app.initRedis(); err != nil {
+	// 	return fmt.Errorf("failed to initialize redis: %w", err)
+	// }
 
 	// 运行数据库迁移
 	// if err := database.Migrate(app.db); err != nil {
@@ -110,6 +110,8 @@ func (app *App) setupRoutes() {
 	postHandler := handlers.NewPostHandler(postService)
 
 	mux.HandleFunc("/hello", m.H(postHandler.HelloWorld))
+	mux.HandleFunc("/api/get-posts", m.H(postHandler.GetPosts))
+	mux.HandleFunc("/api/get-post", m.H(postHandler.GetPost))
 
 	// 注册路由
 	mux.HandleFunc("GET /health", app.healthHandler)
