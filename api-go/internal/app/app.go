@@ -10,10 +10,9 @@ import (
 	"syscall"
 	"time"
 
-	m "github.com/cymoo/mint"
 	"github.com/cymoo/pebble/internal/config"
-	"github.com/cymoo/pebble/internal/handlers"
-	"github.com/cymoo/pebble/internal/services"
+	"github.com/go-chi/chi"
+	"github.com/go-chi/chi/middleware"
 
 	"github.com/jmoiron/sqlx"
 	_ "github.com/mattn/go-sqlite3"
@@ -101,44 +100,22 @@ func (app *App) initRedis() error {
 }
 
 func (app *App) setupRoutes() {
-	mux := http.NewServeMux()
+	r := chi.NewRouter()
 
-	mux.Handle(app.config.Upload.BaseURL, http.StripPrefix(
+	r.Use(middleware.Logger)
+
+	r.Handle(app.config.Upload.BaseURL+"/*", http.StripPrefix(
 		app.config.Upload.BaseURL,
 		http.FileServer(http.Dir(app.config.Upload.Path))),
 	)
 
-	tagService := services.NewTagService(app.db)
-	tagHandler := handlers.NewTagHandler(tagService)
+	r.Get("/health", app.healthHandler)
 
-	mux.HandleFunc("GET /api/get-tags", m.H(tagHandler.GetTags))
-	mux.HandleFunc("POST /api/rename-tag", m.H(tagHandler.RenameTag))
-	mux.HandleFunc("POST /api/delete-tag", m.H(tagHandler.DeleteTag))
-	mux.HandleFunc("POST /api/stick-tag", m.H(tagHandler.StickTag))
-
-	postService := services.NewPostService(app.db)
-	postHandler := handlers.NewPostHandler(postService)
-
-	mux.HandleFunc("/hello", m.H(postHandler.HelloWorld))
-
-	mux.HandleFunc("GET /api/get-posts", m.H(postHandler.GetPosts))
-	mux.HandleFunc("GET /api/get-post", m.H(postHandler.GetPost))
-
-	mux.HandleFunc("POST /api/create-post", m.H(postHandler.CreatePost))
-	mux.HandleFunc("POST /api/update-post", m.H(postHandler.UpdatePost))
-	mux.HandleFunc("POST /api/delete-post", m.H(postHandler.DeletePost))
-	mux.HandleFunc("POST /api/restore-post", m.H(postHandler.RestorePost))
-	mux.HandleFunc("POST /api/clear-posts", m.H(postHandler.ClearPosts))
-
-	mux.HandleFunc("GET /api/get-overall-counts", m.H(postHandler.GetStats))
-	mux.HandleFunc("GET /api/get-daily-post-counts", m.H(postHandler.GetDailyCounts))
-
-	// 注册路由
-	mux.HandleFunc("GET /health", app.healthHandler)
+	r.Mount("/api", NewApiRouter(app))
 
 	app.server = &http.Server{
 		Addr:         fmt.Sprintf("%s:%d", app.config.HTTP.IP, app.config.HTTP.Port),
-		Handler:      mux,
+		Handler:      r,
 		ReadTimeout:  app.config.HTTP.ReadTimeout,
 		WriteTimeout: app.config.HTTP.WriteTimeout,
 		IdleTimeout:  app.config.HTTP.IdleTimeout,
