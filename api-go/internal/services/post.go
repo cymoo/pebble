@@ -260,9 +260,10 @@ func (s *PostService) Filter(ctx context.Context, options models.PostFilterOptio
 	// Final query
 	query := fmt.Sprintf("%s%s ORDER BY %s %s LIMIT %d",
 		baseQuery, whereClause, orderBy, direction, perPage)
+	posts := make([]models.Post, 0)
 
-	var posts []models.Post
 	err := s.db.SelectContext(ctx, &posts, query, args...)
+
 	if err != nil {
 		return nil, err
 	}

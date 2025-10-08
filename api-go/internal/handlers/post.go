@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"errors"
+	"log"
 	"net/http"
 	"time"
 
@@ -22,12 +23,24 @@ func (h *PostHandler) HelloWorld() string {
 	return "hello world"
 }
 
-func (h *PostHandler) GetPosts(r *http.Request, query m.Query[models.PostFilterOptions]) (models.PostPagination, error) {
-	posts, _ := h.postService.Filter(r.Context(), query.Value, 10)
-	return models.PostPagination{
+func (h *PostHandler) GetPosts(r *http.Request, query m.Query[models.PostFilterOptions]) (*models.PostPagination, error) {
+	posts, err := h.postService.Filter(r.Context(), query.Value, 10)
+	if err != nil {
+		log.Printf("Error fetching posts: %v", err)
+		return nil, err
+	}
+
+	// Determine the new cursor based on the last post's CreatedAt
+	size := len(posts)
+	cursor := int64(-1)
+	if size > 0 {
+		cursor = posts[size-1].CreatedAt
+	}
+
+	return &models.PostPagination{
 		Posts:  posts,
-		Cursor: 0,
-		Size:   int64(len(posts)),
+		Cursor: cursor,
+		Size:   int64(size),
 	}, nil
 }
 

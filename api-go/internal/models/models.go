@@ -3,6 +3,7 @@ package models
 import (
 	"database/sql"
 	"encoding/json"
+	"fmt"
 )
 
 // NullString is a custom type that serializes to null or string
@@ -57,18 +58,43 @@ func (ni *NullInt64) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
+type NullRawMessage struct {
+	json.RawMessage
+	Valid bool // Valid is true if JSON is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (n *NullRawMessage) Scan(value interface{}) error {
+	if value == nil {
+		n.RawMessage = nil
+		n.Valid = false
+		return nil
+	}
+	// Assuming value is []byte or string
+	switch v := value.(type) {
+	case []byte:
+		n.RawMessage = json.RawMessage(v)
+	case string:
+		n.RawMessage = json.RawMessage(v)
+	default:
+		return fmt.Errorf("unsupported type for NullRawMessage: %T", value)
+	}
+	n.Valid = true
+	return nil
+}
+
 // Post represents a post entity
 type Post struct {
-	ID            int64      `json:"id" db:"id"`
-	Content       string     `json:"content" db:"content"`
-	Files         string     `json:"files,omitempty" db:"files"`
-	Color         NullString `json:"color,omitempty" db:"color"`
-	Shared        bool       `json:"shared" db:"shared"`
-	DeletedAt     NullInt64  `json:"deleted_at,omitempty" db:"deleted_at"`
-	CreatedAt     int64      `json:"created_at" db:"created_at"`
-	UpdatedAt     int64      `json:"updated_at" db:"updated_at"`
-	ParentID      NullInt64  `json:"-" db:"parent_id"`
-	ChildrenCount int64      `json:"children_count" db:"children_count"`
+	ID            int64          `json:"id" db:"id"`
+	Content       string         `json:"content" db:"content"`
+	Files         NullRawMessage `json:"files,omitempty" db:"files"`
+	Color         NullString     `json:"color,omitempty" db:"color"`
+	Shared        bool           `json:"shared" db:"shared"`
+	DeletedAt     NullInt64      `json:"deleted_at,omitempty" db:"deleted_at"`
+	CreatedAt     int64          `json:"created_at" db:"created_at"`
+	UpdatedAt     int64          `json:"updated_at" db:"updated_at"`
+	ParentID      NullInt64      `json:"-" db:"parent_id"`
+	ChildrenCount int64          `json:"children_count" db:"children_count"`
 
 	// Additional fields not in DB
 	Parent *Post    `json:"parent,omitempty"`
