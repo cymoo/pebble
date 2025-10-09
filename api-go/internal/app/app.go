@@ -106,7 +106,7 @@ func (app *App) setupRoutes() {
 
 	r.Handle(app.config.Upload.BaseURL+"/*", http.StripPrefix(
 		app.config.Upload.BaseURL,
-		http.FileServer(http.Dir(app.config.Upload.Path))),
+		http.FileServer(http.Dir(app.config.Upload.BasePath))),
 	)
 
 	r.Get("/health", app.healthHandler)

@@ -11,21 +11,22 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/cymoo/pebble/pkg/types"
+	"github.com/go-ego/gse"
 	"github.com/redis/go-redis/v9"
-	"github.com/yanyiwu/gojieba"
 )
 
 var (
 	punctuationRegex = regexp.MustCompile(`\p{P}`)
 	htmlTagRegex     = regexp.MustCompile(`<[^>]*>`)
-	stopWords        = map[string]struct{}{
-		"a": {}, "an": {}, "and": {}, "are": {}, "as": {}, "at": {}, "be": {}, "by": {},
-		"can": {}, "for": {}, "from": {}, "have": {}, "if": {}, "in": {}, "is": {},
-		"it": {}, "may": {}, "not": {}, "of": {}, "on": {}, "or": {}, "tbd": {},
-		"that": {}, "the": {}, "this": {}, "to": {}, "us": {}, "we": {}, "when": {},
-		"will": {}, "with": {}, "yet": {}, "you": {}, "your": {},
-		"的": {}, "了": {}, "和": {}, "着": {}, "与": {},
-	}
+	stopWords        = types.NewSet(
+		"a", "an", "and", "are", "as", "at", "be", "by",
+		"can", "for", "from", "have", "if", "in", "is",
+		"it", "may", "not", "of", "on", "or", "tbd",
+		"that", "the", "this", "to", "us", "we", "when",
+		"will", "with", "yet", "you", "your",
+		"的", "了", "和", "着", "与",
+	)
 )
 
 // Tokenizer interface for text tokenization
@@ -34,31 +35,41 @@ type Tokenizer interface {
 	Analyze(text string) []string
 }
 
-// JiebaTokenizer implements Tokenizer using gojieba
-type JiebaTokenizer struct {
-	jieba *gojieba.Jieba
-	once  sync.Once
+// GseTokenizer implements Tokenizer using gse
+type GseTokenizer struct {
+	seg  *gse.Segmenter
+	once sync.Once
 }
 
-// NewJiebaTokenizer creates a new JiebaTokenizer
-func NewJiebaTokenizer() *JiebaTokenizer {
-	return &JiebaTokenizer{
-		jieba: gojieba.NewJieba(),
-	}
+// NewGseTokenizer creates a new GseTokenizer
+func NewGseTokenizer(dictPaths ...string) *GseTokenizer {
+	tokenizer := &GseTokenizer{}
+	tokenizer.init(dictPaths...)
+	return tokenizer
 }
 
-// Close releases jieba resources
-func (j *JiebaTokenizer) Close() {
-	j.jieba.Free()
+// init initializes the gse segmenter
+func (g *GseTokenizer) init(dictPaths ...string) {
+	g.once.Do(func() {
+		g.seg = new(gse.Segmenter)
+		if len(dictPaths) > 0 {
+			// Load custom dictionaries if provided
+			g.seg.LoadDict(dictPaths...)
+		} else {
+			// Load default dictionaries
+			g.seg.LoadDict()
+		}
+	})
 }
 
-// Cut tokenizes text into words
-func (j *JiebaTokenizer) Cut(text string) []string {
-	return j.jieba.CutForSearch(text, true)
+// Cut tokenizes text into words using search mode
+func (g *GseTokenizer) Cut(text string) []string {
+	// Use CutAll=false for precise mode, which is similar to jieba's CutForSearch
+	return g.seg.Cut(text, false)
 }
 
 // Analyze performs full text analysis with preprocessing
-func (j *JiebaTokenizer) Analyze(text string) []string {
+func (g *GseTokenizer) Analyze(text string) []string {
 	// Remove HTML tags
 	text = htmlTagRegex.ReplaceAllString(text, " ")
 
@@ -66,20 +77,30 @@ func (j *JiebaTokenizer) Analyze(text string) []string {
 	text = punctuationRegex.ReplaceAllString(text, " ")
 
 	// Tokenize
-	tokens := j.Cut(text)
+	tokens := g.Cut(text)
 
 	// Filter and normalize
 	result := make([]string, 0, len(tokens))
 	for _, token := range tokens {
 		token = strings.ToLower(strings.TrimSpace(token))
-		if token != "" {
-			if _, isStopWord := stopWords[token]; !isStopWord {
+		if token != "" { // Filter single characters
+			if !stopWords.Contains(token) {
 				result = append(result, token)
 			}
 		}
 	}
 
 	return result
+}
+
+// LoadDict reloads dictionary
+func (g *GseTokenizer) LoadDict(dictPaths ...string) error {
+	return g.seg.LoadDict(dictPaths...)
+}
+
+// Close is kept for interface compatibility (gse doesn't need explicit cleanup)
+func (g *GseTokenizer) Close() {
+	// gse doesn't require explicit resource cleanup
 }
 
 // TokenFrequency stores token frequencies for a document

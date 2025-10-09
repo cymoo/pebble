@@ -29,7 +29,7 @@ type Config struct {
 type UploadConfig struct {
 	MaxSize      int64
 	BaseURL      string
-	Path         string
+	BasePath     string
 	ImageFormats []string
 	ThumbSize    int
 }
@@ -92,10 +92,9 @@ func Load() *Config {
 
 	config.Upload = UploadConfig{
 		// MaxSize:    env.GetByteSize("UPLOAD_MAX_SIZE", 10*1024*1024), // 10 MB
-		BaseURL: env.GetString("UPLOAD_BASE_URL", "/uploads/"),
-		Path:    env.GetString("UPLOAD_PATH", "./uploads"),
-		// ImageFormats: []string{"jpg", "jpeg", "png", "gif"},
-		ImageFormats: env.GetSlice("UPLOAD_IMAGE_FORMATS"),
+		BaseURL:      env.GetString("UPLOAD_BASE_URL", "/uploads/"),
+		BasePath:     env.GetString("UPLOAD_BASE_PATH", "./uploads"),
+		ImageFormats: env.GetSlice("UPLOAD_IMAGE_FORMATS", []string{"jpg", "jpeg", "png", "webp", "gif"}),
 		ThumbSize:    env.GetInt("UPLOAD_THUMB_SIZE", 200),
 	}
 

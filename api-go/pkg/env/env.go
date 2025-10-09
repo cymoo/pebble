@@ -73,9 +73,10 @@ func GetDuration(key string, defaultValue time.Duration) time.Duration {
 	return defaultValue
 }
 
-func GetSlice(value string) []string {
-	if value == "" {
-		return []string{}
+func GetSlice(key string, defaultValue []string) []string {
+	value, exists := os.LookupEnv(key)
+	if !exists {
+		return defaultValue
 	}
 
 	parts := strings.Split(value, ",")
