@@ -182,14 +182,12 @@ func (f *FullTextSearch) Index(ctx context.Context, id int64, text string) error
 		return err
 	}
 
-	tokenSet := uniqueTokens(tokens)
-
 	// Use pipeline for atomic operations
 	pipe := f.client.Pipeline()
 	pipe.Set(ctx, f.docTokensKey(id), freqJSON, 0)
 	pipe.Incr(ctx, f.docCountKey())
 
-	for token := range tokenSet {
+	for token := range tokenFreq {
 		pipe.SAdd(ctx, f.tokenDocsKey(token), id)
 	}
 
@@ -231,36 +229,25 @@ func (f *FullTextSearch) Reindex(ctx context.Context, id int64, text string) err
 	}
 
 	// Calculate differences
-	oldTokenSet := make(map[string]struct{})
+	oldTokenSet := types.NewSet[string]()
 	for token := range oldFreq.Frequencies {
-		oldTokenSet[token] = struct{}{}
+		oldTokenSet.Add(token)
 	}
 
-	newTokenSet := uniqueTokens(newTokens)
+	newTokenSet := types.NewSet(newTokens...)
 
-	tokensToRemove := make([]string, 0)
-	for token := range oldTokenSet {
-		if _, exists := newTokenSet[token]; !exists {
-			tokensToRemove = append(tokensToRemove, token)
-		}
-	}
-
-	tokensToAdd := make([]string, 0)
-	for token := range newTokenSet {
-		if _, exists := oldTokenSet[token]; !exists {
-			tokensToAdd = append(tokensToAdd, token)
-		}
-	}
+	tokensToRemove := oldTokenSet.Difference(newTokenSet)
+	tokensToAdd := newTokenSet.Difference(oldTokenSet)
 
 	// Update index
 	pipe := f.client.Pipeline()
 	pipe.Set(ctx, f.docTokensKey(id), freqJSON, 0)
 
-	for _, token := range tokensToRemove {
+	for token := range tokensToRemove {
 		pipe.SRem(ctx, f.tokenDocsKey(token), id)
 	}
 
-	for _, token := range tokensToAdd {
+	for token := range tokensToAdd {
 		pipe.SAdd(ctx, f.tokenDocsKey(token), id)
 	}
 
@@ -517,12 +504,4 @@ func countFrequencies(tokens []string) map[string]int {
 		freq[token]++
 	}
 	return freq
-}
-
-func uniqueTokens(tokens []string) map[string]struct{} {
-	unique := make(map[string]struct{})
-	for _, token := range tokens {
-		unique[token] = struct{}{}
-	}
-	return unique
 }
