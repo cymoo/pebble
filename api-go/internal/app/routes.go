@@ -1,6 +1,9 @@
 package app
 
 import (
+	"net/http"
+	"time"
+
 	m "github.com/cymoo/mint"
 	"github.com/cymoo/pebble/internal/handlers"
 	"github.com/cymoo/pebble/internal/services"
@@ -18,6 +21,11 @@ func NewApiRouter(app *App) *chi.Mux {
 
 	uploadService := services.NewUploadService(&app.config.Upload)
 	uploadHandler := handlers.NewUploadHandler(uploadService)
+
+	r.With(RateLimit(app.redis, 60*time.Second, 5)).
+		Get("/login", m.H(func() (m.StatusCode, error) {
+			return http.StatusNoContent, nil
+		}))
 
 	r.Get("/get-tags", m.H(tagHandler.GetTags))
 	r.Post("/rename-tag", m.H(tagHandler.RenameTag))
