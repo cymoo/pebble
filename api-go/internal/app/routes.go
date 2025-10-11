@@ -24,6 +24,7 @@ func NewApiRouter(app *App) *chi.Mux {
 	r.Post("/delete-tag", m.H(tagHandler.DeleteTag))
 	r.Post("/stick-tag", m.H(tagHandler.StickTag))
 
+	r.Get("/search", m.H(postHandler.SearchPosts))
 	r.Get("/get-posts", m.H(postHandler.GetPosts))
 	r.Get("/get-post", m.H(postHandler.GetPost))
 	r.Post("/create-post", m.H(postHandler.CreatePost))

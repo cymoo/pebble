@@ -139,6 +139,11 @@ type StickyTagRequest struct {
 	Sticky bool   `json:"sticky"`
 }
 
+// SearchRequest represents the request to search posts
+type SearchRequest struct {
+	Query string `json:"query"`
+}
+
 // CreatePostRequest represents the request to create a post
 type CreatePostRequest struct {
 	Content  string     `json:"content"`
@@ -163,8 +168,8 @@ type DeletePostRequest struct {
 	Hard bool  `json:"hard,omitempty"`
 }
 
-// PostFilterOptions represents filtering options for posts
-type PostFilterOptions struct {
+// FilterPostRequest represents filtering options for posts
+type FilterPostRequest struct {
 	Cursor    *int64  `json:"cursor,omitempty"`
 	Deleted   bool    `json:"deleted"`
 	ParentID  *int64  `json:"parent_id,omitempty"`

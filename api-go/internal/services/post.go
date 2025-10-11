@@ -167,7 +167,7 @@ func (s *PostService) GetDailyCounts(ctx context.Context, startDate, endDate tim
 }
 
 // Filter retrieves posts based on filter options
-func (s *PostService) Filter(ctx context.Context, options models.PostFilterOptions, perPage int) ([]models.Post, error) {
+func (s *PostService) Filter(ctx context.Context, options models.FilterPostRequest, perPage int) ([]models.Post, error) {
 	var args []interface{}
 	var conditions []string
 

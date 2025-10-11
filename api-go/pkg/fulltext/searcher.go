@@ -195,6 +195,7 @@ type SearchResult struct {
 }
 
 // Search performs a full-text search
+// Returns the tokens, ranked results, and any error encountered
 func (f *FullTextSearch) Search(ctx context.Context, query string) ([]string, []SearchResult, error) {
 	tokens := f.tokenizer.Analyze(query)
 	if len(tokens) == 0 {

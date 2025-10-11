@@ -5,12 +5,14 @@ import (
 	"errors"
 	"log"
 	"net/http"
+	"sort"
 	"time"
 
 	m "github.com/cymoo/mint"
 	"github.com/cymoo/pebble/internal/models"
 	"github.com/cymoo/pebble/internal/services"
 	"github.com/cymoo/pebble/pkg/fulltext"
+	"github.com/cymoo/pebble/pkg/util"
 )
 
 type PostHandler struct {
@@ -26,7 +28,75 @@ func (h *PostHandler) HelloWorld() string {
 	return "hello world"
 }
 
-func (h *PostHandler) GetPosts(r *http.Request, query m.Query[models.PostFilterOptions]) (*models.PostPagination, error) {
+func (h *PostHandler) SearchPosts(r *http.Request, query m.Query[models.SearchRequest]) (*models.PostPagination, error) {
+	ctx := r.Context()
+
+	// 执行全文搜索
+	tokens, results, err := h.fts.Search(ctx, query.Value.Query)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(results) == 0 {
+		return &models.PostPagination{
+			Posts:  []models.Post{},
+			Cursor: -1,
+			Size:   0,
+		}, nil
+	}
+
+	// 构建ID到分数的映射
+	idToScore := make(map[int64]float64, len(results))
+	ids := make([]int64, 0, len(results))
+
+	for _, result := range results {
+		idToScore[result.ID] = result.Score
+		ids = append(ids, result.ID)
+	}
+
+	// 根据ID获取帖子
+	posts, err := h.postService.FindByIDs(ctx, ids)
+	if err != nil {
+		return nil, err
+	}
+
+	// 处理每个帖子的内容和分数
+	for i := range posts {
+		score, exists := idToScore[posts[i].ID]
+		if exists {
+			// 高亮内容中的令牌
+			posts[i].Content = util.Highlight(posts[i].Content, tokens)
+			posts[i].Score = &score
+		}
+	}
+
+	// 按分数降序排序
+	sort.Slice(posts, func(i, j int) bool {
+		scoreI, existsI := idToScore[posts[i].ID]
+		scoreJ, existsJ := idToScore[posts[j].ID]
+
+		if !existsI && !existsJ {
+			return false
+		}
+		if !existsI {
+			return false
+		}
+		if !existsJ {
+			return true
+		}
+		return scoreI > scoreJ
+	})
+
+	size := int64(len(posts))
+
+	return &models.PostPagination{
+		Posts:  posts,
+		Cursor: -1,
+		Size:   size,
+	}, nil
+}
+
+func (h *PostHandler) GetPosts(r *http.Request, query m.Query[models.FilterPostRequest]) (*models.PostPagination, error) {
 	posts, err := h.postService.Filter(r.Context(), query.Value, 10)
 	if err != nil {
 		log.Printf("Error fetching posts: %v", err)
