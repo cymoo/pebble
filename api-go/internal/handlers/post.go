@@ -2,15 +2,16 @@ package handlers
 
 import (
 	"context"
-	"errors"
 	"log"
 	"net/http"
 	"sort"
 	"time"
 
 	m "github.com/cymoo/mint"
+	e "github.com/cymoo/pebble/internal/errors"
 	"github.com/cymoo/pebble/internal/models"
 	"github.com/cymoo/pebble/internal/services"
+
 	"github.com/cymoo/pebble/pkg/fulltext"
 	"github.com/cymoo/pebble/pkg/util"
 )
@@ -45,7 +46,7 @@ func (h *PostHandler) SearchPosts(r *http.Request, query m.Query[models.SearchRe
 		}, nil
 	}
 
-	// 构建ID到分数的映射
+	// build a map from ID to Score
 	idToScore := make(map[int64]float64, len(results))
 	ids := make([]int64, 0, len(results))
 
@@ -54,23 +55,23 @@ func (h *PostHandler) SearchPosts(r *http.Request, query m.Query[models.SearchRe
 		ids = append(ids, result.ID)
 	}
 
-	// 根据ID获取帖子
+	// get posts by IDs
 	posts, err := h.postService.FindByIDs(ctx, ids)
 	if err != nil {
 		return nil, err
 	}
 
-	// 处理每个帖子的内容和分数
+	// process each post's content and score
 	for i := range posts {
 		score, exists := idToScore[posts[i].ID]
 		if exists {
-			// 高亮内容中的令牌
+			// highlight all occurrences of tokens in the content
 			posts[i].Content = util.Highlight(posts[i].Content, tokens)
 			posts[i].Score = &score
 		}
 	}
 
-	// 按分数降序排序
+	// order by score desc
 	sort.Slice(posts, func(i, j int) bool {
 		scoreI, existsI := idToScore[posts[i].ID]
 		scoreJ, existsJ := idToScore[posts[j].ID]
@@ -124,7 +125,7 @@ func (h *PostHandler) GetPost(r *http.Request, query m.Query[models.Id]) (*model
 	}
 
 	if post == nil {
-		return nil, errors.New("post not found")
+		return nil, e.NotFound("post not found")
 	}
 	return post, nil
 }
@@ -164,7 +165,7 @@ func (h *PostHandler) GetDailyCounts(r *http.Request, query m.Query[models.DateR
 	}
 
 	if endDate.Before(startDate) {
-		return nil, errors.New("end_date must be after start_date")
+		return nil, e.BadRequest("end_date must be after start_date")
 	}
 
 	counts, err := h.postService.GetDailyCounts(r.Context(), startDate, endDate, query.Value.Offset*60)

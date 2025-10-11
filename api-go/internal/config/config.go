@@ -31,7 +31,7 @@ type UploadConfig struct {
 	BaseURL      string
 	BasePath     string
 	ImageFormats []string
-	ThumbSize    int
+	ThumbWidth   uint32
 }
 
 type SearchConfig struct {
@@ -96,7 +96,7 @@ func Load() *Config {
 		BaseURL:      env.GetString("UPLOAD_BASE_URL", "/uploads/"),
 		BasePath:     env.GetString("UPLOAD_BASE_PATH", "./uploads"),
 		ImageFormats: env.GetSlice("UPLOAD_IMAGE_FORMATS", []string{"jpg", "jpeg", "png", "webp", "gif"}),
-		ThumbSize:    env.GetInt("UPLOAD_THUMB_SIZE", 200),
+		ThumbWidth:   uint32(env.GetInt("UPLOAD_THUMB_WIDTH", 200)),
 	}
 
 	config.Search = SearchConfig{

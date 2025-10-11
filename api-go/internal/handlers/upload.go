@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	m "github.com/cymoo/mint"
+	e "github.com/cymoo/pebble/internal/errors"
 	"github.com/cymoo/pebble/internal/models"
 	"github.com/cymoo/pebble/internal/services"
 )
@@ -19,16 +20,17 @@ func NewUploadHandler(uploadService *services.UploadService) *UploadHandler {
 func (h *UploadHandler) UploadFile(r *http.Request) (*models.FileInfo, error) {
 	file, header, err := r.FormFile("file")
 	if err != nil {
-		// http.Error(w, err.Error(), http.StatusBadRequest)
-		// return
-		return nil, err
+		return nil, e.BadRequest()
 	}
+
 	defer file.Close()
+
+	if header.Filename == "" {
+		return nil, e.NotFound("invalid upload file name")
+	}
 
 	fileInfo, err := h.uploadService.UploadFile(header)
 	if err != nil {
-		// http.Error(w, err.Error(), http.StatusInternalServerError)
-		// return
 		return nil, err
 	}
 	return fileInfo, nil
