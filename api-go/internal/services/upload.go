@@ -111,7 +111,7 @@ func (s *UploadService) processImageFile(filePath, contentType string) (*models.
 		img, err = handleExifRotation(filePath, img)
 		if err != nil {
 			// log errors, but do not fail the upload
-			log.Printf("Failed to handle EXIF rotation: %v", err)
+			log.Printf("failed to handle EXIF rotation: %v", err)
 		}
 	}
 

@@ -15,3 +15,11 @@
    ```bash
    make run
    ```
+  
+4. **热重载**
+   ```bash
+   go install github.com/air-verse/air@latest
+   # 初始化配置文件
+   # air init
+   air
+   ```

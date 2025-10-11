@@ -14,7 +14,7 @@ func NewApiRouter(app *App) *chi.Mux {
 	tagHandler := handlers.NewTagHandler(tagService)
 
 	postService := services.NewPostService(app.db)
-	postHandler := handlers.NewPostHandler(postService, app.fts)
+	postHandler := handlers.NewPostHandler(postService, tagService, app.fts)
 
 	uploadService := services.NewUploadService(&app.config.Upload)
 	uploadHandler := handlers.NewUploadHandler(uploadService)

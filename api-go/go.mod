@@ -3,7 +3,7 @@ module github.com/cymoo/pebble
 go 1.25.0
 
 require (
-	github.com/cymoo/mint v0.2.0
+	github.com/cymoo/mint v0.2.1
 	github.com/disintegration/imaging v1.6.2
 	github.com/go-chi/chi v1.5.5
 	github.com/go-ego/gse v0.80.3

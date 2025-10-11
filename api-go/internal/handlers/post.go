@@ -18,11 +18,12 @@ import (
 
 type PostHandler struct {
 	postService *services.PostService
+	tagService  *services.TagService
 	fts         *fulltext.FullTextSearch
 }
 
-func NewPostHandler(postService *services.PostService, fts *fulltext.FullTextSearch) *PostHandler {
-	return &PostHandler{postService: postService, fts: fts}
+func NewPostHandler(postService *services.PostService, tagService *services.TagService, fts *fulltext.FullTextSearch) *PostHandler {
+	return &PostHandler{postService: postService, tagService: tagService, fts: fts}
 }
 
 func (h *PostHandler) HelloWorld() string {
@@ -32,10 +33,10 @@ func (h *PostHandler) HelloWorld() string {
 func (h *PostHandler) SearchPosts(r *http.Request, query m.Query[models.SearchRequest]) (*models.PostPagination, error) {
 	ctx := r.Context()
 
-	// 执行全文搜索
 	tokens, results, err := h.fts.Search(ctx, query.Value.Query)
 	if err != nil {
-		return nil, err
+		log.Printf("error searching: %v", err)
+		return nil, e.InternalError()
 	}
 
 	if len(results) == 0 {
@@ -100,8 +101,8 @@ func (h *PostHandler) SearchPosts(r *http.Request, query m.Query[models.SearchRe
 func (h *PostHandler) GetPosts(r *http.Request, query m.Query[models.FilterPostRequest]) (*models.PostPagination, error) {
 	posts, err := h.postService.Filter(r.Context(), query.Value, 10)
 	if err != nil {
-		log.Printf("Error fetching posts: %v", err)
-		return nil, err
+		log.Printf("error getting posts: %v", err)
+		return nil, e.InternalError()
 	}
 
 	// Determine the new cursor based on the last post's CreatedAt
@@ -121,7 +122,8 @@ func (h *PostHandler) GetPosts(r *http.Request, query m.Query[models.FilterPostR
 func (h *PostHandler) GetPost(r *http.Request, query m.Query[models.Id]) (*models.Post, error) {
 	post, err := h.postService.FindByID(r.Context(), query.Value.Id)
 	if err != nil {
-		return nil, err
+		log.Printf("error getting post: %v", err)
+		return nil, e.InternalError()
 	}
 
 	if post == nil {
@@ -136,7 +138,7 @@ func (h *PostHandler) GetStats(r *http.Request) (*models.PostStats, error) {
 		return nil, err
 	}
 
-	tagCount, err := h.postService.GetCount(r.Context())
+	tagCount, err := h.tagService.GetCount(r.Context())
 	if err != nil {
 		return nil, err
 	}
