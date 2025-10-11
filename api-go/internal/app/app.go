@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/cymoo/pebble/internal/config"
+	"github.com/cymoo/pebble/pkg/fulltext"
 	"github.com/go-chi/chi"
 	"github.com/go-chi/chi/middleware"
 
@@ -23,6 +24,7 @@ type App struct {
 	config *config.Config
 	db     *sqlx.DB
 	redis  *redis.Client
+	fts    *fulltext.FullTextSearch
 	server *http.Server
 }
 
@@ -32,16 +34,18 @@ func New(cfg *config.Config) *App {
 	}
 }
 
-// Initialize 初始化数据库和Redis连接
 func (app *App) Initialize() error {
-	// 初始化数据库
 	if err := app.initDatabase(); err != nil {
 		return fmt.Errorf("failed to initialize database: %w", err)
 	}
 
-	// if err := app.initRedis(); err != nil {
-	// 	return fmt.Errorf("failed to initialize redis: %w", err)
-	// }
+	if err := app.initRedis(); err != nil {
+		return fmt.Errorf("failed to initialize redis: %w", err)
+	}
+
+	if err := app.initFullTextSearch(); err != nil {
+		return fmt.Errorf("failed to initialize full-text search: %w", err)
+	}
 
 	// 运行数据库迁移
 	// if err := database.Migrate(app.db); err != nil {
@@ -96,6 +100,18 @@ func (app *App) initRedis() error {
 	}
 
 	log.Println("Redis connection established successfully")
+	return nil
+}
+
+func (app *App) initFullTextSearch() error {
+	app.fts = fulltext.NewFullTextSearch(
+		app.redis,
+		fulltext.NewGseTokenizer(),
+		app.config.Search.PartialMatch,
+		app.config.Search.MaxResults,
+		app.config.Search.KeyPrefix,
+	)
+	log.Println("Full-text search initialized successfully")
 	return nil
 }
 

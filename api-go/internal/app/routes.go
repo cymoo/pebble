@@ -13,13 +13,16 @@ func NewApiRouter(app *App) *chi.Mux {
 	tagService := services.NewTagService(app.db)
 	tagHandler := handlers.NewTagHandler(tagService)
 
+	postService := services.NewPostService(app.db)
+	postHandler := handlers.NewPostHandler(postService, app.fts)
+
+	uploadService := services.NewUploadService(&app.config.Upload)
+	uploadHandler := handlers.NewUploadHandler(uploadService)
+
 	r.Get("/get-tags", m.H(tagHandler.GetTags))
 	r.Post("/rename-tag", m.H(tagHandler.RenameTag))
 	r.Post("/delete-tag", m.H(tagHandler.DeleteTag))
 	r.Post("/stick-tag", m.H(tagHandler.StickTag))
-
-	postService := services.NewPostService(app.db)
-	postHandler := handlers.NewPostHandler(postService)
 
 	r.Get("/get-posts", m.H(postHandler.GetPosts))
 	r.Get("/get-post", m.H(postHandler.GetPost))
@@ -31,9 +34,6 @@ func NewApiRouter(app *App) *chi.Mux {
 
 	r.Get("/get-overall-counts", m.H(postHandler.GetStats))
 	r.Get("/get-daily-post-counts", m.H(postHandler.GetDailyCounts))
-
-	uploadService := services.NewUploadService(&app.config.Upload)
-	uploadHandler := handlers.NewUploadHandler(uploadService)
 
 	r.Post("/upload", m.H(uploadHandler.UploadFile))
 	r.Get("/upload", m.H(uploadHandler.SimpleFileForm))

@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"errors"
 	"log"
 	"net/http"
@@ -9,14 +10,16 @@ import (
 	m "github.com/cymoo/mint"
 	"github.com/cymoo/pebble/internal/models"
 	"github.com/cymoo/pebble/internal/services"
+	"github.com/cymoo/pebble/pkg/fulltext"
 )
 
 type PostHandler struct {
 	postService *services.PostService
+	fts         *fulltext.FullTextSearch
 }
 
-func NewPostHandler(postService *services.PostService) *PostHandler {
-	return &PostHandler{postService: postService}
+func NewPostHandler(postService *services.PostService, fts *fulltext.FullTextSearch) *PostHandler {
+	return &PostHandler{postService: postService, fts: fts}
 }
 
 func (h *PostHandler) HelloWorld() string {
@@ -106,6 +109,14 @@ func (h *PostHandler) CreatePost(r *http.Request, body m.JSON[models.CreatePostR
 	if err != nil {
 		return nil, err
 	}
+
+	go func() {
+		ctx := context.Background()
+		if err := h.fts.Index(ctx, rv.ID, body.Value.Content); err != nil {
+			log.Printf("error indexing post %d: %v", rv.ID, err)
+		}
+	}()
+
 	return rv, nil
 }
 
@@ -114,6 +125,16 @@ func (h *PostHandler) UpdatePost(r *http.Request, body m.JSON[models.UpdatePostR
 	if err != nil {
 		return 0, err
 	}
+
+	if body.Value.Content != nil {
+		go func() {
+			ctx := context.Background()
+			if err := h.fts.Reindex(ctx, body.Value.ID, *body.Value.Content); err != nil {
+				log.Printf("error reindexing post %d: %v", body.Value.ID, err)
+			}
+		}()
+	}
+
 	return 204, nil
 }
 
@@ -123,10 +144,18 @@ func (h *PostHandler) DeletePost(r *http.Request, payload m.JSON[models.DeletePo
 		if err != nil {
 			return 0, err
 		}
+
+		go func() {
+			ctx := context.Background()
+			if err := h.fts.Deindex(ctx, payload.Value.ID); err != nil {
+				log.Printf("error deleting post %d from index: %v", payload.Value.ID, err)
+			}
+		}()
+
 	} else {
 		err := h.postService.Delete(r.Context(), payload.Value.ID)
 		if err != nil {
-			log.Printf("Error deleting post: %v", err)
+			log.Printf("error deleting post: %v", err)
 			return 0, err
 		}
 	}
@@ -147,6 +176,16 @@ func (h *PostHandler) ClearPosts(r *http.Request) (m.StatusCode, error) {
 	if err != nil {
 		return 0, err
 	}
-	log.Printf("Cleared posts: %v", ids)
+	log.Printf("cleared posts: %v", ids)
+
+	go func() {
+		ctx := context.Background()
+		for _, id := range ids {
+			if err := h.fts.Deindex(ctx, id); err != nil {
+				log.Printf("error deleting post %d from index: %v", id, err)
+			}
+		}
+	}()
+
 	return 204, nil
 }

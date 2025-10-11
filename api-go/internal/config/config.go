@@ -37,6 +37,7 @@ type UploadConfig struct {
 type SearchConfig struct {
 	MaxResults   int
 	PartialMatch bool
+	KeyPrefix    string
 }
 
 type DBConfig struct {
@@ -101,6 +102,7 @@ func Load() *Config {
 	config.Search = SearchConfig{
 		MaxResults:   env.GetInt("SEARCH_MAX_RESULTS", 100),
 		PartialMatch: env.GetBool("SEARCH_PARTIAL_MATCH", true),
+		KeyPrefix:    env.GetString("SEARCH_KEY_PREFIX", ""),
 	}
 
 	config.AppName = env.GetString("APP_NAME", "Pebble")
