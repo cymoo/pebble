@@ -61,7 +61,7 @@ func (app *App) Initialize() error {
 func (app *App) initDatabase() error {
 	db, err := sqlx.Connect("sqlite3", app.config.DB.URL)
 	if err != nil {
-		log.Printf("Database connection error: %v", app.config.DB.URL)
+		log.Printf("database connection error: %v", app.config.DB.URL)
 		return err
 	}
 
@@ -80,7 +80,7 @@ func (app *App) initDatabase() error {
 	}
 
 	app.db = db
-	log.Println("Database connection established successfully")
+	log.Println("database connection established successfully")
 	return nil
 }
 
@@ -99,7 +99,7 @@ func (app *App) initRedis() error {
 		return err
 	}
 
-	log.Println("Redis connection established successfully")
+	log.Println("redis connection established successfully")
 	return nil
 }
 
@@ -111,7 +111,7 @@ func (app *App) initFullTextSearch() error {
 		app.config.Search.MaxResults,
 		app.config.Search.KeyPrefix,
 	)
-	log.Println("Full-text search initialized successfully")
+	log.Println("full-text search initialized successfully")
 	return nil
 }
 
@@ -143,7 +143,7 @@ func (app *App) setupRoutes() {
 func (app *App) healthHandler(w http.ResponseWriter, r *http.Request) {
 	// 检查数据库连接
 	if err := app.db.Ping(); err != nil {
-		http.Error(w, "Database not available", http.StatusServiceUnavailable)
+		http.Error(w, "database not available", http.StatusServiceUnavailable)
 		return
 	}
 
@@ -151,7 +151,7 @@ func (app *App) healthHandler(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), 2*time.Second)
 	defer cancel()
 	if err := app.redis.Ping(ctx).Err(); err != nil {
-		http.Error(w, "Redis not available", http.StatusServiceUnavailable)
+		http.Error(w, "redis not available", http.StatusServiceUnavailable)
 		return
 	}
 
@@ -165,7 +165,7 @@ func (app *App) Run() error {
 	go func() {
 		log.Printf("Server starting on %s", app.server.Addr)
 		if err := app.server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			log.Fatalf("Server failed to start: %v", err)
+			log.Fatalf("server failed to start: %v", err)
 		}
 	}()
 
@@ -174,7 +174,7 @@ func (app *App) Run() error {
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
 
-	log.Println("Shutting down server...")
+	log.Println("shutting down server...")
 	return app.Shutdown()
 }
 
@@ -202,7 +202,7 @@ func (app *App) Shutdown() error {
 		}
 	}
 
-	log.Println("Server shutdown completed")
+	log.Println("server shutdown completed")
 	return nil
 }
 

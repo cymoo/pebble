@@ -204,9 +204,9 @@ type CreateResponse struct {
 	UpdatedAt int64 `json:"updated_at"`
 }
 
-// Id represents a simple ID query string parameter
-type Id struct {
-	Id int64 `json:"id" schema:"id"`
+// ID represents a simple ID query string parameter
+type ID struct {
+	ID int64 `json:"id" schema:"id"`
 }
 
 // Name represents a simple Name query string parameter

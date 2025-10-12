@@ -26,7 +26,7 @@ func NewApiRouter(app *App) *chi.Mux {
 
 	authService := services.NewAuthService()
 
-	r.Use(SimpleAuthCheck(authService, "/api/login", "/api/hello"))
+	r.Use(SimpleAuthCheck(authService, "/api/login"))
 
 	r.With(RateLimit(app.redis, 60*time.Second, 5)).
 		Post("/login", m.H(func(payload m.JSON[models.LoginRequest]) (m.StatusCode, error) {

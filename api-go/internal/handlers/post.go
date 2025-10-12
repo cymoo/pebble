@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"net/http"
 	"sort"
@@ -35,7 +36,7 @@ func (h *PostHandler) SearchPosts(r *http.Request, query m.Query[models.SearchRe
 
 	tokens, results, err := h.fts.Search(ctx, query.Value.Query)
 	if err != nil {
-		log.Printf("error searching: %v", err)
+		log.Printf("error searching posts with query %q: %v", query.Value.Query, err)
 		return nil, e.InternalError()
 	}
 
@@ -59,6 +60,7 @@ func (h *PostHandler) SearchPosts(r *http.Request, query m.Query[models.SearchRe
 	// get posts by IDs
 	posts, err := h.postService.FindByIDs(ctx, ids)
 	if err != nil {
+		log.Printf("error finding posts with ids %v: %v", ids, err)
 		return nil, err
 	}
 
@@ -119,10 +121,11 @@ func (h *PostHandler) GetPosts(r *http.Request, query m.Query[models.FilterPostR
 	}, nil
 }
 
-func (h *PostHandler) GetPost(r *http.Request, query m.Query[models.Id]) (*models.Post, error) {
-	post, err := h.postService.FindByID(r.Context(), query.Value.Id)
+func (h *PostHandler) GetPost(r *http.Request, query m.Query[models.ID]) (*models.Post, error) {
+	id := query.Value.ID
+	post, err := h.postService.FindByID(r.Context(), id)
 	if err != nil {
-		log.Printf("error getting post: %v", err)
+		log.Printf("error getting post %d: %v", id, err)
 		return nil, e.InternalError()
 	}
 
@@ -135,16 +138,19 @@ func (h *PostHandler) GetPost(r *http.Request, query m.Query[models.Id]) (*model
 func (h *PostHandler) GetStats(r *http.Request) (*models.PostStats, error) {
 	postCount, err := h.postService.GetCount(r.Context())
 	if err != nil {
+		log.Printf("error getting post count: %v", err)
 		return nil, err
 	}
 
 	tagCount, err := h.tagService.GetCount(r.Context())
 	if err != nil {
+		log.Printf("error getting tag count: %v", err)
 		return nil, err
 	}
 
 	dayCount, err := h.postService.GetActiveDays(r.Context())
 	if err != nil {
+		log.Printf("error getting active days: %v", err)
 		return nil, err
 	}
 
@@ -156,14 +162,16 @@ func (h *PostHandler) GetStats(r *http.Request) (*models.PostStats, error) {
 }
 
 func (h *PostHandler) GetDailyCounts(r *http.Request, query m.Query[models.DateRange]) ([]int64, error) {
-	startDate, err := time.Parse(time.DateOnly, query.Value.StartDate)
+	startDateStr := query.Value.StartDate
+	endDateStr := query.Value.EndDate
+	startDate, err := time.Parse(time.DateOnly, startDateStr)
 	if err != nil {
-		return nil, err
+		return nil, e.BadRequest(fmt.Sprintf("invalid date %q: must be in YYYY-MM-DD format", startDateStr))
 	}
 
-	endDate, err := time.Parse(time.DateOnly, query.Value.EndDate)
+	endDate, err := time.Parse(time.DateOnly, endDateStr)
 	if err != nil {
-		return nil, err
+		return nil, e.BadRequest(fmt.Sprintf("invalid date %q: must be in YYYY-MM-DD format", endDateStr))
 	}
 
 	if endDate.Before(startDate) {
@@ -172,6 +180,7 @@ func (h *PostHandler) GetDailyCounts(r *http.Request, query m.Query[models.DateR
 
 	counts, err := h.postService.GetDailyCounts(r.Context(), startDate, endDate, query.Value.Offset*60)
 	if err != nil {
+		log.Printf("error getting daily post counts: %v", err)
 		return nil, err
 	}
 	return counts, nil
@@ -180,6 +189,7 @@ func (h *PostHandler) GetDailyCounts(r *http.Request, query m.Query[models.DateR
 func (h *PostHandler) CreatePost(r *http.Request, body m.JSON[models.CreatePostRequest]) (*models.CreateResponse, error) {
 	rv, err := h.postService.Create(r.Context(), body.Value)
 	if err != nil {
+		log.Printf("error creating post: %v", err)
 		return nil, err
 	}
 
@@ -194,16 +204,18 @@ func (h *PostHandler) CreatePost(r *http.Request, body m.JSON[models.CreatePostR
 }
 
 func (h *PostHandler) UpdatePost(r *http.Request, body m.JSON[models.UpdatePostRequest]) (m.StatusCode, error) {
+	id := body.Value.ID
 	err := h.postService.Update(r.Context(), body.Value)
 	if err != nil {
+		log.Printf("error updating post %d: %v", id, err)
 		return 0, err
 	}
 
 	if body.Value.Content != nil {
 		go func() {
 			ctx := context.Background()
-			if err := h.fts.Reindex(ctx, body.Value.ID, *body.Value.Content); err != nil {
-				log.Printf("error reindexing post %d: %v", body.Value.ID, err)
+			if err := h.fts.Reindex(ctx, id, *body.Value.Content); err != nil {
+				log.Printf("error reindexing post %d: %v", id, err)
 			}
 		}()
 	}
@@ -212,23 +224,26 @@ func (h *PostHandler) UpdatePost(r *http.Request, body m.JSON[models.UpdatePostR
 }
 
 func (h *PostHandler) DeletePost(r *http.Request, payload m.JSON[models.DeletePostRequest]) (m.StatusCode, error) {
+	id := payload.Value.ID
+
 	if payload.Value.Hard {
-		err := h.postService.HardDelete(r.Context(), payload.Value.ID)
+		err := h.postService.HardDelete(r.Context(), id)
 		if err != nil {
+			log.Printf("error hard deleting post %d: %v", id, err)
 			return 0, err
 		}
 
 		go func() {
 			ctx := context.Background()
-			if err := h.fts.Deindex(ctx, payload.Value.ID); err != nil {
-				log.Printf("error deleting post %d from index: %v", payload.Value.ID, err)
+			if err := h.fts.Deindex(ctx, id); err != nil {
+				log.Printf("error deleting post %d from index: %v", id, err)
 			}
 		}()
 
 	} else {
-		err := h.postService.Delete(r.Context(), payload.Value.ID)
+		err := h.postService.Delete(r.Context(), id)
 		if err != nil {
-			log.Printf("error deleting post: %v", err)
+			log.Printf("error deleting post %d: %v", id, err)
 			return 0, err
 		}
 	}
@@ -236,9 +251,11 @@ func (h *PostHandler) DeletePost(r *http.Request, payload m.JSON[models.DeletePo
 	return 204, nil
 }
 
-func (h *PostHandler) RestorePost(r *http.Request, payload m.JSON[models.Id]) (m.StatusCode, error) {
-	err := h.postService.Restore(r.Context(), payload.Value.Id)
+func (h *PostHandler) RestorePost(r *http.Request, payload m.JSON[models.ID]) (m.StatusCode, error) {
+	id := payload.Value.ID
+	err := h.postService.Restore(r.Context(), id)
 	if err != nil {
+		log.Printf("error restoring post %d: %v", id, err)
 		return 0, err
 	}
 	return 204, nil
@@ -247,6 +264,7 @@ func (h *PostHandler) RestorePost(r *http.Request, payload m.JSON[models.Id]) (m
 func (h *PostHandler) ClearPosts(r *http.Request) (m.StatusCode, error) {
 	ids, err := h.postService.ClearAll(r.Context())
 	if err != nil {
+		log.Printf("error clearing posts: %v", err)
 		return 0, err
 	}
 	log.Printf("cleared posts: %v", ids)

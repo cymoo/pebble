@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"errors"
+	"log"
 	"net/http"
 
 	m "github.com/cymoo/mint"
@@ -20,6 +21,7 @@ func NewTagHandler(tagService *services.TagService) *TagHandler {
 func (h *TagHandler) GetTags(r *http.Request) ([]models.TagWithPostCount, error) {
 	tags, err := h.tagService.GetAllWithPostCount(r.Context())
 	if err != nil {
+		log.Printf("error getting tags: %v", err)
 		return nil, err
 	}
 	if tags == nil {
@@ -29,24 +31,31 @@ func (h *TagHandler) GetTags(r *http.Request) ([]models.TagWithPostCount, error)
 }
 
 func (h *TagHandler) RenameTag(r *http.Request, payload m.JSON[models.RenameTagRequest]) (m.StatusCode, error) {
-	err := h.tagService.RenameOrMerge(r.Context(), payload.Value.Name, payload.Value.NewName)
+	oldName := payload.Value.Name
+	newName := payload.Value.NewName
+	err := h.tagService.RenameOrMerge(r.Context(), oldName, newName)
 	if err != nil {
+		log.Printf("error renaming tag %q to %q: %v", oldName, newName, err)
 		return 0, err
 	}
 	return m.StatusCode(204), nil
 }
 
 func (h *TagHandler) DeleteTag(r *http.Request, payload m.JSON[models.Name]) (m.StatusCode, error) {
-	err := h.tagService.DeleteAssociatedPosts(r.Context(), payload.Value.Name)
+	tagName := payload.Value.Name
+	err := h.tagService.DeleteAssociatedPosts(r.Context(), tagName)
 	if err != nil {
+		log.Printf("error delete tag %q: %v", tagName, err)
 		return 0, err
 	}
 	return m.StatusCode(204), nil
 }
 
 func (h *TagHandler) StickTag(r *http.Request, payload m.JSON[models.StickyTagRequest]) (m.StatusCode, error) {
-	err := h.tagService.InsertOrUpdate(r.Context(), payload.Value.Name, payload.Value.Sticky)
+	tagName := payload.Value.Name
+	err := h.tagService.InsertOrUpdate(r.Context(), tagName, payload.Value.Sticky)
 	if err != nil {
+		log.Printf("error updating tag %q: %v", tagName, err)
 		return 0, err
 	}
 	return m.StatusCode(204), nil

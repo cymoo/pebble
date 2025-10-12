@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"log"
 	"net/http"
 
 	m "github.com/cymoo/mint"
@@ -31,6 +32,7 @@ func (h *UploadHandler) UploadFile(r *http.Request) (*models.FileInfo, error) {
 
 	fileInfo, err := h.uploadService.UploadFile(header)
 	if err != nil {
+		log.Printf("error handling uploaded file: %v", err)
 		return nil, err
 	}
 	return fileInfo, nil
