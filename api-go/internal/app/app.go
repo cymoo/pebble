@@ -35,6 +35,13 @@ func New(cfg *config.Config) *App {
 }
 
 func (app *App) Initialize() error {
+	configJSON, err := app.config.ToJSON(true)
+	if err != nil {
+		panic(err)
+	}
+	log.Printf("app config:\n%s", configJSON)
+	log.Println("=================================")
+
 	if err := app.initDatabase(); err != nil {
 		return fmt.Errorf("failed to initialize database: %w", err)
 	}
@@ -163,7 +170,7 @@ func (app *App) healthHandler(w http.ResponseWriter, r *http.Request) {
 // Run 启动应用服务器
 func (app *App) Run() error {
 	go func() {
-		log.Printf("Server starting on %s", app.server.Addr)
+		log.Printf("server starting on %s", app.server.Addr)
 		if err := app.server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			log.Fatalf("server failed to start: %v", err)
 		}

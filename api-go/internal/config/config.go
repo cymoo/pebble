@@ -1,6 +1,9 @@
 package config
 
 import (
+	"encoding/json"
+	"fmt"
+	"strings"
 	"time"
 
 	"github.com/cymoo/pebble/pkg/env"
@@ -63,7 +66,7 @@ type CORSConfig struct {
 type HTTPConfig struct {
 	IP           string
 	Port         int
-	MaxBodySize  string
+	MaxBodySize  int64
 	ReadTimeout  time.Duration
 	WriteTimeout time.Duration
 	IdleTimeout  time.Duration
@@ -81,6 +84,7 @@ func Load() *Config {
 	config.HTTP = HTTPConfig{
 		IP:           env.GetString("HTTP_IP", "localhost"),
 		Port:         env.GetInt("HTTP_PORT", 8080),
+		MaxBodySize:  env.GetByteSize("HTTP_MAX_BODY_SIZE", 1024*1024*5),
 		ReadTimeout:  env.GetDuration("HTTP_READ_TIMEOUT", 10*time.Second),
 		WriteTimeout: env.GetDuration("HTTP_WRITE_TIMEOUT", 10*time.Second),
 		IdleTimeout:  env.GetDuration("HTTP_IDLE_TIMEOUT", 30*time.Second),
@@ -127,4 +131,58 @@ func Load() *Config {
 	config.StaticURL = env.GetString("STATIC_BASE_URL", "/static/")
 
 	return config
+}
+
+func (c *Config) ToJSON(hideSensitive bool) (string, error) {
+	// 创建一个副本以避免暴露敏感信息
+	safe := *c
+
+	if hideSensitive {
+		safe.DB.URL = maskSensitive(safe.DB.URL)
+		safe.Redis.URL = maskSensitive(safe.Redis.URL)
+		safe.Redis.Password = maskSecret(safe.Redis.Password)
+	}
+
+	data, err := json.MarshalIndent(safe, "", "  ")
+	if err != nil {
+		return "", fmt.Errorf("failed to marshal config to JSON: %w", err)
+	}
+
+	return string(data), nil
+}
+
+// maskSensitive 遮蔽敏感信息（如密码等）
+func maskSensitive(url string) string {
+	// 简单的URL密码遮蔽
+	if strings.Contains(url, "://") {
+		parts := strings.Split(url, "://")
+		if len(parts) == 2 {
+			scheme := parts[0]
+			rest := parts[1]
+
+			// 查找用户信息部分
+			if atIndex := strings.Index(rest, "@"); atIndex != -1 {
+				userInfo := rest[:atIndex]
+				hostPath := rest[atIndex:]
+
+				// 遮蔽密码部分
+				if colonIndex := strings.Index(userInfo, ":"); colonIndex != -1 {
+					username := userInfo[:colonIndex]
+					return fmt.Sprintf("%s://%s:***%s", scheme, username, hostPath)
+				}
+			}
+		}
+	}
+	return url
+}
+
+// maskSecret 遮蔽密钥信息
+func maskSecret(secret string) string {
+	if secret == "" {
+		return ""
+	}
+	if len(secret) <= 8 {
+		return "***"
+	}
+	return secret[:4] + "***" + secret[len(secret)-4:]
 }
