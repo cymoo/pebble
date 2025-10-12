@@ -166,12 +166,12 @@ func (h *PostHandler) GetDailyCounts(r *http.Request, query m.Query[models.DateR
 	endDateStr := query.Value.EndDate
 	startDate, err := time.Parse(time.DateOnly, startDateStr)
 	if err != nil {
-		return nil, e.BadRequest(fmt.Sprintf("invalid date %q: must be in YYYY-MM-DD format", startDateStr))
+		return nil, e.BadRequest(fmt.Sprintf("invalid date '%s': must be in YYYY-MM-DD format", startDateStr))
 	}
 
 	endDate, err := time.Parse(time.DateOnly, endDateStr)
 	if err != nil {
-		return nil, e.BadRequest(fmt.Sprintf("invalid date %q: must be in YYYY-MM-DD format", endDateStr))
+		return nil, e.BadRequest(fmt.Sprintf("invalid date '%s': must be in YYYY-MM-DD format", endDateStr))
 	}
 
 	if endDate.Before(startDate) {
