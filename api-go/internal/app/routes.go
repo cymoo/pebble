@@ -5,7 +5,9 @@ import (
 	"time"
 
 	m "github.com/cymoo/mint"
+	e "github.com/cymoo/pebble/internal/errors"
 	"github.com/cymoo/pebble/internal/handlers"
+	"github.com/cymoo/pebble/internal/models"
 	"github.com/cymoo/pebble/internal/services"
 	"github.com/go-chi/chi"
 )
@@ -22,10 +24,20 @@ func NewApiRouter(app *App) *chi.Mux {
 	uploadService := services.NewUploadService(&app.config.Upload)
 	uploadHandler := handlers.NewUploadHandler(uploadService)
 
+	authService := services.NewAuthService()
+
+	r.Use(SimpleAuthCheck(authService, "/api/login", "/api/hello"))
+
 	r.With(RateLimit(app.redis, 60*time.Second, 5)).
-		Get("/login", m.H(func() (m.StatusCode, error) {
-			return http.StatusNoContent, nil
+		Post("/login", m.H(func(payload m.JSON[models.LoginRequest]) (m.StatusCode, error) {
+			if authService.IsValidToken(payload.Value.Password) {
+				return http.StatusNoContent, nil
+			} else {
+				return 0, e.Unauthorized("password is wrong")
+			}
 		}))
+
+	r.Get("/hello", m.H(postHandler.HelloWorld))
 
 	r.Get("/get-tags", m.H(tagHandler.GetTags))
 	r.Post("/rename-tag", m.H(tagHandler.RenameTag))

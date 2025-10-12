@@ -219,3 +219,7 @@ type DateRange struct {
 	EndDate   string `json:"end_date" schema:"end_date"`
 	Offset    int    `json:"offset" schema:"offset"` // in minutes
 }
+
+type LoginRequest struct {
+	Password string `json:"password"`
+}

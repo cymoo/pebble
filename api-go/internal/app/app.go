@@ -119,8 +119,8 @@ func (app *App) setupRoutes() {
 	r := chi.NewRouter()
 
 	r.Use(middleware.Logger)
-	r.Use(PanicRecovery)
-	r.Use(CORS(app.config.HTTP.CORSOrigins))
+	r.Use(PanicRecovery(app.config.Debug))
+	r.Use(CORS(app.config.HTTP.CORS))
 
 	r.Handle(app.config.Upload.BaseURL+"/*", http.StripPrefix(
 		app.config.Upload.BaseURL,

@@ -52,6 +52,14 @@ type RedisConfig struct {
 	PoolSize int
 }
 
+type CORSConfig struct {
+	AllowedOrigins   []string
+	AllowedMethods   []string
+	AllowedHeaders   []string
+	AllowCredentials bool
+	MaxAge           int
+}
+
 type HTTPConfig struct {
 	IP           string
 	Port         int
@@ -59,7 +67,7 @@ type HTTPConfig struct {
 	ReadTimeout  time.Duration
 	WriteTimeout time.Duration
 	IdleTimeout  time.Duration
-	CORSOrigins  []string
+	CORS         CORSConfig
 }
 
 func Load() *Config {
@@ -76,7 +84,13 @@ func Load() *Config {
 		ReadTimeout:  env.GetDuration("HTTP_READ_TIMEOUT", 10*time.Second),
 		WriteTimeout: env.GetDuration("HTTP_WRITE_TIMEOUT", 10*time.Second),
 		IdleTimeout:  env.GetDuration("HTTP_IDLE_TIMEOUT", 30*time.Second),
-		CORSOrigins:  []string{}, // TODO: 从环境变量加载
+		CORS: CORSConfig{
+			AllowedOrigins:   env.GetSlice("CORS_ALLOWED_ORIGINS", []string{}),
+			AllowedMethods:   env.GetSlice("CORS_ALLOWED_METHODS", []string{}),
+			AllowedHeaders:   env.GetSlice("CORS_ALLOWED_HEADERS", []string{}),
+			AllowCredentials: env.GetBool("CORS_ALLOW_CREDENTIALS", true),
+			MaxAge:           env.GetInt("CORS_MAX_AGE", 3600*24),
+		},
 	}
 
 	config.DB = DBConfig{
