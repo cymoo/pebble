@@ -13,9 +13,6 @@ import (
 // Task 任务函数类型
 type Task func(ctx context.Context) error
 
-// // TaskFunc 带依赖的任务函数类型（推荐使用）
-// type TaskFunc[T any] func(ctx context.Context, deps T) error
-
 // TaskInfo 任务信息
 type TaskInfo struct {
 	Name       string
@@ -33,7 +30,6 @@ type TaskInfo struct {
 }
 
 // TaskManager 任务管理器
-// type TaskManager[T any] struct {
 type TaskManager struct {
 	cron             *cron.Cron
 	tasks            map[string]*TaskInfo
@@ -45,7 +41,6 @@ type TaskManager struct {
 	maxConcurrent    int           // 最大并发任务数，0 表示无限制
 	semaphore        chan struct{} // 用于限制并发
 	allowOverlapping bool          // 是否允许同一任务重叠执行
-	// deps             T             // 依赖注入
 }
 
 // Option 配置选项
@@ -82,13 +77,6 @@ func WithAllowOverlapping(allow bool) Option {
 	}
 }
 
-// WithDependencies 设置依赖注入（推荐方式）
-// func WithDependencies[T any](deps T) Option[T] {
-// 	return func(tm *TaskManager) {
-// 		tm.deps = deps
-// 	}
-// }
-
 // New 创建新的任务管理器
 func New(opts ...Option) *TaskManager {
 	ctx, cancel := context.WithCancel(context.Background())
@@ -116,13 +104,6 @@ func (tm *TaskManager) AddTask(name, schedule string, task Task) error {
 		return task(ctx)
 	})
 }
-
-// // AddTaskWithDeps 添加任务（推荐方式，使用依赖注入）
-// func (tm *TaskManager[T]) AddTaskWithDeps(name, schedule string, task TaskFunc[T]) error {
-// 	return tm.addTaskInternal(name, schedule, func(ctx context.Context) error {
-// 		return task(ctx, tm.deps)
-// 	})
-// }
 
 // addTaskInternal 内部添加任务的实现
 func (tm *TaskManager) addTaskInternal(name, schedule string, task Task) error {

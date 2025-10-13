@@ -34,14 +34,14 @@ var tm *taskmanager.TaskManager
 
 func main() {
 	// 初始化应用依赖
-	app := &App{
-		Config: &Config{
-			AppName: "MyApp",
-			Version: "1.0.0",
-		},
-		DB:    initDB(),
-		Redis: initRedis(),
-	}
+	// app := &App{
+	// 	Config: &Config{
+	// 		AppName: "MyApp",
+	// 		Version: "1.0.0",
+	// 	},
+	// 	DB:    initDB(),
+	// 	Redis: initRedis(),
+	// }
 
 	// 创建任务管理器，注入依赖
 	logger := log.New(os.Stdout, "[TaskManager] ", log.LstdFlags)
@@ -102,8 +102,8 @@ func main() {
 	}
 
 	// 关闭依赖
-	app.DB.Close()
-	app.Redis.Close()
+	// app.DB.Close()
+	// app.Redis.Close()
 
 	log.Println("Server exited")
 }
@@ -111,8 +111,10 @@ func main() {
 // setupTasks 设置任务（使用依赖注入）
 func setupTasks() {
 	// 方式 1: 使用 AddTaskWithDeps（推荐）
-	tm.AddTask("clean-data", "0 0 3 * * *", func(ctx context.Context) error {
+	// tm.AddTask("clean-data", "0 0 3 * * *", func(ctx context.Context) error {
+	tm.AddTask("clean-data", "0 * * * * *", func(ctx context.Context) error {
 		log.Printf("[%s] Cleaning data from database...", "foo")
+		time.Sleep(3 * time.Second)
 
 		// 直接使用注入的依赖
 		// var count int
@@ -130,7 +132,8 @@ func setupTasks() {
 	})
 
 	// 方式 2: 使用 Redis 缓存
-	tm.AddTask("clear-cache", "0 0 * * * *", func(ctx context.Context) error {
+	// tm.AddTask("clear-cache", "0 0 * * * *", func(ctx context.Context) error {
+	tm.AddTask("clear-cache", "0 */2 * * * *", func(ctx context.Context) error {
 		log.Println("Clearing expired cache...")
 
 		// // 使用 Redis
@@ -191,25 +194,26 @@ func setupTasks() {
 
 	// 方式 5: 兼容旧方式（不推荐，但仍支持）
 	// 如果你需要通过 context 传递依赖（不推荐）
-	tm.AddTask("legacy-task", "0 0 * * * *", func(ctx context.Context) error {
+	// tm.AddTask("legacy-task", "0 0 * * * *", func(ctx context.Context) error {
+	tm.AddTask("legacy-task", "0 */3 * * * *", func(ctx context.Context) error {
 		// 这种方式需要从 context 中获取依赖，不够优雅
 		log.Println("Legacy task executed")
 		return nil
 	})
 }
 
-// 初始化函数（示例）
-func initDB() *sqlx.DB {
-	// 实际项目中连接真实数据库
-	db, _ := sqlx.Open("postgres", "postgresql://localhost/mydb")
-	return db
-}
+// // 初始化函数（示例）
+// func initDB() *sqlx.DB {
+// 	// 实际项目中连接真实数据库
+// 	db, _ := sqlx.Open("postgres", "postgresql://localhost/mydb")
+// 	return db
+// }
 
-func initRedis() *redis.Client {
-	return redis.NewClient(&redis.Options{
-		Addr: "localhost:6379",
-	})
-}
+// func initRedis() *redis.Client {
+// 	return redis.NewClient(&redis.Options{
+// 		Addr: "localhost:6379",
+// 	})
+// }
 
 // HTTP 处理函数
 
