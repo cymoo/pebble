@@ -10,7 +10,9 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/cymoo/mita"
 	"github.com/cymoo/pebble/internal/config"
+	"github.com/cymoo/pebble/internal/tasks"
 	"github.com/cymoo/pebble/pkg/fulltext"
 	"github.com/go-chi/chi"
 	"github.com/go-chi/chi/middleware"
@@ -26,6 +28,7 @@ type App struct {
 	redis  *redis.Client
 	fts    *fulltext.FullTextSearch
 	server *http.Server
+	tm     *mita.TaskManager
 }
 
 func New(cfg *config.Config) *App {
@@ -52,6 +55,10 @@ func (app *App) Initialize() error {
 
 	if err := app.initFullTextSearch(); err != nil {
 		return fmt.Errorf("failed to initialize full-text search: %w", err)
+	}
+
+	if err := app.setupTasks(); err != nil {
+		return fmt.Errorf("failed to add tasks: %w", err)
 	}
 
 	// 运行数据库迁移
@@ -122,6 +129,18 @@ func (app *App) initFullTextSearch() error {
 	return nil
 }
 
+func (app *App) setupTasks() error {
+	tm := mita.New()
+
+	if err := tm.AddTask("clear-posts", mita.Every().Day().At(0, 6), tasks.Cleanup); err != nil {
+		return err
+	}
+
+	app.tm = tm
+
+	return nil
+}
+
 func (app *App) setupRoutes() {
 	r := chi.NewRouter()
 
@@ -136,6 +155,8 @@ func (app *App) setupRoutes() {
 
 	r.Get("/health", app.healthHandler)
 
+	// mount task web ui
+	r.Mount("/", app.tm.WebHandler("/tasks"))
 	r.Mount("/api", NewApiRouter(app))
 
 	app.server = &http.Server{
@@ -169,6 +190,10 @@ func (app *App) healthHandler(w http.ResponseWriter, r *http.Request) {
 
 // Run 启动应用服务器
 func (app *App) Run() error {
+
+	// 启动后台任务
+	app.tm.Start()
+
 	go func() {
 		log.Printf("server starting on %s", app.server.Addr)
 		if err := app.server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
@@ -189,6 +214,9 @@ func (app *App) Run() error {
 func (app *App) Shutdown() error {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
+
+	// 停止任务管理器
+	app.tm.Stop()
 
 	// 关闭HTTP服务器
 	if err := app.server.Shutdown(ctx); err != nil {
@@ -211,14 +239,4 @@ func (app *App) Shutdown() error {
 
 	log.Println("server shutdown completed")
 	return nil
-}
-
-// DB 返回数据库实例（用于repository等）
-func (app *App) DB() *sqlx.DB {
-	return app.db
-}
-
-// Redis 返回Redis客户端
-func (app *App) Redis() *redis.Client {
-	return app.redis
 }
