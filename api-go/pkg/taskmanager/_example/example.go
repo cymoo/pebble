@@ -4,10 +4,9 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"net/http"
 	"os"
-	"os/signal"
 	"strings"
-	"syscall"
 	"time"
 
 	"github.com/cymoo/pebble/pkg/taskmanager"
@@ -18,7 +17,7 @@ func main() {
 	logger := log.New(os.Stdout, "[TaskManager] ", log.LstdFlags)
 
 	// Load timezone
-	location, err := time.LoadLocation("Asia/Tokyo")
+	location, err := time.LoadLocation("Asia/Shanghai")
 	if err != nil {
 		log.Fatalf("Failed to load timezone: %v", err)
 	}
@@ -140,6 +139,12 @@ func main() {
 	fmt.Println("\n✓ Task manager started. Press Ctrl+C to stop...")
 	fmt.Println(strings.Repeat("=", 60))
 
+	// Create web handler mounted at /tasks
+	mux := tm.WebHandler("/tasks")
+
+	// Start HTTP server
+	http.ListenAndServe(":8080", mux)
+
 	// Manually trigger sync task after 3 seconds
 	go func() {
 		time.Sleep(3 * time.Second)
@@ -188,15 +193,6 @@ func main() {
 			displayStats(tm)
 		}
 	}()
-
-	// Listen for system signals for graceful shutdown
-	sigChan := make(chan os.Signal, 1)
-	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
-	<-sigChan
-
-	fmt.Println("\n\nReceived shutdown signal, stopping task manager...")
-	tm.Stop()
-	fmt.Println("✓ Task manager stopped gracefully")
 }
 
 // displayStats shows current task manager statistics

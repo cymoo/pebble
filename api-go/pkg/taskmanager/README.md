@@ -16,6 +16,8 @@ A powerful, production-ready task scheduling library for Go, built on top of cro
 - ⚡ **Second Precision** - Support for second-level scheduling granularity
 - 🛡️ **Thread-Safe** - Safe for concurrent use across multiple goroutines
 - 🔍 **Rich Metadata** - Track added time, last run, next run, and more
+- 🌐 **Web Interface** - Built-in web UI for monitoring and managing tasks
+
 
 ## Installation
 
@@ -407,6 +409,116 @@ The `Stop()` method:
 2. Stops the cron scheduler
 3. Waits for all running tasks to complete (up to 30 seconds)
 4. Logs completion status
+
+## Web Management Interface
+
+The task manager includes a built-in web interface for monitoring and managing tasks through your browser.
+
+### Starting the Web Server
+
+```go
+package main
+
+import (
+    "net/http"
+    "github.com/yourusername/taskmanager"
+)
+
+func main() {
+    tm := taskmanager.New()
+    
+    // Add your tasks
+    tm.AddTask("example", taskmanager.Every().Minute(), func(ctx context.Context) error {
+        // Task logic
+        return nil
+    })
+    
+    tm.Start()
+    
+    // Create web handler mounted at /tasks
+    mux := tm.WebHandler("/tasks")
+    
+    // Start HTTP server
+    http.ListenAndServe(":8080", mux)
+}
+```
+
+### Web Interface Features
+
+The web interface provides:
+
+- **📋 Task List Page** (`/tasks/`) - View all tasks with:
+  - Real-time status (Enabled/Disabled/Running)
+  - Execution statistics and success rates
+  - Last run time and next scheduled run
+  - Error information for failed tasks
+  - Action buttons: Enable, Disable, Run Now, Remove
+
+- **📊 Statistics Page** (`/tasks/stats`) - View aggregated metrics:
+  - Total tasks, enabled tasks, running tasks
+  - Total executions and error counts
+  - Concurrency settings
+  - Per-task performance with visual progress bars
+
+### Mounting at Custom Paths
+
+```go
+// Mount at root
+mux := tm.WebHandler("/")
+
+// Mount at custom path
+mux := tm.WebHandler("/admin/tasks")
+
+// Integrate with existing HTTP server
+existingMux := http.NewServeMux()
+existingMux.Handle("/api/", apiHandler)
+existingMux.Handle("/tasks/", tm.WebHandler("/tasks"))
+```
+
+### Example with Authentication
+
+```go
+func authMiddleware(next http.Handler) http.Handler {
+    return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+        // Check authentication
+        if !isAuthenticated(r) {
+            http.Error(w, "Unauthorized", http.StatusUnauthorized)
+            return
+        }
+        next.ServeHTTP(w, r)
+    })
+}
+
+func main() {
+    tm := taskmanager.New()
+    tm.Start()
+    
+    mux := tm.WebHandler("/tasks")
+    
+    // Wrap with authentication
+    http.ListenAndServe(":8080", authMiddleware(mux))
+}
+```
+
+### Integrating with Existing Applications
+
+```go
+// Chi router
+r := chi.NewRouter()
+r.Mount("/tasks", tm.WebHandler("/tasks"))
+
+// Gorilla mux
+r := mux.NewRouter()
+r.PathPrefix("/tasks").Handler(tm.WebHandler("/tasks"))
+
+// Gin
+router := gin.Default()
+router.Any("/tasks/*any", gin.WrapH(tm.WebHandler("/tasks")))
+
+// Echo
+e := echo.New()
+e.Any("/tasks/*", echo.WrapHandler(tm.WebHandler("/tasks")))
+```
 
 ## Complete Example
 
