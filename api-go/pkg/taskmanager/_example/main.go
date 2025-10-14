@@ -32,7 +32,7 @@ type Config struct {
 
 var tm *taskmanager.TaskManager
 
-func main() {
+func main1() {
 	// 初始化应用依赖
 	// app := &App{
 	// 	Config: &Config{

@@ -1,461 +1,586 @@
-### 创建任务管理器
+# TaskManager
 
-```go
-// 不使用依赖注入
-tm := taskmanager.New[any]()
+A powerful, production-ready task scheduling library for Go, built on top of cron expressions with advanced features including concurrency control, error tracking, and flexible configuration options.
 
-// 使用依赖注入（推荐）
-type App struct {
-    DB    *sqlx.DB
-    Redis *redis.Client
-}
+## Features
 
-app := &App{...}
-tm := taskmanager.New(
-    taskmanager.WithDependencies(app),
-    taskmanager.WithLogger[*App](customLogger),
-    taskmanager.WithLocation[*App](time.UTC),
-    taskmanager.WithMaxConcurrent## 注意事项
+- 🕐 **Flexible Scheduling** - Standard cron expressions and fluent builder API
+- 🔒 **Concurrency Control** - Configurable max concurrent tasks and overlap prevention
+- 📊 **Execution Tracking** - Automatic statistics for runs, errors, and execution status
+- 🎯 **Context Injection** - Support for both static and dynamic context value injection
+- 🔄 **Graceful Shutdown** - Waits for running tasks to complete before shutting down
+- 🚀 **Manual Triggers** - Execute tasks on-demand outside their regular schedule
+- 🎛️ **Task Management** - Full CRUD operations: enable, disable, remove tasks
+- 📝 **Logging** - Customizable logging output with detailed execution info
+- 🌍 **Timezone Support** - Configure task execution timezone
+- ⚡ **Second Precision** - Support for second-level scheduling granularity
+- 🛡️ **Thread-Safe** - Safe for concurrent use across multiple goroutines
+- 🔍 **Rich Metadata** - Track added time, last run, next run, and more
 
-- 任务名称必须唯一
-- Cron 表达式格式错误会在 AddTask 时返回错误
-- Stop() 会等待最多 30 秒让任务完成
-- 禁用的任务不会被调度执行，但仍保留在系统中
-- 默认情况下，同一任务不会重叠执行（上次未完成时会跳过本次调度）
-- 设置 `MaxConcurrent` 会限制所有任务的总并发数
-- 正在运行的任务会在 `TaskInfo.Running` 字段中标记
-- 错误信息会保存在 `TaskInfo.LastError` 中，成功执行后会清空
+## Installation
 
-## 性能考虑
+```bash
+go get github.com/cymoo/taskmanager
+```
 
-### 内存使用
-- 每个任务约占用 ~1KB 内存（不含任务函数的闭包）
-- 建议单个实例管理不超过 10000 个任务
-
-### CPU 使用
-- Cron 调度器使用极少 CPU
-- 主要开销来自任务本身的执行
-- 建议使用 `MaxConcurrent` 限制并发，避免 CPU 过载
-
-### 锁竞争
-- 读操作（ListTasks, GetTask）使用读锁，可并发
-- 写操作（AddTask, RemoveTask）使用写锁，会阻塞
-- 任务执行时只在开始和结束时短暂持锁，不影响并发# Go 任务管理系统
-
-一个简单优雅的 Go 任务调度系统，基于 cron 表达式，可与 net/http 无缝集成。
-
-## 特性
-
-- ✅ 支持标准 cron 表达式（含秒级精度）
-- ✅ **泛型依赖注入**（类型安全、优雅简洁）
-- ✅ **并行执行多个不同任务**
-- ✅ **可配置最大并发数限制**
-- ✅ **防止同一任务重叠执行（可配置）**
-- ✅ 任务的启用/禁用控制
-- ✅ 立即运行任务
-- ✅ 任务统计（运行次数、错误次数、执行时间、上次运行时间、下次运行时间）
-- ✅ 优雅关闭（等待正在执行的任务完成）
-- ✅ 线程安全
-- ✅ HTTP API 管理接口
-- ✅ Context 支持，便于取消和超时控制
-
-## 安装
+## Dependencies
 
 ```bash
 go get github.com/robfig/cron/v3
 ```
 
-## 快速开始
+## Quick Start
 
-### 基本用法（带依赖注入）
+### Basic Usage
 
 ```go
 package main
 
 import (
     "context"
-    "log"
+    "fmt"
     "time"
-    "your-module/taskmanager"
-    "github.com/jmoiron/sqlx"
-    "github.com/redis/go-redis/v9"
+    "github.com/cymoo/taskmanager"
 )
-
-// 定义应用依赖
-type App struct {
-    DB    *sqlx.DB
-    Redis *redis.Client
-}
 
 func main() {
-    // 初始化依赖
-    app := &App{
-        DB:    initDB(),
-        Redis: initRedis(),
+    // Create task manager
+    tm := taskmanager.New()
+    
+    // Add a task that runs every 5 seconds
+    tm.AddTask("hello", taskmanager.Every().Seconds(5), func(ctx context.Context) error {
+        fmt.Println("Hello, World!")
+        return nil
+    })
+    
+    // Start the manager
+    tm.Start()
+    
+    // Run for a while
+    time.Sleep(30 * time.Second)
+    
+    // Graceful shutdown
+    tm.Stop()
+}
+```
+
+### Advanced Configuration
+
+```go
+// Create task manager with options
+tm := taskmanager.New(
+    taskmanager.WithLogger(customLogger),           // Custom logger
+    taskmanager.WithLocation(location),             // Set timezone
+    taskmanager.WithMaxConcurrent(5),               // Max concurrent tasks
+    taskmanager.WithAllowOverlapping(false),        // Prevent overlapping
+    taskmanager.WithContextValue("env", "prod"),    // Inject context values
+)
+```
+
+## Schedule Expressions
+
+### Using Builder API (Recommended)
+
+```go
+// Every second
+taskmanager.Every().Second()
+
+// Every minute
+taskmanager.Every().Minute()
+
+// Every hour
+taskmanager.Every().Hour()
+
+// Every day
+taskmanager.Every().Day()
+
+// Every N seconds
+taskmanager.Every().Seconds(30)
+
+// Every N minutes
+taskmanager.Every().Minutes(15)
+
+// Every N hours
+taskmanager.Every().Hours(6)
+
+// Every N days
+taskmanager.Every().Days(2)
+
+// Daily at specific time
+taskmanager.Every().Day().At(14, 30)  // 2:30 PM daily
+
+// Specific weekday
+taskmanager.Every().Day().At(9, 0).OnWeekday(time.Monday)  // Monday 9:00 AM
+
+// Specific day of month
+taskmanager.Every().Day().At(0, 0).OnDay(1)  // 1st of every month at midnight
+```
+
+### Using Raw Cron Expressions
+
+```go
+// Format: second minute hour day month weekday
+taskmanager.Cron("0 30 * * * *")     // Every hour at 30 minutes
+taskmanager.Cron("0 0 2 * * *")      // Daily at 2:00 AM
+taskmanager.Cron("0 */15 * * * *")   // Every 15 minutes
+taskmanager.Cron("0 0 0 1 * *")      // 1st of month at midnight
+taskmanager.Cron("0 0 9 * * 1")      // Every Monday at 9:00 AM
+```
+
+## Configuration Options
+
+### WithLogger
+
+Set a custom logger:
+
+```go
+logger := log.New(os.Stdout, "[TASK] ", log.LstdFlags)
+tm := taskmanager.New(taskmanager.WithLogger(logger))
+```
+
+### WithLocation
+
+Set timezone for task execution:
+
+```go
+location, _ := time.LoadLocation("America/New_York")
+tm := taskmanager.New(taskmanager.WithLocation(location))
+```
+
+### WithMaxConcurrent
+
+Limit maximum concurrent tasks (0 = unlimited):
+
+```go
+tm := taskmanager.New(taskmanager.WithMaxConcurrent(3))
+```
+
+### WithAllowOverlapping
+
+Control whether the same task can run concurrently:
+
+```go
+// Prevent same task from running multiple instances
+tm := taskmanager.New(taskmanager.WithAllowOverlapping(false))
+
+// Allow same task to run concurrently
+tm := taskmanager.New(taskmanager.WithAllowOverlapping(true))
+```
+
+### WithContextValue
+
+Inject static context values available to all tasks:
+
+```go
+tm := taskmanager.New(
+    taskmanager.WithContextValue("database", dbConnection),
+    taskmanager.WithContextValue("cache", redisClient),
+    taskmanager.WithContextValue("env", "production"),
+)
+```
+
+### WithContextInjector
+
+Dynamically inject context values per execution:
+
+```go
+tm := taskmanager.New(
+    taskmanager.WithContextInjector(func(ctx context.Context, taskName string) context.Context {
+        // Generate unique ID for each execution
+        ctx = context.WithValue(ctx, "request_id", uuid.New().String())
+        ctx = context.WithValue(ctx, "timestamp", time.Now())
+        return ctx
+    }),
+)
+```
+
+## Task Management
+
+### Adding Tasks
+
+```go
+err := tm.AddTask("backup", taskmanager.Every().Day().At(2, 0), func(ctx context.Context) error {
+    // Perform backup logic
+    return nil
+})
+if err != nil {
+    log.Fatal(err)
+}
+```
+
+### Manual Execution
+
+Trigger a task immediately outside its schedule:
+
+```go
+err := tm.RunTaskNow("backup")
+if err != nil {
+    log.Printf("Manual trigger failed: %v", err)
+}
+```
+
+### Disabling Tasks
+
+Temporarily disable a task without removing it:
+
+```go
+err := tm.DisableTask("backup")
+```
+
+### Enabling Tasks
+
+Re-enable a previously disabled task:
+
+```go
+err := tm.EnableTask("backup")
+```
+
+### Removing Tasks
+
+Permanently remove a task:
+
+```go
+err := tm.RemoveTask("backup")
+```
+
+### Query Task Information
+
+Get information about a specific task:
+
+```go
+taskInfo, err := tm.GetTask("backup")
+if err == nil {
+    fmt.Printf("Task: %s\n", taskInfo.Name)
+    fmt.Printf("Schedule: %s\n", taskInfo.Schedule)
+    fmt.Printf("Run Count: %d\n", taskInfo.RunCount)
+    fmt.Printf("Error Count: %d\n", taskInfo.ErrorCount)
+    fmt.Printf("Last Run: %s\n", taskInfo.LastRun)
+    fmt.Printf("Next Run: %s\n", taskInfo.NextRun)
+    fmt.Printf("Enabled: %v\n", taskInfo.Enabled)
+    fmt.Printf("Running: %v\n", taskInfo.Running)
+}
+```
+
+List all tasks:
+
+```go
+tasks := tm.ListTasks()
+for _, task := range tasks {
+    fmt.Printf("%s - Next: %s, Runs: %d, Errors: %d\n", 
+        task.Name, task.NextRun, task.RunCount, task.ErrorCount)
+}
+```
+
+### Statistics
+
+Get aggregated statistics:
+
+```go
+stats := tm.GetStats()
+fmt.Printf("Total Tasks: %v\n", stats["total_tasks"])
+fmt.Printf("Enabled Tasks: %v\n", stats["enabled_tasks"])
+fmt.Printf("Running Tasks: %v\n", stats["running_tasks"])
+fmt.Printf("Total Runs: %v\n", stats["total_runs"])
+fmt.Printf("Total Errors: %v\n", stats["total_errors"])
+fmt.Printf("Max Concurrent: %v\n", stats["max_concurrent"])
+fmt.Printf("Allow Overlapping: %v\n", stats["allow_overlapping"])
+```
+
+## Working with Context
+
+### Retrieving Task Name
+
+```go
+tm.AddTask("example", taskmanager.Every().Minute(), func(ctx context.Context) error {
+    taskName := taskmanager.GetTaskName(ctx)
+    fmt.Printf("Current task: %s\n", taskName)
+    return nil
+})
+```
+
+### Accessing Injected Values
+
+```go
+tm.AddTask("example", taskmanager.Every().Minute(), func(ctx context.Context) error {
+    db := ctx.Value("database").(*sql.DB)
+    requestID := ctx.Value("request_id").(string)
+    env := ctx.Value("env").(string)
+    
+    // Use injected values
+    log.Printf("[%s] Processing in %s environment", requestID, env)
+    rows, err := db.Query("SELECT * FROM users")
+    // ...
+    return nil
+})
+```
+
+### Handling Context Cancellation
+
+Always check for context cancellation in long-running tasks:
+
+```go
+tm.AddTask("long-running", taskmanager.Every().Hour(), func(ctx context.Context) error {
+    for i := 0; i < 100; i++ {
+        select {
+        case <-ctx.Done():
+            // Task manager is shutting down
+            log.Println("Task cancelled, cleaning up...")
+            return ctx.Err()
+        default:
+            // Continue work
+            time.Sleep(time.Second)
+            // Process item i
+        }
+    }
+    return nil
+})
+```
+
+### Dynamic Context Updates
+
+Update context values at runtime:
+
+```go
+// Set or update a context value
+tm.SetContextValue("feature_flag", true)
+
+// Retrieve a context value
+value := tm.GetContextValue("feature_flag")
+if enabled, ok := value.(bool); ok && enabled {
+    // Feature is enabled
+}
+```
+
+## Error Handling
+
+Errors returned from task functions are automatically logged and tracked:
+
+```go
+tm.AddTask("api-call", taskmanager.Every().Minutes(5), func(ctx context.Context) error {
+    resp, err := http.Get("https://api.example.com/data")
+    if err != nil {
+        return fmt.Errorf("API call failed: %w", err)
+    }
+    defer resp.Body.Close()
+    
+    if resp.StatusCode != 200 {
+        return fmt.Errorf("API returned error status: %d", resp.StatusCode)
     }
     
-    // 创建任务管理器，注入依赖
-    tm := taskmanager.New(
-        taskmanager.WithDependencies(app),
-    )
-    
-    // 添加任务（推荐方式）
-    tm.AddTaskWithDeps("clean-data", "0 0 3 * * *", 
-        func(ctx context.Context, app *App) error {
-            // 直接使用注入的依赖，类型安全
-            _, err := app.DB.ExecContext(ctx, "DELETE FROM old_data")
-            return err
-        },
-    )
-    
-    // 启动
+    // Process response
+    return nil
+})
+
+// Later, check for errors
+taskInfo, _ := tm.GetTask("api-call")
+if taskInfo.LastError != "" {
+    log.Printf("Task last failed with: %s", taskInfo.LastError)
+    log.Printf("Error rate: %d/%d (%.1f%%)", 
+        taskInfo.ErrorCount, 
+        taskInfo.RunCount,
+        float64(taskInfo.ErrorCount)/float64(taskInfo.RunCount)*100)
+}
+```
+
+## Graceful Shutdown
+
+The task manager supports graceful shutdown with proper cleanup:
+
+```go
+func main() {
+    tm := taskmanager.New()
+    // ... add tasks
     tm.Start()
-    defer tm.Stop()
     
-    // 保持运行
-    select {}
+    // Listen for system signals
+    sigChan := make(chan os.Signal, 1)
+    signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
+    <-sigChan
+    
+    // Gracefully shutdown (waits up to 30 seconds for running tasks)
+    tm.Stop()
 }
 ```
 
-### Cron 表达式格式
+The `Stop()` method:
+1. Cancels the manager context (stops new executions)
+2. Stops the cron scheduler
+3. Waits for all running tasks to complete (up to 30 seconds)
+4. Logs completion status
 
-系统支持 6 位 cron 表达式（含秒）：
+## Complete Example
 
-```
-秒 分 时 日 月 周
+See `example.go` for a comprehensive, runnable example that demonstrates:
 
-字段         允许值                  特殊字符
-秒           0-59                   * / , -
-分           0-59                   * / , -
-时           0-23                   * / , -
-日           1-31                   * / , - ?
-月           1-12 或 JAN-DEC        * / , -
-周           0-6 或 SUN-SAT         * / , - ?
-```
+- Multiple scheduling strategies
+- Concurrency control and overlap prevention
+- Error handling with simulated failures
+- Context injection (static and dynamic)
+- Task management operations (enable/disable)
+- Statistics and monitoring
+- Long-running tasks with cancellation
+- Graceful shutdown handling
 
-### 常用表达式示例
-
-```go
-// 每天凌晨 3 点
-"0 0 3 * * *"
-
-// 每 5 分钟
-"0 */5 * * * *"
-
-// 每小时整点
-"0 0 * * * *"
-
-// 每周一早上 8 点
-"0 0 8 * * MON"
-
-// 每 30 秒
-"*/30 * * * * *"
-
-// 工作日上午 9 点
-"0 0 9 * * MON-FRI"
-
-// 每月 1 号凌晨 2 点
-"0 0 2 1 * *"
-```
-
-## API 参考
-
-### 创建任务管理器
-
-```go
-// 不使用依赖注入
-tm := taskmanager.New[any]()
-
-// 使用依赖注入（推荐）
-type App struct {
-    DB    *sqlx.DB
-    Redis *redis.Client
-}
-
-app := &App{...}
-tm := taskmanager.New(
-    taskmanager.WithDependencies(app),
-    taskmanager.WithLogger[*App](customLogger),
-    taskmanager.WithLocation[*App](time.UTC),
-    taskmanager.WithMaxConcurrent[*App](10),        // 最多同时运行 10 个任务
-    taskmanager.WithAllowOverlapping[*App](false),  // 禁止同一任务重叠执行
-)
-```
-
-### 任务管理
-
-```go
-// 方式 1: 使用依赖注入（推荐）
-tm.AddTaskWithDeps("task-name", "0 0 * * * *", 
-    func(ctx context.Context, app *App) error {
-        // 直接使用依赖，类型安全
-        return app.DB.Ping()
-    },
-)
-
-// 方式 2: 不使用依赖（兼容）
-tm.AddTask("simple-task", "0 0 * * * *", 
-    func(ctx context.Context) error {
-        // 简单任务逻辑
-        return nil
-    },
-)
-
-// 移除任务
-err := tm.RemoveTask("task-name")
-
-// 启用/禁用任务
-err := tm.EnableTask("task-name")
-err := tm.DisableTask("task-name")
-
-// 立即运行任务
-err := tm.RunTaskNow("task-name")
-
-// 获取任务信息
-info, err := tm.GetTask("task-name")
-
-// 列出所有任务
-tasks := tm.ListTasks()
-
-// 获取统计信息
-stats := tm.GetStats()
-```
-
-### 生命周期
-
-```go
-// 启动任务管理器
-tm.Start()
-
-// 停止任务管理器（优雅关闭）
-tm.Stop()
-
-// 检查是否运行中
-isRunning := tm.IsRunning()
-```
-
-## HTTP API 集成
-
-### API 端点
-
-```
-GET    /api/tasks              - 获取所有任务列表
-GET    /api/tasks/{name}       - 获取指定任务信息
-DELETE /api/tasks/{name}       - 删除指定任务
-POST   /api/tasks/run/{name}   - 立即运行指定任务
-POST   /api/tasks/enable/{name}  - 启用指定任务
-POST   /api/tasks/disable/{name} - 禁用指定任务
-GET    /api/stats              - 获取任务管理器统计信息
-GET    /health                 - 健康检查
-```
-
-### 使用示例
+Run the example:
 
 ```bash
-# 获取所有任务
-curl http://localhost:8080/api/tasks
-
-# 获取单个任务
-curl http://localhost:8080/api/tasks/clean-data
-
-# 立即运行任务
-curl -X POST http://localhost:8080/api/tasks/run/clean-data
-
-# 禁用任务
-curl -X POST http://localhost:8080/api/tasks/disable/clean-data
-
-# 启用任务
-curl -X POST http://localhost:8080/api/tasks/enable/clean-data
-
-# 删除任务
-curl -X DELETE http://localhost:8080/api/tasks/clean-data
-
-# 健康检查
-curl http://localhost:8080/health
-
-# 获取统计信息
-curl http://localhost:8080/api/stats
+go run example.go
 ```
 
-## 并发执行说明
+## Best Practices
 
-### 默认行为（完全并行）
+### 1. Set Appropriate Concurrency Limits
 
 ```go
-// 不设置限制，所有任务都会并行执行
-tm := taskmanager.New()
+// For CPU-intensive tasks
+tm := taskmanager.New(taskmanager.WithMaxConcurrent(runtime.NumCPU()))
+
+// For I/O-bound tasks
+tm := taskmanager.New(taskmanager.WithMaxConcurrent(20))
 ```
 
-在这种模式下：
-- ✅ 不同的任务会并行执行
-- ✅ 同一个任务默认**不会**重叠执行（上次未完成时跳过本次）
-- ✅ 无并发数限制
+### 2. Handle Context Cancellation
 
-### 限制最大并发数
+Always respect context cancellation in long-running tasks:
 
 ```go
-// 最多同时运行 5 个任务
-tm := taskmanager.New(
-    taskmanager.WithMaxConcurrent(5),
-)
-```
-
-使用场景：
-- 保护系统资源（CPU、内存、数据库连接等）
-- 防止任务过多导致系统负载过高
-- 控制外部 API 调用频率
-
-### 允许任务重叠执行
-
-```go
-// 允许同一任务在上次未完成时再次启动
-tm := taskmanager.New(
-    taskmanager.WithAllowOverlapping(true),
-)
-```
-
-⚠️ **注意**：通常不建议开启，除非你的任务是幂等的且确实需要并发执行。
-
-### 最佳实践配置
-
-```go
-tm := taskmanager.New(
-    taskmanager.WithMaxConcurrent(10),       // 限制总并发
-    taskmanager.WithAllowOverlapping(false), // 防止重叠（默认）
-)
-```
-
-## 并发示例
-
-```go
-// 这些任务会并行执行
-tm.AddTask("task1", "*/10 * * * * *", longRunningTask1)
-tm.AddTask("task2", "*/10 * * * * *", longRunningTask2)
-tm.AddTask("task3", "*/10 * * * * *", longRunningTask3)
-
-// 如果设置了 WithMaxConcurrent(2)，则最多同时运行 2 个任务
-// 第 3 个任务会等待前面的任务完成后再执行
-```
-
-## 高级用法
-
-### 依赖注入（推荐）
-
-```go
-// 定义应用依赖
-type App struct {
-    Config *Config
-    DB     *sqlx.DB
-    Redis  *redis.Client
-    Logger *log.Logger
+func(ctx context.Context) error {
+    for {
+        select {
+        case <-ctx.Done():
+            return ctx.Err()
+        default:
+            // Do work
+        }
+    }
 }
+```
 
-// 创建任务管理器并注入依赖
-tm := taskmanager.New(
-    taskmanager.WithDependencies(&App{...}),
-)
+### 3. Return Meaningful Errors
 
-// 任务中直接使用依赖，类型安全
-tm.AddTaskWithDeps("clean-db", "0 0 2 * * *", 
-    func(ctx context.Context, app *App) error {
-        app.Logger.Println("Cleaning database...")
-        
-        // 使用数据库
-        result, err := app.DB.ExecContext(ctx, 
-            "DELETE FROM logs WHERE created_at < NOW() - INTERVAL '30 days'")
-        if err != nil {
-            return err
+```go
+func(ctx context.Context) error {
+    if err := doWork(); err != nil {
+        return fmt.Errorf("failed to process batch %d: %w", batchID, err)
+    }
+    return nil
+}
+```
+
+### 4. Prevent Overlapping for Critical Tasks
+
+```go
+tm := taskmanager.New(taskmanager.WithAllowOverlapping(false))
+```
+
+### 5. Monitor Task Health
+
+```go
+// Periodically check task statistics
+ticker := time.NewTicker(5 * time.Minute)
+go func() {
+    for range ticker.C {
+        stats := tm.GetStats()
+        errorRate := float64(stats["total_errors"].(int64)) / float64(stats["total_runs"].(int64))
+        if errorRate > 0.1 { // More than 10% errors
+            alert("High task error rate detected")
         }
-        
-        // 使用 Redis
-        app.Redis.Del(ctx, "temp:cache")
-        
+    }
+}()
+```
+
+### 6. Use Timeouts for External Calls
+
+```go
+tm.AddTask("api-call", schedule, func(ctx context.Context) error {
+    ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
+    defer cancel()
+    
+    req, _ := http.NewRequestWithContext(ctx, "GET", url, nil)
+    resp, err := client.Do(req)
+    // ...
+})
+```
+
+### 7. Clean Up Resources
+
+```go
+tm.AddTask("db-task", schedule, func(ctx context.Context) error {
+    conn := pool.Get()
+    defer conn.Close()
+    
+    // Use connection
+    return nil
+})
+```
+
+## Performance Considerations
+
+- **Memory Usage**: Each task stores minimal metadata (~200 bytes)
+- **Goroutines**: One goroutine per concurrent task execution
+- **Lock Contention**: Read-write locks minimize contention on task metadata
+- **Cron Performance**: Uses the highly optimized `robfig/cron` library
+
+## Thread Safety
+
+All TaskManager methods are thread-safe and can be called concurrently:
+
+```go
+// Safe to call from multiple goroutines
+go tm.AddTask(name1, schedule1, task1)
+go tm.AddTask(name2, schedule2, task2)
+go tm.RunTaskNow(name1)
+go tm.GetStats()
+```
+
+## Limitations
+
+- Maximum timeout for graceful shutdown: 30 seconds
+- Task names must be unique
+- Cron expressions use 6 fields (seconds supported)
+- Context values are copied, not referenced (use pointers for shared state)
+
+## FAQ
+
+**Q: Can I update a task's schedule without removing it?**  
+A: Currently, you need to remove and re-add the task. A future version may support schedule updates.
+
+**Q: What happens if a task is already running when triggered manually?**  
+A: If `AllowOverlapping` is false, you'll get an error. If true, both instances will run.
+
+**Q: How do I handle tasks that might run longer than their interval?**  
+A: Set `WithAllowOverlapping(false)` to skip executions if the previous one is still running.
+
+**Q: Can I pause the entire task manager?**  
+A: Not directly. You can disable all tasks individually or stop and restart the manager.
+
+**Q: Is it safe to modify context values during execution?**  
+A: Use `SetContextValue()` to update values. Changes apply to new executions, not running ones.
+
+## Testing
+
+To test your tasks:
+
+```go
+func TestMyTask(t *testing.T) {
+    tm := taskmanager.New()
+    
+    executed := false
+    tm.AddTask("test", taskmanager.Every().Second(), func(ctx context.Context) error {
+        executed = true
         return nil
-    },
-)
+    })
+    
+    tm.Start()
+    time.Sleep(2 * time.Second)
+    tm.Stop()
+    
+    if !executed {
+        t.Error("Task was not executed")
+    }
+}
 ```
-
-**为什么不用 Context.Value？**
-- ✅ 类型安全，编译时检查
-- ✅ 代码简洁，无需类型断言
-- ✅ IDE 自动补全支持
-- ✅ 零运行时开销
-- ✅ 更符合 Go 最佳实践
-
-### Context 支持
-
-```go
-tm.AddTaskWithDeps("timeout-task", "0 * * * * *", 
-    func(ctx context.Context, app *App) error {
-        // 使用 context 进行超时控制
-        ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
-        defer cancel()
-        
-        return app.DB.PingContext(ctx)
-    },
-)
-```
-
-### 错误处理
-
-```go
-tm.AddTaskWithDeps("error-task", "0 * * * * *", 
-    func(ctx context.Context, app *App) error {
-        if err := doSomething(app.DB); err != nil {
-            // 错误会被自动记录到 TaskInfo.ErrorCount 和 TaskInfo.LastError
-            return fmt.Errorf("failed to do something: %w", err)
-        }
-        return nil
-    },
-)
-```
-
-### 自定义日志
-
-```go
-logger := log.New(os.Stdout, "[MyApp] ", log.LstdFlags|log.Lshortfile)
-tm := taskmanager.New(
-    taskmanager.WithLogger[*App](logger),
-    taskmanager.WithDependencies(app),
-)
-```
-
-### 时区设置
-
-```go
-loc, _ := time.LoadLocation("Asia/Shanghai")
-tm := taskmanager.New(
-    taskmanager.WithLocation[*App](loc),
-    taskmanager.WithDependencies(app),
-)
-```
-
-## 最佳实践
-
-1. **优雅关闭**: 始终在应用退出时调用 `tm.Stop()` 以确保正在运行的任务完成
-
-2. **错误处理**: 任务函数应返回错误，系统会自动记录错误次数和最后错误信息
-
-3. **Context 使用**: 在长时间运行的任务中检查 context 以支持取消操作
-
-4. **幂等性**: 设计任务时应考虑幂等性，因为任务可能因系统重启而重复执行
-
-5. **资源管理**: 在任务中使用 defer 确保资源正确释放
-
-6. **并发控制**: 
-   - 根据系统资源合理设置 `MaxConcurrent`
-   - 默认禁止同一任务重叠，避免资源竞争
-   - 对于可能长时间运行的任务，建议设置超时
-
-7. **监控**: 定期检查任务统计信息（`GetStats()`），监控错误率和执行情况
-
-## 注意事项
-
-- 任务名称必须唯一
-- Cron 表达式格式错误会在 AddTask 时返回错误
-- Stop() 会等待最多 30 秒让任务完成
-- 禁用的任务不会被调度执行，但仍保留在系统中
 
 ## License
 
-MIT
+MIT License - see [LICENSE](LICENSE) file for details.
