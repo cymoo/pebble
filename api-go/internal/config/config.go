@@ -10,23 +10,23 @@ import (
 )
 
 type Config struct {
-	// 各模块配置
-	HTTP   HTTPConfig
-	Upload UploadConfig
-	Search SearchConfig
-	DB     DBConfig
-	Redis  RedisConfig
-
-	// 基本信息
+	// basic app info
 	AppName     string
 	AppVersion  string
 	Environment string
 	Debug       bool
 
-	// 业务配置
+	// application settings
 	PostsPerPage int
 	StaticDir    string
 	StaticURL    string
+
+	// server settings
+	HTTP   HTTPConfig
+	Upload UploadConfig
+	Search SearchConfig
+	DB     DBConfig
+	Redis  RedisConfig
 }
 
 type UploadConfig struct {
@@ -134,7 +134,7 @@ func Load() *Config {
 }
 
 func (c *Config) ToJSON(hideSensitive bool) (string, error) {
-	// 创建一个副本以避免暴露敏感信息
+	// create a copy to avoid exposing sensitive info
 	safe := *c
 
 	if hideSensitive {
@@ -151,21 +151,21 @@ func (c *Config) ToJSON(hideSensitive bool) (string, error) {
 	return string(data), nil
 }
 
-// maskSensitive 遮蔽敏感信息（如密码等）
+// maskSensitive masks sensitive information in URLs
 func maskSensitive(url string) string {
-	// 简单的URL密码遮蔽
+	// check if it contains "://"
 	if strings.Contains(url, "://") {
 		parts := strings.Split(url, "://")
 		if len(parts) == 2 {
 			scheme := parts[0]
 			rest := parts[1]
 
-			// 查找用户信息部分
+			// look for user info part
 			if atIndex := strings.Index(rest, "@"); atIndex != -1 {
 				userInfo := rest[:atIndex]
 				hostPath := rest[atIndex:]
 
-				// 遮蔽密码部分
+				// mask password part
 				if colonIndex := strings.Index(userInfo, ":"); colonIndex != -1 {
 					username := userInfo[:colonIndex]
 					return fmt.Sprintf("%s://%s:***%s", scheme, username, hostPath)
@@ -176,7 +176,7 @@ func maskSensitive(url string) string {
 	return url
 }
 
-// maskSecret 遮蔽密钥信息
+// maskSecret masks a secret string, showing only the first and last 4 characters
 func maskSecret(secret string) string {
 	if secret == "" {
 		return ""

@@ -16,6 +16,8 @@ import (
 	"github.com/redis/go-redis/v9"
 )
 
+// PanicRecovery handle panic and return 500 error
+// logTrace: whether to log stack trace
 func PanicRecovery(logTrace bool) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -34,18 +36,18 @@ func PanicRecovery(logTrace bool) func(http.Handler) http.Handler {
 	}
 }
 
-// CORS 中间件
-// CORSOrigins: 允许的来源列表，如 []string{"http://localhost:3000", "https://example.com"}
-// 如果为空或包含 "*"，则允许所有来源
+// CORS returns a net/http middleware that handles CORS requests
+// config: CORS configuration
 func CORS(config config.CORSConfig) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			origin := r.Header.Get("Origin")
 
-			// 检查并设置允许的Origin
+			// If no origins are specified, allow all origins
 			if len(config.AllowedOrigins) == 0 {
 				w.Header().Set("Access-Control-Allow-Origin", "*")
 			} else {
+				// Check if the request origin is in the allowed list
 				for _, allowedOrigin := range config.AllowedOrigins {
 					if allowedOrigin == "*" || allowedOrigin == origin {
 						w.Header().Set("Access-Control-Allow-Origin", origin)
@@ -53,32 +55,31 @@ func CORS(config config.CORSConfig) func(http.Handler) http.Handler {
 					}
 				}
 			}
-
-			// 设置允许的方法
+			// set allowed methods
 			methods := "GET, POST, PUT, DELETE, OPTIONS"
 			if len(config.AllowedMethods) > 0 {
 				methods = strings.Join(config.AllowedMethods, ", ")
 			}
 			w.Header().Set("Access-Control-Allow-Methods", methods)
 
-			// 设置允许的头部
+			// set default headers if none specified
 			headers := "Content-Type, Authorization"
 			if len(config.AllowedHeaders) > 0 {
 				headers = strings.Join(config.AllowedHeaders, ", ")
 			}
 			w.Header().Set("Access-Control-Allow-Headers", headers)
 
-			// 设置是否允许凭据
+			// set Allow-Credentials header
 			if config.AllowCredentials {
 				w.Header().Set("Access-Control-Allow-Credentials", "true")
 			}
 
-			// 设置预检请求缓存时间
+			// set Access-Control-Max-Age header
 			if config.MaxAge > 0 {
 				w.Header().Set("Access-Control-Max-Age", strconv.Itoa(config.MaxAge))
 			}
 
-			// 处理预检请求
+			// handle preflight requests
 			if r.Method == "OPTIONS" {
 				w.WriteHeader(http.StatusNoContent)
 				return
@@ -90,6 +91,9 @@ func CORS(config config.CORSConfig) func(http.Handler) http.Handler {
 }
 
 // RateLimit returns a net/http middleware that enforces rate limiting
+// client: Redis client
+// expires: duration for rate limit window
+// maxCount: maximum number of requests allowed within the window
 func RateLimit(client *redis.Client, expires time.Duration, maxCount int64) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -137,45 +141,45 @@ func checkRateLimit(ctx context.Context, client *redis.Client, key string, expir
 	return count <= maxCount, nil
 }
 
-// SimpleAuthCheck 创建一个权限验证中间件
-// excludedPaths: 需要跳过验证的路径前缀列表
-// authService: 用于验证 token 的服务
+// SimpleAuthCheck returns a net/http middleware that checks for a valid token
+// authService: service to validate tokens
+// excludedPaths: paths to exclude from authentication
 func SimpleAuthCheck(authService *services.AuthService, excludedPaths ...string) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			path := r.URL.Path
 
-			// 检查是否需要跳过验证
+			// check if the path should be skipped
 			if shouldSkip(path, excludedPaths) {
 				next.ServeHTTP(w, r)
 				return
 			}
 
-			// 尝试从 Cookie 或 Authorization header 中提取 token
+			// try to get token from cookie or Authorization header
 			token := getTokenFromCookie(r, "token")
 			if token == "" {
 				token = extractBearerToken(r)
 			}
 
-			// 如果没有提供 token
+			// if no token provided, return 400
 			if token == "" {
 				e.SendJSONError(w, 400, "bad_request", "no token provided")
 				return
 			}
 
-			// 验证 token
+			// validate the token, return 401 if invalid
 			if !authService.IsValidToken(token) {
 				e.SendJSONError(w, 401, "unauthorized", "invalid token")
 				return
 			}
 
-			// token 有效，继续处理请求
+			// valid token, proceed to next handler
 			next.ServeHTTP(w, r)
 		})
 	}
 }
 
-// shouldSkip 检查给定路径是否应该跳过验证
+// shouldSkip checks if the given path matches any of the skip paths
 func shouldSkip(path string, skipPaths []string) bool {
 	for _, skipPath := range skipPaths {
 		if strings.HasPrefix(path, skipPath) {
@@ -185,14 +189,14 @@ func shouldSkip(path string, skipPaths []string) bool {
 	return false
 }
 
-// extractBearerToken 从 Authorization header 中提取 Bearer token
+// extractBearerToken extracts the Bearer token from the Authorization header
 func extractBearerToken(r *http.Request) string {
 	authHeader := r.Header.Get("Authorization")
 	if authHeader == "" {
 		return ""
 	}
 
-	// 检查是否以 "Bearer " 开头
+	// check if it starts with "Bearer "
 	const bearerPrefix = "Bearer "
 	if !strings.HasPrefix(authHeader, bearerPrefix) {
 		return ""
@@ -201,7 +205,7 @@ func extractBearerToken(r *http.Request) string {
 	return strings.TrimPrefix(authHeader, bearerPrefix)
 }
 
-// getTokenFromCookie 从 Cookie 中获取指定名称的值
+// getTokenFromCookie retrieves the token from the specified cookie
 func getTokenFromCookie(r *http.Request, name string) string {
 	cookie, err := r.Cookie(name)
 	if err != nil {
