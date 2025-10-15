@@ -41,5 +41,26 @@ def gen_sample_posts():
         db.session.commit()
 
 
+def check_sqlite_config():
+    from sqlalchemy import text
+
+    app = create_app(DevelopmentConfig)
+    with app.app_context():
+        configs = {
+            "foreign_keys": "PRAGMA foreign_keys",
+            "journal_mode": "PRAGMA journal_mode",
+            "synchronous": "PRAGMA synchronous",
+            "wal_autocheckpoint": "PRAGMA wal_autocheckpoint",
+        }
+
+        for name, pragma in configs.items():
+            try:
+                result = db.session.execute(text(pragma)).fetchone()
+                print(f"{name}: {result[0]}")
+            except Exception as e:
+                print(f"Error checking {name}: {e}")
+
+
 if __name__ == '__main__':
-    gen_sample_posts()
+    # gen_sample_posts()
+    check_sqlite_config()

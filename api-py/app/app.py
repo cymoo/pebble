@@ -43,9 +43,15 @@ def register_db(app: Flask) -> None:
     from redis import Redis
     from .model import db
     from .lib.search import FullTextSearch
+    from sqlalchemy import text
 
     db.init_app(app)
     db.app = app
+
+    # enable foreign key constraint and WAL mode for SQLite
+    with app.app_context():
+        db.session.execute(text("PRAGMA foreign_keys=ON"))
+        db.session.execute(text("PRAGMA journal_mode=WAL"))
 
     rd = Redis(**app.config['REDIS'])
     app.rd = rd
