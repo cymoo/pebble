@@ -37,6 +37,7 @@ func New(cfg *config.Config) *App {
 	}
 }
 
+// Initialize sets up the application, including database, redis, routes, and tasks
 func (app *App) Initialize() error {
 	configJSON, err := app.config.ToJSON(true)
 	if err != nil {
@@ -61,12 +62,11 @@ func (app *App) Initialize() error {
 		return fmt.Errorf("failed to add tasks: %w", err)
 	}
 
-	// 运行数据库迁移
+	// run database migrations
 	// if err := database.Migrate(app.db); err != nil {
 	// 	return fmt.Errorf("failed to run migrations: %w", err)
 	// }
 
-	// 设置HTTP路由
 	app.setupRoutes()
 
 	return nil
@@ -79,13 +79,13 @@ func (app *App) initDatabase() error {
 		return err
 	}
 
-	// 配置连接池
+	// configure the connection pool
 	// db.SetMaxOpenConns(app.config.DB.PoolSize) // SQLite 通常只需要 1 个连接
 	// db.SetMaxOpenConns(app.config.DB.MaxOpenConns)
 	// db.SetMaxIdleConns(app.config.DB.MaxIdleConns)
 	// db.SetConnMaxIdleTime(app.config.DB.MaxIdleTime)
 
-	// 测试连接
+	// test connection
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
@@ -105,7 +105,7 @@ func (app *App) initRedis() error {
 		DB:       app.config.Redis.DB,
 	})
 
-	// 测试连接
+	// test connection
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
@@ -132,7 +132,9 @@ func (app *App) initFullTextSearch() error {
 func (app *App) setupTasks() error {
 	tm := mita.New()
 
-	if err := tm.AddTask("clear-posts", mita.Every().Day().At(0, 6), tasks.Cleanup); err != nil {
+	tm.SetContextValue("db", app.db)
+
+	if err := tm.AddTask("delete-old-posts", mita.Every().Day().At(2, 0), tasks.DeleteOldPosts); err != nil {
 		return err
 	}
 
@@ -153,7 +155,7 @@ func (app *App) setupRoutes() {
 		http.FileServer(http.Dir(app.config.Upload.BasePath))),
 	)
 
-	r.Get("/health", app.healthHandler)
+	r.Get("/health", app.checkHealth)
 
 	// mount task web ui
 	r.Mount("/", app.tm.WebHandler("/tasks"))
@@ -168,14 +170,14 @@ func (app *App) setupRoutes() {
 	}
 }
 
-func (app *App) healthHandler(w http.ResponseWriter, r *http.Request) {
-	// 检查数据库连接
+func (app *App) checkHealth(w http.ResponseWriter, r *http.Request) {
+	// check database connection
 	if err := app.db.Ping(); err != nil {
 		http.Error(w, "database not available", http.StatusServiceUnavailable)
 		return
 	}
 
-	// 检查Redis连接
+	// check redis connection
 	ctx, cancel := context.WithTimeout(r.Context(), 2*time.Second)
 	defer cancel()
 	if err := app.redis.Ping(ctx).Err(); err != nil {
@@ -188,10 +190,10 @@ func (app *App) healthHandler(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte(`{"status": "healthy"}`))
 }
 
-// Run 启动应用服务器
+// Run starts the HTTP server and listens for shutdown signals
 func (app *App) Run() error {
 
-	// 启动后台任务
+	// start background tasks
 	app.tm.Start()
 
 	go func() {
@@ -201,7 +203,8 @@ func (app *App) Run() error {
 		}
 	}()
 
-	// 等待中断信号
+	// wait for interrupt signal to gracefully shutdown the server
+	// catch SIGINT and SIGTERM
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
@@ -210,27 +213,27 @@ func (app *App) Run() error {
 	return app.Shutdown()
 }
 
-// Shutdown 优雅关闭应用
+// shutdown cleans up resources and gracefully shuts down the server
 func (app *App) Shutdown() error {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	// 停止任务管理器
+	// stop background tasks
 	app.tm.Stop()
 
-	// 关闭HTTP服务器
+	// gracefully shutdown the server
 	if err := app.server.Shutdown(ctx); err != nil {
 		return fmt.Errorf("server shutdown failed: %w", err)
 	}
 
-	// 关闭数据库连接
+	// close database connection
 	if app.db != nil {
 		if err := app.db.Close(); err != nil {
 			return fmt.Errorf("database connection close failed: %w", err)
 		}
 	}
 
-	// 关闭Redis连接
+	// close redis connection
 	if app.redis != nil {
 		if err := app.redis.Close(); err != nil {
 			return fmt.Errorf("redis connection close failed: %w", err)
@@ -239,4 +242,16 @@ func (app *App) Shutdown() error {
 
 	log.Println("server shutdown completed")
 	return nil
+}
+
+func (app *App) GetDB() *sqlx.DB {
+	return app.db
+}
+
+func (app *App) GetRedis() *redis.Client {
+	return app.redis
+}
+
+func (app *App) GetFTS() *fulltext.FullTextSearch {
+	return app.fts
 }
