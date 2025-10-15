@@ -50,6 +50,12 @@ func (app *App) Initialize() error {
 		return fmt.Errorf("failed to initialize database: %w", err)
 	}
 
+	// enable foreign key constraints for SQLite
+	_, err = app.db.Exec(`PRAGMA foreign_keys = ON;`)
+	if err != nil {
+		return fmt.Errorf("failed to enable foreign keys: %w", err)
+	}
+
 	if err := app.initRedis(); err != nil {
 		return fmt.Errorf("failed to initialize redis: %w", err)
 	}
@@ -62,11 +68,6 @@ func (app *App) Initialize() error {
 		return fmt.Errorf("failed to add tasks: %w", err)
 	}
 
-	// run database migrations
-	// if err := database.Migrate(app.db); err != nil {
-	// 	return fmt.Errorf("failed to run migrations: %w", err)
-	// }
-
 	app.setupRoutes()
 
 	return nil
@@ -78,6 +79,9 @@ func (app *App) initDatabase() error {
 		log.Printf("database connection error: %v", app.config.DB.URL)
 		return err
 	}
+
+	verifyForeignKeysConstraints(db)
+	verifyWALMode(db)
 
 	// configure the connection pool
 	// db.SetMaxOpenConns(app.config.DB.PoolSize) // SQLite 通常只需要 1 个连接
@@ -254,4 +258,26 @@ func (app *App) GetRedis() *redis.Client {
 
 func (app *App) GetFTS() *fulltext.FullTextSearch {
 	return app.fts
+}
+
+func verifyForeignKeysConstraints(db *sqlx.DB) {
+	var rv int
+	err := db.Get(&rv, "PRAGMA foreign_keys;")
+	if err != nil {
+		panic("failed to verify foreign keys constraints: " + err.Error())
+	}
+	if rv != 1 {
+		panic("foreign keys constraints are not enabled")
+	}
+}
+
+func verifyWALMode(db *sqlx.DB) {
+	var rv string
+	err := db.Get(&rv, "PRAGMA journal_mode;")
+	if err != nil {
+		panic("failed to verify WAL mode: " + err.Error())
+	}
+	if rv != "wal" {
+		panic("WAL mode is not enabled")
+	}
 }
