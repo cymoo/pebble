@@ -12,16 +12,21 @@ import (
 	"time"
 
 	"github.com/cymoo/mita"
+
 	"github.com/cymoo/pebble/internal/config"
 	"github.com/cymoo/pebble/internal/tasks"
 	"github.com/cymoo/pebble/pkg/fulltext"
+
 	"github.com/go-chi/chi"
 	"github.com/go-chi/chi/middleware"
 
 	"github.com/golang-migrate/migrate/v4"
+	_ "github.com/golang-migrate/migrate/v4/database/sqlite3"
 	_ "github.com/golang-migrate/migrate/v4/source/file"
+
 	"github.com/jmoiron/sqlx"
 	_ "github.com/mattn/go-sqlite3"
+
 	"github.com/redis/go-redis/v9"
 )
 
@@ -53,12 +58,6 @@ func (app *App) Initialize() error {
 		return fmt.Errorf("failed to initialize database: %w", err)
 	}
 
-	// enable foreign key constraints for SQLite
-	_, err = app.db.Exec(`PRAGMA foreign_keys = ON;`)
-	if err != nil {
-		return fmt.Errorf("failed to enable foreign keys: %w", err)
-	}
-
 	if err := app.initRedis(); err != nil {
 		return fmt.Errorf("failed to initialize redis: %w", err)
 	}
@@ -83,16 +82,32 @@ func (app *App) initDatabase() error {
 		return err
 	}
 
+	_, err = db.Exec("PRAGMA foreign_keys = ON")
+	if err != nil {
+		return fmt.Errorf("failed to enable foreign keys: %w", err)
+	}
+
+	_, err = db.Exec("PRAGMA journal_mode = WAL")
+	if err != nil {
+		return fmt.Errorf("failed to enable WAL mode: %w", err)
+	}
+
 	verifyForeignKeysConstraints(db)
 	verifyWALMode(db)
 
-	// configure the connection pool
-	// db.SetMaxOpenConns(app.config.DB.PoolSize) // SQLite 通常只需要 1 个连接
-	// db.SetMaxOpenConns(app.config.DB.MaxOpenConns)
-	// db.SetMaxIdleConns(app.config.DB.MaxIdleConns)
-	// db.SetConnMaxIdleTime(app.config.DB.MaxIdleTime)
+	// configure connection pool
+	poolSize := app.config.DB.PoolSize
+	db.SetMaxOpenConns(poolSize)
+	db.SetMaxIdleConns(poolSize)
+	db.SetConnMaxIdleTime(0)
+	db.SetConnMaxLifetime(0)
 
-	runMigrations(app.config.DB.URL)
+	if app.config.DB.AutoMigrate {
+		log.Println("running database migrations...")
+		if err := runMigrations(app.config.DB.URL); err != nil {
+			return fmt.Errorf("failed to run migrations: %w", err)
+		}
+	}
 
 	// test connection
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)

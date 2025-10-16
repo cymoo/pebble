@@ -44,8 +44,9 @@ type SearchConfig struct {
 }
 
 type DBConfig struct {
-	URL      string
-	PoolSize int
+	URL         string
+	PoolSize    int
+	AutoMigrate bool
 }
 
 type RedisConfig struct {
@@ -98,8 +99,9 @@ func Load() *Config {
 	}
 
 	config.DB = DBConfig{
-		URL:      env.GetString("DB_URL", "file:app.db?cache=shared&_fk=true&_journal_mode=WAL"),
-		PoolSize: env.GetInt("DB_POOL_SIZE", 10),
+		URL:         env.GetString("DB_URL", "file:app.db?cache=shared&_fk=true&_journal_mode=WAL"),
+		PoolSize:    env.GetInt("DB_POOL_SIZE", 10),
+		AutoMigrate: env.GetBool("DB_AUTO_MIGRATE", false),
 	}
 
 	config.Redis = RedisConfig{
@@ -110,7 +112,6 @@ func Load() *Config {
 	}
 
 	config.Upload = UploadConfig{
-		// MaxSize:    env.GetByteSize("UPLOAD_MAX_SIZE", 10*1024*1024), // 10 MB
 		BaseURL:      env.GetString("UPLOAD_BASE_URL", "/uploads/"),
 		BasePath:     env.GetString("UPLOAD_BASE_PATH", "./uploads"),
 		ImageFormats: env.GetSlice("UPLOAD_IMAGE_FORMATS", []string{"jpg", "jpeg", "png", "webp", "gif"}),
@@ -124,7 +125,7 @@ func Load() *Config {
 	}
 
 	config.AppName = env.GetString("APP_NAME", "Pebble")
-	config.AppVersion = env.GetString("APP_VERSION", "0.1.0")
+	config.AppVersion = env.GetString("APP_VERSION", "1.0.0")
 
 	config.PostsPerPage = env.GetInt("POSTS_PER_PAGE", 30)
 	config.StaticDir = env.GetString("STATIC_PATH", "./static")

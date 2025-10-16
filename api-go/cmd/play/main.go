@@ -13,8 +13,6 @@ func main() {
 
 // expirePost sets the deleted_at field of a post to 31 days ago, effectively expiring it
 // postID: ID of the post to expire
-// This function is for demonstration purposes and should be run in a controlled environment
-// as it initializes the entire application stack.
 func expirePost(postID int64) {
 	cfg := config.Load()
 
