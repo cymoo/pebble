@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
 	"net/http"
@@ -17,6 +18,8 @@ import (
 	"github.com/go-chi/chi"
 	"github.com/go-chi/chi/middleware"
 
+	"github.com/golang-migrate/migrate/v4"
+	_ "github.com/golang-migrate/migrate/v4/source/file"
 	"github.com/jmoiron/sqlx"
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/redis/go-redis/v9"
@@ -88,6 +91,8 @@ func (app *App) initDatabase() error {
 	// db.SetMaxOpenConns(app.config.DB.MaxOpenConns)
 	// db.SetMaxIdleConns(app.config.DB.MaxIdleConns)
 	// db.SetConnMaxIdleTime(app.config.DB.MaxIdleTime)
+
+	runMigrations(app.config.DB.URL)
 
 	// test connection
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -279,5 +284,28 @@ func verifyWALMode(db *sqlx.DB) {
 	}
 	if rv != "wal" {
 		panic("WAL mode is not enabled")
+	}
+}
+
+func runMigrations(url string) error {
+	migrator, err := migrate.New(
+		"file://migrations",
+		"sqlite3://"+url,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to create migrator: %w", err)
+	}
+	defer migrator.Close()
+
+	err = migrator.Up()
+	switch {
+	case errors.Is(err, migrate.ErrNoChange):
+		log.Println("no new migrations to apply")
+		return nil
+	case err != nil:
+		return fmt.Errorf("migration failed: %w", err)
+	default:
+		log.Println("migrations applied successfully")
+		return nil
 	}
 }
