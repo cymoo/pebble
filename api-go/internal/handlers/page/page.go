@@ -44,6 +44,12 @@ type PostHandler struct {
 func NewPostHandler(db *sqlx.DB) (*PostHandler, error) {
 	templates := make(map[string]*template.Template)
 
+	funcMap := template.FuncMap{
+		"safe": func(s string) template.HTML {
+			return template.HTML(s)
+		},
+	}
+
 	pages := map[string][]string{
 		"post-list": {"templates/layout.tpl", "templates/post-list.tpl"},
 		"post-item": {"templates/layout.tpl", "templates/post-item.tpl"},
@@ -51,7 +57,7 @@ func NewPostHandler(db *sqlx.DB) (*PostHandler, error) {
 	}
 
 	for pageName, files := range pages {
-		tmpl, err := template.ParseFS(templatesFS, files...)
+		tmpl, err := template.New("").Funcs(funcMap).ParseFS(templatesFS, files...)
 		if err != nil {
 			return nil, fmt.Errorf("parsing templates for %s: %w", pageName, err)
 		}
@@ -98,7 +104,7 @@ func (h *PostHandler) PostList(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	if err := h.templates["post-list"].Execute(w, data); err != nil {
+	if err := h.templates["post-list"].ExecuteTemplate(w, "layout", data); err != nil {
 		h.renderError(w, http.StatusInternalServerError, err)
 	}
 }
@@ -106,7 +112,6 @@ func (h *PostHandler) PostList(w http.ResponseWriter, r *http.Request) {
 // PostItem handles the individual post page
 func (h *PostHandler) PostItem(w http.ResponseWriter, r *http.Request) {
 	idStr := chi.URLParam(r, "id")
-	log.Printf("PostItem idStr: %s", idStr)
 
 	id, err := strconv.ParseInt(idStr, 10, 64)
 	if err != nil {
@@ -153,10 +158,8 @@ func (h *PostHandler) PostItem(w http.ResponseWriter, r *http.Request) {
 		"images":    images,
 	}
 
-	log.Printf("data: %#v", data)
-
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	if err := h.templates["post-item"].Execute(w, data); err != nil {
+	if err := h.templates["post-item"].ExecuteTemplate(w, "layout", data); err != nil {
 		h.renderError(w, http.StatusInternalServerError, err)
 	}
 }
