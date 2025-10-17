@@ -7,6 +7,7 @@ import (
 	m "github.com/cymoo/mint"
 	e "github.com/cymoo/pebble/internal/errors"
 	"github.com/cymoo/pebble/internal/handlers"
+	"github.com/cymoo/pebble/internal/handlers/page"
 	"github.com/cymoo/pebble/internal/models"
 	"github.com/cymoo/pebble/internal/services"
 	"github.com/go-chi/chi"
@@ -58,6 +59,20 @@ func NewApiRouter(app *App) *chi.Mux {
 
 	r.Post("/upload", m.H(uploadHandler.UploadFile))
 	r.Get("/upload", m.H(uploadHandler.SimpleFileForm))
+
+	return r
+}
+
+func NewPageRouter(app *App) *chi.Mux {
+	r := chi.NewRouter()
+
+	pageHandler, err := page.NewPostHandler(app.db)
+	if err != nil {
+		panic("failed to create page handler: " + err.Error())
+	}
+
+	r.Get("/", pageHandler.PostList)
+	r.Get("/{id}", pageHandler.PostItem)
 
 	return r
 }

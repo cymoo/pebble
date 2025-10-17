@@ -174,16 +174,20 @@ func (app *App) setupRoutes() {
 	r.Use(PanicRecovery(app.config.Debug))
 	r.Use(CORS(app.config.HTTP.CORS))
 
-	r.Handle(app.config.Upload.BaseURL+"/*", http.StripPrefix(
-		app.config.Upload.BaseURL,
-		http.FileServer(http.Dir(app.config.Upload.BasePath))),
-	)
+	uploadUrl := app.config.Upload.BaseURL
+	uploadPath := app.config.Upload.BasePath
+	r.Handle(uploadUrl+"/*", http.StripPrefix(uploadUrl, http.FileServer(http.Dir(uploadPath))))
+
+	staticUrl := app.config.StaticURL
+	staticPath := app.config.StaticPath
+	r.Handle(staticUrl+"/*", http.StripPrefix(staticUrl, http.FileServer(http.Dir(staticPath))))
 
 	r.Get("/health", app.checkHealth)
 
 	// mount task web ui
 	r.Mount("/", app.tm.WebHandler("/tasks"))
 	r.Mount("/api", NewApiRouter(app))
+	r.Mount("/shared", NewPageRouter(app))
 
 	app.server = &http.Server{
 		Addr:         fmt.Sprintf("%s:%d", app.config.HTTP.IP, app.config.HTTP.Port),

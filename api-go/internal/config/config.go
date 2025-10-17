@@ -18,8 +18,8 @@ type Config struct {
 
 	// application settings
 	PostsPerPage int
-	StaticDir    string
 	StaticURL    string
+	StaticPath   string
 
 	// server settings
 	HTTP   HTTPConfig
@@ -112,7 +112,7 @@ func Load() *Config {
 	}
 
 	config.Upload = UploadConfig{
-		BaseURL:      env.GetString("UPLOAD_BASE_URL", "/uploads/"),
+		BaseURL:      env.GetString("UPLOAD_BASE_URL", "/uploads"),
 		BasePath:     env.GetString("UPLOAD_BASE_PATH", "./uploads"),
 		ImageFormats: env.GetSlice("UPLOAD_IMAGE_FORMATS", []string{"jpg", "jpeg", "png", "webp", "gif"}),
 		ThumbWidth:   uint32(env.GetInt("UPLOAD_THUMB_WIDTH", 200)),
@@ -128,8 +128,8 @@ func Load() *Config {
 	config.AppVersion = env.GetString("APP_VERSION", "1.0.0")
 
 	config.PostsPerPage = env.GetInt("POSTS_PER_PAGE", 30)
-	config.StaticDir = env.GetString("STATIC_PATH", "./static")
-	config.StaticURL = env.GetString("STATIC_BASE_URL", "/static/")
+	config.StaticPath = env.GetString("STATIC_BASE_PATH", "./static")
+	config.StaticURL = env.GetString("STATIC_BASE_URL", "/static")
 
 	return config
 }
