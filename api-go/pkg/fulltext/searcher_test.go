@@ -44,6 +44,567 @@ func teardownTestRedis(t *testing.T, client *redis.Client) {
 	}
 }
 
+func TestFullTextSearch_StopWordsQuery(t *testing.T) {
+	client := setupTestRedis(t)
+	defer teardownTestRedis(t, client)
+
+	fts := NewFullTextSearch(client, tokenizer, "test:fts:")
+	ctx := context.Background()
+
+	// Index a document
+	if err := fts.Index(ctx, 1, "The quick brown fox"); err != nil {
+		t.Fatalf("Index() error = %v", err)
+	}
+
+	// Search with only stop words
+	tokens, results, err := fts.Search(ctx, "the and or", false, 0)
+	if err != nil {
+		t.Fatalf("Search() error = %v", err)
+	}
+
+	if len(tokens) != 0 {
+		t.Errorf("Expected no tokens after stop word removal, got %v", tokens)
+	}
+
+	if len(results) != 0 {
+		t.Errorf("Expected no results for stop words query, got %v", results)
+	}
+}
+
+func TestFullTextSearch_ContextCancellation(t *testing.T) {
+	client := setupTestRedis(t)
+	defer teardownTestRedis(t, client)
+
+	fts := NewFullTextSearch(client, tokenizer, "test:fts:")
+
+	// Create a context with timeout
+	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+	defer cancel()
+
+	// This should complete before timeout
+	err := fts.Index(ctx, 1, "The quick brown fox")
+	if err != nil {
+		t.Fatalf("Index() error = %v", err)
+	}
+
+	// Cancel context immediately
+	ctx2, cancel2 := context.WithCancel(context.Background())
+	cancel2()
+
+	// This should fail due to canceled context
+	err = fts.Index(ctx2, 2, "Another document")
+	if err == nil {
+		t.Error("Expected error with canceled context, got nil")
+	}
+}
+
+func TestFullTextSearch_ConcurrentOperations(t *testing.T) {
+	client := setupTestRedis(t)
+	defer teardownTestRedis(t, client)
+
+	fts := NewFullTextSearch(client, tokenizer, "test:fts:")
+	ctx := context.Background()
+
+	// Concurrent indexing
+	t.Run("Concurrent indexing", func(t *testing.T) {
+		var wg sync.WaitGroup
+		errChan := make(chan error, 10)
+
+		for i := 1; i <= 10; i++ {
+			wg.Add(1)
+			go func(id int) {
+				defer wg.Done()
+				text := fmt.Sprintf("Document number %d with some content", id)
+				if err := fts.Index(ctx, int64(id), text); err != nil {
+					errChan <- err
+				}
+			}(i)
+		}
+
+		wg.Wait()
+		close(errChan)
+
+		for err := range errChan {
+			t.Errorf("Concurrent indexing error: %v", err)
+		}
+
+		// Verify all documents are indexed
+		count, err := fts.GetDocCount(ctx)
+		if err != nil {
+			t.Fatalf("GetDocCount() error = %v", err)
+		}
+		if count != 10 {
+			t.Errorf("Expected 10 documents, got %d", count)
+		}
+	})
+
+	// Concurrent searching
+	t.Run("Concurrent searching", func(t *testing.T) {
+		var wg sync.WaitGroup
+		errChan := make(chan error, 10)
+
+		for i := 0; i < 10; i++ {
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				_, _, err := fts.Search(ctx, "document content", false, 0)
+				if err != nil {
+					errChan <- err
+				}
+			}()
+		}
+
+		wg.Wait()
+		close(errChan)
+
+		for err := range errChan {
+			t.Errorf("Concurrent search error: %v", err)
+		}
+	})
+}
+
+func TestFullTextSearch_LargeDocument(t *testing.T) {
+	client := setupTestRedis(t)
+	defer teardownTestRedis(t, client)
+
+	fts := NewFullTextSearch(client, tokenizer, "test:fts:")
+	ctx := context.Background()
+
+	// Create a large document
+	largeText := strings.Repeat("machine learning artificial intelligence deep learning neural networks ", 100)
+
+	err := fts.Index(ctx, 1, largeText)
+	if err != nil {
+		t.Fatalf("Failed to index large document: %v", err)
+	}
+
+	// Search should work
+	_, results, err := fts.Search(ctx, "machine learning", false, 0)
+	if err != nil {
+		t.Fatalf("Search() error = %v", err)
+	}
+
+	if len(results) != 1 || results[0].ID != 1 {
+		t.Errorf("Expected to find large document, got %v", results)
+	}
+}
+
+func TestFullTextSearch_SpecialCharacters(t *testing.T) {
+	client := setupTestRedis(t)
+	defer teardownTestRedis(t, client)
+
+	fts := NewFullTextSearch(client, tokenizer, "test:fts:")
+	ctx := context.Background()
+
+	// Index document with special characters
+	documents := map[int64]string{
+		1: "Hello, World! How are you?",
+		2: "C++ and C# are programming languages",
+		3: "Email: test@example.com, Phone: 123-456-7890",
+		4: "价格：¥100，折扣：50%",
+	}
+
+	for id, text := range documents {
+		if err := fts.Index(ctx, id, text); err != nil {
+			t.Fatalf("Failed to index document %d: %v", id, err)
+		}
+	}
+
+	tests := []struct {
+		name    string
+		query   string
+		partial bool
+		wantIDs []int64
+	}{
+		{
+			name:    "Search without punctuation",
+			query:   "Hello World",
+			partial: false,
+			wantIDs: []int64{1},
+		},
+		{
+			name:    "Search programming languages",
+			query:   "programming languages",
+			partial: false,
+			wantIDs: []int64{2},
+		},
+		{
+			name:    "Search email content",
+			query:   "email test example",
+			partial: false,
+			wantIDs: []int64{3},
+		},
+		{
+			name:    "Search Chinese with special chars",
+			query:   "价格 折扣",
+			partial: false,
+			wantIDs: []int64{4},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, results, err := fts.Search(ctx, tt.query, tt.partial, 0)
+			if err != nil {
+				t.Fatalf("Search() error = %v", err)
+			}
+
+			for _, wantID := range tt.wantIDs {
+				found := false
+				for _, result := range results {
+					if result.ID == wantID {
+						found = true
+						break
+					}
+				}
+				if !found {
+					t.Errorf("Expected to find document %d in results", wantID)
+				}
+			}
+		})
+	}
+}
+
+func TestFullTextSearch_ReindexToEmpty(t *testing.T) {
+	client := setupTestRedis(t)
+	defer teardownTestRedis(t, client)
+
+	fts := NewFullTextSearch(client, tokenizer, "test:fts:")
+	ctx := context.Background()
+
+	// Index a document
+	if err := fts.Index(ctx, 1, "The quick brown fox"); err != nil {
+		t.Fatalf("Index() error = %v", err)
+	}
+
+	// Verify indexed
+	indexed, err := fts.Indexed(ctx, 1)
+	if err != nil {
+		t.Fatalf("Indexed() error = %v", err)
+	}
+	if !indexed {
+		t.Fatal("Document should be indexed")
+	}
+
+	// Reindex with empty text (should deindex)
+	if err := fts.Reindex(ctx, 1, ""); err != nil {
+		t.Fatalf("Reindex() error = %v", err)
+	}
+
+	// Verify not indexed
+	indexed, err = fts.Indexed(ctx, 1)
+	if err != nil {
+		t.Fatalf("Indexed() error = %v", err)
+	}
+	if indexed {
+		t.Error("Document should be deindexed after reindexing with empty text")
+	}
+}
+
+func TestFullTextSearch_IndexAlreadyIndexed(t *testing.T) {
+	client := setupTestRedis(t)
+	defer teardownTestRedis(t, client)
+
+	fts := NewFullTextSearch(client, tokenizer, "test:fts:")
+	ctx := context.Background()
+
+	// Index a document
+	if err := fts.Index(ctx, 1, "The quick brown fox"); err != nil {
+		t.Fatalf("Index() error = %v", err)
+	}
+
+	// Get initial doc count
+	count1, err := fts.GetDocCount(ctx)
+	if err != nil {
+		t.Fatalf("GetDocCount() error = %v", err)
+	}
+
+	// Index the same document again with different content
+	// This should trigger Reindex internally
+	if err := fts.Index(ctx, 1, "The slow red turtle"); err != nil {
+		t.Fatalf("Index() on already indexed doc error = %v", err)
+	}
+
+	// Doc count should remain the same
+	count2, err := fts.GetDocCount(ctx)
+	if err != nil {
+		t.Fatalf("GetDocCount() error = %v", err)
+	}
+
+	if count1 != count2 {
+		t.Errorf("Doc count changed from %d to %d after reindexing", count1, count2)
+	}
+
+	// Search for new content
+	_, results, err := fts.Search(ctx, "slow red turtle", false, 0)
+	if err != nil {
+		t.Fatalf("Search() error = %v", err)
+	}
+
+	if len(results) != 1 || results[0].ID != 1 {
+		t.Errorf("Expected to find document 1 with new content, got %v", results)
+	}
+}
+
+func TestFullTextSearch_MultipleKeyPrefixes(t *testing.T) {
+	client := setupTestRedis(t)
+	defer teardownTestRedis(t, client)
+
+	ctx := context.Background()
+
+	// Create two separate search instances with different prefixes
+	fts1 := NewFullTextSearch(client, tokenizer, "test:fts1:")
+	fts2 := NewFullTextSearch(client, tokenizer, "test:fts2:")
+
+	// Index same document ID in both
+	if err := fts1.Index(ctx, 1, "The quick brown fox"); err != nil {
+		t.Fatalf("fts1.Index() error = %v", err)
+	}
+
+	if err := fts2.Index(ctx, 1, "机器学习很有趣"); err != nil {
+		t.Fatalf("fts2.Index() error = %v", err)
+	}
+
+	// Search in fts1
+	_, results1, err := fts1.Search(ctx, "fox", false, 0)
+	if err != nil {
+		t.Fatalf("fts1.Search() error = %v", err)
+	}
+
+	if len(results1) != 1 || results1[0].ID != 1 {
+		t.Errorf("fts1 expected to find document 1, got %v", results1)
+	}
+
+	// Search in fts2
+	_, results2, err := fts2.Search(ctx, "机器学习", false, 0)
+	if err != nil {
+		t.Fatalf("fts2.Search() error = %v", err)
+	}
+
+	if len(results2) != 1 || results2[0].ID != 1 {
+		t.Errorf("fts2 expected to find document 1, got %v", results2)
+	}
+
+	// fts1 should not find Chinese content
+	_, results3, err := fts1.Search(ctx, "机器学习", false, 0)
+	if err != nil {
+		t.Fatalf("fts1.Search() error = %v", err)
+	}
+
+	if len(results3) != 0 {
+		t.Errorf("fts1 should not find Chinese content, got %v", results3)
+	}
+
+	// Clear fts1 should not affect fts2
+	if err := fts1.ClearAllIndexes(ctx); err != nil {
+		t.Fatalf("fts1.ClearAllIndexes() error = %v", err)
+	}
+
+	// fts2 should still work
+	count, err := fts2.GetDocCount(ctx)
+	if err != nil {
+		t.Fatalf("fts2.GetDocCount() error = %v", err)
+	}
+
+	if count != 1 {
+		t.Errorf("fts2 doc count should be 1 after fts1 clear, got %d", count)
+	}
+}
+
+func TestFullTextSearch_ComplexScenario(t *testing.T) {
+	client := setupTestRedis(t)
+	defer teardownTestRedis(t, client)
+
+	tokenizer := NewGseTokenizer()
+	defer tokenizer.Close()
+
+	fts := NewFullTextSearch(client, tokenizer, "test:fts:")
+	ctx := context.Background()
+
+	// Simulate a blog search system
+	documents := map[int64]string{
+		1: "Introduction to Machine Learning: A Beginner's Guide",
+		2: "Advanced Machine Learning Techniques and Deep Learning",
+		3: "Natural Language Processing with Python",
+		4: "Building Scalable Web Applications with Go",
+		5: "机器学习入门教程",
+		6: "深度学习与神经网络",
+		7: "Python自然语言处理实战",
+		8: "Go语言Web开发指南",
+	}
+
+	// Index all documents
+	for id, text := range documents {
+		if err := fts.Index(ctx, id, text); err != nil {
+			t.Fatalf("Failed to index document %d: %v", id, err)
+		}
+	}
+
+	// Test scenario 1: Search for machine learning
+	t.Run("Search machine learning", func(t *testing.T) {
+		_, results, err := fts.Search(ctx, "machine learning", false, 0)
+		if err != nil {
+			t.Fatalf("Search() error = %v", err)
+		}
+
+		if len(results) < 2 {
+			t.Errorf("Expected at least 2 results for 'machine learning', got %d", len(results))
+		}
+
+		// Document 2 should rank higher (more terms)
+		if results[0].ID != 2 {
+			t.Logf("Warning: Expected document 2 to rank highest, got %d", results[0].ID)
+		}
+	})
+
+	// Test scenario 2: Update a document
+	t.Run("Update document content", func(t *testing.T) {
+		// Update document 1
+		newContent := "Introduction to Deep Learning and Neural Networks"
+		if err := fts.Reindex(ctx, 1, newContent); err != nil {
+			t.Fatalf("Reindex() error = %v", err)
+		}
+
+		// Search for old content should not return doc 1
+		_, results, err := fts.Search(ctx, "machine learning beginner", false, 0)
+		if err != nil {
+			t.Fatalf("Search() error = %v", err)
+		}
+
+		for _, result := range results {
+			if result.ID == 1 {
+				t.Error("Document 1 should not appear in results after reindex")
+			}
+		}
+
+		// Search for new content should return doc 1
+		_, results, err = fts.Search(ctx, "deep learning neural", false, 0)
+		if err != nil {
+			t.Fatalf("Search() error = %v", err)
+		}
+
+		found := false
+		for _, result := range results {
+			if result.ID == 1 {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Error("Document 1 should appear in results with new content")
+		}
+	})
+
+	// Test scenario 3: Delete a document
+	t.Run("Delete document", func(t *testing.T) {
+		initialCount, err := fts.GetDocCount(ctx)
+		if err != nil {
+			t.Fatalf("GetDocCount() error = %v", err)
+		}
+
+		// Delete document 3
+		if err := fts.Deindex(ctx, 3); err != nil {
+			t.Fatalf("Deindex() error = %v", err)
+		}
+
+		// Doc count should decrease
+		newCount, err := fts.GetDocCount(ctx)
+		if err != nil {
+			t.Fatalf("GetDocCount() error = %v", err)
+		}
+
+		if newCount != initialCount-1 {
+			t.Errorf("Expected doc count to decrease by 1, got %d -> %d", initialCount, newCount)
+		}
+
+		// Deleted document should not appear in search
+		_, results, err := fts.Search(ctx, "natural language processing python", false, 0)
+		if err != nil {
+			t.Fatalf("Search() error = %v", err)
+		}
+
+		for _, result := range results {
+			if result.ID == 3 {
+				t.Error("Deleted document 3 should not appear in search results")
+			}
+		}
+	})
+
+	// Test scenario 4: Chinese search
+	t.Run("Chinese content search", func(t *testing.T) {
+		_, results, err := fts.Search(ctx, "机器学习", false, 0)
+		if err != nil {
+			t.Fatalf("Search() error = %v", err)
+		}
+
+		if len(results) < 1 {
+			t.Errorf("Expected at least 1 result for Chinese query, got %d", len(results))
+		}
+
+		// Should find document 5
+		found := false
+		for _, result := range results {
+			if result.ID == 5 {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Error("Expected to find Chinese document 5 in results")
+		}
+	})
+}
+
+func BenchmarkFullTextSearch_Index(b *testing.B) {
+	client := redis.NewClient(&redis.Options{
+		Addr: "localhost:6379",
+		DB:   15,
+	})
+	defer client.Close()
+
+	ctx := context.Background()
+	client.FlushDB(ctx)
+
+	tokenizer := NewGseTokenizer()
+	defer tokenizer.Close()
+
+	fts := NewFullTextSearch(client, tokenizer, "bench:fts:")
+
+	text := "Machine learning is a subset of artificial intelligence that focuses on algorithms"
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		fts.Index(ctx, int64(i), text)
+	}
+}
+
+func BenchmarkFullTextSearch_Search(b *testing.B) {
+	client := redis.NewClient(&redis.Options{
+		Addr: "localhost:6379",
+		DB:   15,
+	})
+	defer client.Close()
+
+	ctx := context.Background()
+	client.FlushDB(ctx)
+
+	tokenizer := NewGseTokenizer()
+	defer tokenizer.Close()
+
+	fts := NewFullTextSearch(client, tokenizer, "bench:fts:")
+
+	// Index some documents
+	for i := 0; i < 100; i++ {
+		text := fmt.Sprintf("Document %d about machine learning and artificial intelligence", i)
+		fts.Index(ctx, int64(i), text)
+	}
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		fts.Search(ctx, "machine learning", false, 0)
+	}
+}
+
 func TestGseTokenizer_Cut(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -175,7 +736,7 @@ func TestFullTextSearch_IndexAndIndexed(t *testing.T) {
 	client := setupTestRedis(t)
 	defer teardownTestRedis(t, client)
 
-	fts := NewFullTextSearch(client, tokenizer, false, 100, "test:fts:")
+	fts := NewFullTextSearch(client, tokenizer, "test:fts:")
 	ctx := context.Background()
 
 	// Test indexing English document
@@ -243,7 +804,7 @@ func TestFullTextSearch_GetDocCount(t *testing.T) {
 	client := setupTestRedis(t)
 	defer teardownTestRedis(t, client)
 
-	fts := NewFullTextSearch(client, tokenizer, false, 100, "test:fts:")
+	fts := NewFullTextSearch(client, tokenizer, "test:fts:")
 	ctx := context.Background()
 
 	// Initial count should be 0
@@ -282,7 +843,7 @@ func TestFullTextSearch_Reindex(t *testing.T) {
 	client := setupTestRedis(t)
 	defer teardownTestRedis(t, client)
 
-	fts := NewFullTextSearch(client, tokenizer, false, 100, "test:fts:")
+	fts := NewFullTextSearch(client, tokenizer, "test:fts:")
 	ctx := context.Background()
 
 	// Index initial document
@@ -296,7 +857,7 @@ func TestFullTextSearch_Reindex(t *testing.T) {
 	}
 
 	// Search for old content
-	_, results, err := fts.Search(ctx, "quick brown fox")
+	_, results, err := fts.Search(ctx, "quick brown fox", false, 0)
 	if err != nil {
 		t.Fatalf("Search() error = %v", err)
 	}
@@ -305,7 +866,7 @@ func TestFullTextSearch_Reindex(t *testing.T) {
 	}
 
 	// Search for new content
-	_, results, err = fts.Search(ctx, "slow red turtle")
+	_, results, err = fts.Search(ctx, "slow red turtle", false, 0)
 	if err != nil {
 		t.Fatalf("Search() error = %v", err)
 	}
@@ -331,7 +892,7 @@ func TestFullTextSearch_Deindex(t *testing.T) {
 	client := setupTestRedis(t)
 	defer teardownTestRedis(t, client)
 
-	fts := NewFullTextSearch(client, tokenizer, false, 100, "test:fts:")
+	fts := NewFullTextSearch(client, tokenizer, "test:fts:")
 	ctx := context.Background()
 
 	// Index document
@@ -372,7 +933,7 @@ func TestFullTextSearch_Deindex(t *testing.T) {
 	}
 
 	// Search should return no results
-	_, results, err := fts.Search(ctx, "quick brown")
+	_, results, err := fts.Search(ctx, "quick brown", false, 0)
 	if err != nil {
 		t.Fatalf("Search() error = %v", err)
 	}
@@ -385,7 +946,7 @@ func TestFullTextSearch_SearchEnglish(t *testing.T) {
 	client := setupTestRedis(t)
 	defer teardownTestRedis(t, client)
 
-	fts := NewFullTextSearch(client, tokenizer, false, 100, "test:fts:")
+	fts := NewFullTextSearch(client, tokenizer, "test:fts:")
 	ctx := context.Background()
 
 	// Index documents
@@ -406,46 +967,72 @@ func TestFullTextSearch_SearchEnglish(t *testing.T) {
 	tests := []struct {
 		name       string
 		query      string
+		partial    bool
+		limit      int
 		wantIDs    []int64
 		minResults int
 	}{
 		{
 			name:       "Single word",
 			query:      "fox",
+			partial:    false,
+			limit:      0,
 			wantIDs:    []int64{1, 2},
 			minResults: 2,
 		},
 		{
-			name:       "Multiple words",
+			name:       "Multiple words - intersection",
 			query:      "brown fox",
+			partial:    false,
+			limit:      0,
 			wantIDs:    []int64{1, 2},
 			minResults: 2,
 		},
 		{
 			name:       "Common word",
 			query:      "learning",
+			partial:    false,
+			limit:      0,
 			wantIDs:    []int64{4, 5},
 			minResults: 2,
 		},
 		{
 			name:       "No match",
 			query:      "elephant",
+			partial:    false,
+			limit:      0,
 			wantIDs:    []int64{},
 			minResults: 0,
 		},
 		{
 			name:       "Phrase query",
 			query:      "machine learning",
+			partial:    false,
+			limit:      0,
 			wantIDs:    []int64{4},
+			minResults: 1,
+		},
+		{
+			name:       "Limited results",
+			query:      "learning",
+			partial:    false,
+			limit:      1,
+			wantIDs:    []int64{},
 			minResults: 1,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, results, err := fts.Search(ctx, tt.query)
+			_, results, err := fts.Search(ctx, tt.query, tt.partial, tt.limit)
 			if err != nil {
 				t.Fatalf("Search() error = %v", err)
+			}
+
+			if tt.limit > 0 {
+				if len(results) > tt.limit {
+					t.Errorf("Expected at most %d results, got %d", tt.limit, len(results))
+				}
 			}
 
 			if len(results) < tt.minResults {
@@ -479,7 +1066,7 @@ func TestFullTextSearch_SearchChinese(t *testing.T) {
 	client := setupTestRedis(t)
 	defer teardownTestRedis(t, client)
 
-	fts := NewFullTextSearch(client, tokenizer, false, 100, "test:fts:")
+	fts := NewFullTextSearch(client, tokenizer, "test:fts:")
 	ctx := context.Background()
 
 	// Index Chinese documents
@@ -500,36 +1087,42 @@ func TestFullTextSearch_SearchChinese(t *testing.T) {
 	tests := []struct {
 		name       string
 		query      string
+		partial    bool
 		wantIDs    []int64
 		minResults int
 	}{
 		{
 			name:       "Single term",
 			query:      "机器学习",
+			partial:    false,
 			wantIDs:    []int64{1, 2},
 			minResults: 2,
 		},
 		{
 			name:       "Multiple terms",
 			query:      "自然语言处理",
+			partial:    false,
 			wantIDs:    []int64{1, 3},
 			minResults: 2,
 		},
 		{
 			name:       "Common term",
 			query:      "学习",
+			partial:    false,
 			wantIDs:    []int64{1, 2},
 			minResults: 2,
 		},
 		{
 			name:       "No match",
 			query:      "区块链",
+			partial:    false,
 			wantIDs:    []int64{},
 			minResults: 0,
 		},
 		{
 			name:       "Specific phrase",
 			query:      "深度学习",
+			partial:    false,
 			wantIDs:    []int64{2},
 			minResults: 1,
 		},
@@ -537,7 +1130,7 @@ func TestFullTextSearch_SearchChinese(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, results, err := fts.Search(ctx, tt.query)
+			_, results, err := fts.Search(ctx, tt.query, tt.partial, 0)
 			if err != nil {
 				t.Fatalf("Search() error = %v", err)
 			}
@@ -566,7 +1159,7 @@ func TestFullTextSearch_SearchMixed(t *testing.T) {
 	client := setupTestRedis(t)
 	defer teardownTestRedis(t, client)
 
-	fts := NewFullTextSearch(client, tokenizer, false, 100, "test:fts:")
+	fts := NewFullTextSearch(client, tokenizer, "test:fts:")
 	ctx := context.Background()
 
 	// Index mixed language documents
@@ -612,7 +1205,7 @@ func TestFullTextSearch_SearchMixed(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, results, err := fts.Search(ctx, tt.query)
+			_, results, err := fts.Search(ctx, tt.query, false, 0)
 			if err != nil {
 				t.Fatalf("Search() error = %v", err)
 			}
@@ -645,7 +1238,7 @@ func TestFullTextSearch_PartialMatch(t *testing.T) {
 
 	// Test with partial match enabled
 	t.Run("Partial match enabled", func(t *testing.T) {
-		fts := NewFullTextSearch(client, tokenizer, true, 100, "test:fts:partial:")
+		fts := NewFullTextSearch(client, tokenizer, "test:fts:partial:")
 
 		documents := map[int64]string{
 			1: "The quick brown fox",
@@ -660,7 +1253,7 @@ func TestFullTextSearch_PartialMatch(t *testing.T) {
 		}
 
 		// Search for "quick dog" - should match docs 1, 2, 3 (union)
-		_, results, err := fts.Search(ctx, "quick dog")
+		_, results, err := fts.Search(ctx, "quick dog", true, 0)
 		if err != nil {
 			t.Fatalf("Search() error = %v", err)
 		}
@@ -676,7 +1269,7 @@ func TestFullTextSearch_PartialMatch(t *testing.T) {
 
 	// Test with partial match disabled
 	t.Run("Partial match disabled", func(t *testing.T) {
-		fts := NewFullTextSearch(client, tokenizer, false, 100, "test:fts:exact:")
+		fts := NewFullTextSearch(client, tokenizer, "test:fts:exact:")
 
 		documents := map[int64]string{
 			1: "The quick brown fox",
@@ -691,7 +1284,7 @@ func TestFullTextSearch_PartialMatch(t *testing.T) {
 		}
 
 		// Search for "quick dog" - should only match doc 3 (intersection)
-		_, results, err := fts.Search(ctx, "quick dog")
+		_, results, err := fts.Search(ctx, "quick dog", false, 0)
 		if err != nil {
 			t.Fatalf("Search() error = %v", err)
 		}
@@ -710,7 +1303,7 @@ func TestFullTextSearch_MaxResults(t *testing.T) {
 	client := setupTestRedis(t)
 	defer teardownTestRedis(t, client)
 
-	fts := NewFullTextSearch(client, tokenizer, true, 3, "test:fts:")
+	fts := NewFullTextSearch(client, tokenizer, "test:fts:")
 	ctx := context.Background()
 
 	// Index many documents
@@ -721,14 +1314,14 @@ func TestFullTextSearch_MaxResults(t *testing.T) {
 		}
 	}
 
-	// Search should return only maxResults
-	_, results, err := fts.Search(ctx, "machine learning")
+	// Search should return only limit
+	_, results, err := fts.Search(ctx, "machine learning", false, 3)
 	if err != nil {
 		t.Fatalf("Search() error = %v", err)
 	}
 
 	if len(results) != 3 {
-		t.Errorf("Expected 3 results (maxResults), got %d", len(results))
+		t.Errorf("Expected 3 results (limit), got %d", len(results))
 	}
 }
 
@@ -736,7 +1329,7 @@ func TestFullTextSearch_ClearAllIndexes(t *testing.T) {
 	client := setupTestRedis(t)
 	defer teardownTestRedis(t, client)
 
-	fts := NewFullTextSearch(client, tokenizer, false, 100, "test:fts:")
+	fts := NewFullTextSearch(client, tokenizer, "test:fts:")
 	ctx := context.Background()
 
 	// Index documents
@@ -776,7 +1369,7 @@ func TestFullTextSearch_ClearAllIndexes(t *testing.T) {
 	}
 
 	// Search should return no results
-	_, results, err := fts.Search(ctx, "fox")
+	_, results, err := fts.Search(ctx, "fox", false, 0)
 	if err != nil {
 		t.Fatalf("Search() error = %v", err)
 	}
@@ -789,7 +1382,7 @@ func TestFullTextSearch_Scoring(t *testing.T) {
 	client := setupTestRedis(t)
 	defer teardownTestRedis(t, client)
 
-	fts := NewFullTextSearch(client, tokenizer, false, 100, "test:fts:")
+	fts := NewFullTextSearch(client, tokenizer, "test:fts:")
 	ctx := context.Background()
 
 	// Index documents with varying relevance
@@ -806,7 +1399,7 @@ func TestFullTextSearch_Scoring(t *testing.T) {
 		}
 	}
 
-	_, results, err := fts.Search(ctx, "machine learning")
+	_, results, err := fts.Search(ctx, "machine learning", false, 0)
 	if err != nil {
 		t.Fatalf("Search() error = %v", err)
 	}
@@ -842,7 +1435,7 @@ func TestFullTextSearch_EmptyQuery(t *testing.T) {
 	client := setupTestRedis(t)
 	defer teardownTestRedis(t, client)
 
-	fts := NewFullTextSearch(client, tokenizer, false, 100, "test:fts:")
+	fts := NewFullTextSearch(client, tokenizer, "test:fts:")
 	ctx := context.Background()
 
 	// Index a document
@@ -851,7 +1444,7 @@ func TestFullTextSearch_EmptyQuery(t *testing.T) {
 	}
 
 	// Search with empty query
-	tokens, results, err := fts.Search(ctx, "")
+	tokens, results, err := fts.Search(ctx, "", false, 0)
 	if err != nil {
 		t.Fatalf("Search() error = %v", err)
 	}
@@ -862,561 +1455,5 @@ func TestFullTextSearch_EmptyQuery(t *testing.T) {
 
 	if len(results) != 0 {
 		t.Errorf("Expected no results for empty query, got %v", results)
-	}
-}
-
-func TestFullTextSearch_StopWordsQuery(t *testing.T) {
-	client := setupTestRedis(t)
-	defer teardownTestRedis(t, client)
-
-	fts := NewFullTextSearch(client, tokenizer, false, 100, "test:fts:")
-	ctx := context.Background()
-
-	// Index a document
-	if err := fts.Index(ctx, 1, "The quick brown fox"); err != nil {
-		t.Fatalf("Index() error = %v", err)
-	}
-
-	// Search with only stop words
-	tokens, results, err := fts.Search(ctx, "the and or")
-	if err != nil {
-		t.Fatalf("Search() error = %v", err)
-	}
-
-	if len(tokens) != 0 {
-		t.Errorf("Expected no tokens after stop word removal, got %v", tokens)
-	}
-
-	if len(results) != 0 {
-		t.Errorf("Expected no results for stop words query, got %v", results)
-	}
-}
-
-func TestFullTextSearch_ContextCancellation(t *testing.T) {
-	client := setupTestRedis(t)
-	defer teardownTestRedis(t, client)
-
-	fts := NewFullTextSearch(client, tokenizer, false, 100, "test:fts:")
-
-	// Create a context with timeout
-	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
-	defer cancel()
-
-	// This should complete before timeout
-	err := fts.Index(ctx, 1, "The quick brown fox")
-	if err != nil {
-		t.Fatalf("Index() error = %v", err)
-	}
-
-	// Cancel context immediately
-	ctx2, cancel2 := context.WithCancel(context.Background())
-	cancel2()
-
-	// This should fail due to canceled context
-	err = fts.Index(ctx2, 2, "Another document")
-	if err == nil {
-		t.Error("Expected error with canceled context, got nil")
-	}
-}
-
-func TestFullTextSearch_ConcurrentOperations(t *testing.T) {
-	client := setupTestRedis(t)
-	defer teardownTestRedis(t, client)
-
-	fts := NewFullTextSearch(client, tokenizer, false, 100, "test:fts:")
-	ctx := context.Background()
-
-	// Concurrent indexing
-	t.Run("Concurrent indexing", func(t *testing.T) {
-		var wg sync.WaitGroup
-		errChan := make(chan error, 10)
-
-		for i := 1; i <= 10; i++ {
-			wg.Add(1)
-			go func(id int) {
-				defer wg.Done()
-				text := fmt.Sprintf("Document number %d with some content", id)
-				if err := fts.Index(ctx, int64(id), text); err != nil {
-					errChan <- err
-				}
-			}(i)
-		}
-
-		wg.Wait()
-		close(errChan)
-
-		for err := range errChan {
-			t.Errorf("Concurrent indexing error: %v", err)
-		}
-
-		// Verify all documents are indexed
-		count, err := fts.GetDocCount(ctx)
-		if err != nil {
-			t.Fatalf("GetDocCount() error = %v", err)
-		}
-		if count != 10 {
-			t.Errorf("Expected 10 documents, got %d", count)
-		}
-	})
-
-	// Concurrent searching
-	t.Run("Concurrent searching", func(t *testing.T) {
-		var wg sync.WaitGroup
-		errChan := make(chan error, 10)
-
-		for i := 0; i < 10; i++ {
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
-				_, _, err := fts.Search(ctx, "document content")
-				if err != nil {
-					errChan <- err
-				}
-			}()
-		}
-
-		wg.Wait()
-		close(errChan)
-
-		for err := range errChan {
-			t.Errorf("Concurrent search error: %v", err)
-		}
-	})
-}
-
-func TestFullTextSearch_LargeDocument(t *testing.T) {
-	client := setupTestRedis(t)
-	defer teardownTestRedis(t, client)
-
-	fts := NewFullTextSearch(client, tokenizer, false, 100, "test:fts:")
-	ctx := context.Background()
-
-	// Create a large document
-	largeText := strings.Repeat("machine learning artificial intelligence deep learning neural networks ", 100)
-
-	err := fts.Index(ctx, 1, largeText)
-	if err != nil {
-		t.Fatalf("Failed to index large document: %v", err)
-	}
-
-	// Search should work
-	_, results, err := fts.Search(ctx, "machine learning")
-	if err != nil {
-		t.Fatalf("Search() error = %v", err)
-	}
-
-	if len(results) != 1 || results[0].ID != 1 {
-		t.Errorf("Expected to find large document, got %v", results)
-	}
-}
-
-func TestFullTextSearch_SpecialCharacters(t *testing.T) {
-	client := setupTestRedis(t)
-	defer teardownTestRedis(t, client)
-
-	fts := NewFullTextSearch(client, tokenizer, false, 100, "test:fts:")
-	ctx := context.Background()
-
-	// Index document with special characters
-	documents := map[int64]string{
-		1: "Hello, World! How are you?",
-		2: "C++ and C# are programming languages",
-		3: "Email: test@example.com, Phone: 123-456-7890",
-		4: "价格：¥100，折扣：50%",
-	}
-
-	for id, text := range documents {
-		if err := fts.Index(ctx, id, text); err != nil {
-			t.Fatalf("Failed to index document %d: %v", id, err)
-		}
-	}
-
-	tests := []struct {
-		name    string
-		query   string
-		wantIDs []int64
-	}{
-		{
-			name:    "Search without punctuation",
-			query:   "Hello World",
-			wantIDs: []int64{1},
-		},
-		{
-			name:    "Search programming languages",
-			query:   "programming languages",
-			wantIDs: []int64{2},
-		},
-		{
-			name:    "Search email content",
-			query:   "email test example",
-			wantIDs: []int64{3},
-		},
-		{
-			name:    "Search Chinese with special chars",
-			query:   "价格 折扣",
-			wantIDs: []int64{4},
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			_, results, err := fts.Search(ctx, tt.query)
-			if err != nil {
-				t.Fatalf("Search() error = %v", err)
-			}
-
-			for _, wantID := range tt.wantIDs {
-				found := false
-				for _, result := range results {
-					if result.ID == wantID {
-						found = true
-						break
-					}
-				}
-				if !found {
-					t.Errorf("Expected to find document %d in results", wantID)
-				}
-			}
-		})
-	}
-}
-
-func TestFullTextSearch_ReindexToEmpty(t *testing.T) {
-	client := setupTestRedis(t)
-	defer teardownTestRedis(t, client)
-
-	fts := NewFullTextSearch(client, tokenizer, false, 100, "test:fts:")
-	ctx := context.Background()
-
-	// Index a document
-	if err := fts.Index(ctx, 1, "The quick brown fox"); err != nil {
-		t.Fatalf("Index() error = %v", err)
-	}
-
-	// Verify indexed
-	indexed, err := fts.Indexed(ctx, 1)
-	if err != nil {
-		t.Fatalf("Indexed() error = %v", err)
-	}
-	if !indexed {
-		t.Fatal("Document should be indexed")
-	}
-
-	// Reindex with empty text (should deindex)
-	if err := fts.Reindex(ctx, 1, ""); err != nil {
-		t.Fatalf("Reindex() error = %v", err)
-	}
-
-	// Verify not indexed
-	indexed, err = fts.Indexed(ctx, 1)
-	if err != nil {
-		t.Fatalf("Indexed() error = %v", err)
-	}
-	if indexed {
-		t.Error("Document should be deindexed after reindexing with empty text")
-	}
-}
-
-func TestFullTextSearch_IndexAlreadyIndexed(t *testing.T) {
-	client := setupTestRedis(t)
-	defer teardownTestRedis(t, client)
-
-	fts := NewFullTextSearch(client, tokenizer, false, 100, "test:fts:")
-	ctx := context.Background()
-
-	// Index a document
-	if err := fts.Index(ctx, 1, "The quick brown fox"); err != nil {
-		t.Fatalf("Index() error = %v", err)
-	}
-
-	// Get initial doc count
-	count1, err := fts.GetDocCount(ctx)
-	if err != nil {
-		t.Fatalf("GetDocCount() error = %v", err)
-	}
-
-	// Index the same document again with different content
-	// This should trigger Reindex internally
-	if err := fts.Index(ctx, 1, "The slow red turtle"); err != nil {
-		t.Fatalf("Index() on already indexed doc error = %v", err)
-	}
-
-	// Doc count should remain the same
-	count2, err := fts.GetDocCount(ctx)
-	if err != nil {
-		t.Fatalf("GetDocCount() error = %v", err)
-	}
-
-	if count1 != count2 {
-		t.Errorf("Doc count changed from %d to %d after reindexing", count1, count2)
-	}
-
-	// Search for new content
-	_, results, err := fts.Search(ctx, "slow red turtle")
-	if err != nil {
-		t.Fatalf("Search() error = %v", err)
-	}
-
-	if len(results) != 1 || results[0].ID != 1 {
-		t.Errorf("Expected to find document 1 with new content, got %v", results)
-	}
-}
-
-func TestFullTextSearch_MultipleKeyPrefixes(t *testing.T) {
-	client := setupTestRedis(t)
-	defer teardownTestRedis(t, client)
-
-	ctx := context.Background()
-
-	// Create two separate search instances with different prefixes
-	fts1 := NewFullTextSearch(client, tokenizer, false, 100, "test:fts1:")
-	fts2 := NewFullTextSearch(client, tokenizer, false, 100, "test:fts2:")
-
-	// Index same document ID in both
-	if err := fts1.Index(ctx, 1, "The quick brown fox"); err != nil {
-		t.Fatalf("fts1.Index() error = %v", err)
-	}
-
-	if err := fts2.Index(ctx, 1, "机器学习很有趣"); err != nil {
-		t.Fatalf("fts2.Index() error = %v", err)
-	}
-
-	// Search in fts1
-	_, results1, err := fts1.Search(ctx, "fox")
-	if err != nil {
-		t.Fatalf("fts1.Search() error = %v", err)
-	}
-
-	if len(results1) != 1 || results1[0].ID != 1 {
-		t.Errorf("fts1 expected to find document 1, got %v", results1)
-	}
-
-	// Search in fts2
-	_, results2, err := fts2.Search(ctx, "机器学习")
-	if err != nil {
-		t.Fatalf("fts2.Search() error = %v", err)
-	}
-
-	if len(results2) != 1 || results2[0].ID != 1 {
-		t.Errorf("fts2 expected to find document 1, got %v", results2)
-	}
-
-	// fts1 should not find Chinese content
-	_, results3, err := fts1.Search(ctx, "机器学习")
-	if err != nil {
-		t.Fatalf("fts1.Search() error = %v", err)
-	}
-
-	if len(results3) != 0 {
-		t.Errorf("fts1 should not find Chinese content, got %v", results3)
-	}
-
-	// Clear fts1 should not affect fts2
-	if err := fts1.ClearAllIndexes(ctx); err != nil {
-		t.Fatalf("fts1.ClearAllIndexes() error = %v", err)
-	}
-
-	// fts2 should still work
-	count, err := fts2.GetDocCount(ctx)
-	if err != nil {
-		t.Fatalf("fts2.GetDocCount() error = %v", err)
-	}
-
-	if count != 1 {
-		t.Errorf("fts2 doc count should be 1 after fts1 clear, got %d", count)
-	}
-}
-
-func TestFullTextSearch_ComplexScenario(t *testing.T) {
-	client := setupTestRedis(t)
-	defer teardownTestRedis(t, client)
-
-	tokenizer := NewGseTokenizer()
-	defer tokenizer.Close()
-
-	fts := NewFullTextSearch(client, tokenizer, false, 100, "test:fts:")
-	ctx := context.Background()
-
-	// Simulate a blog search system
-	documents := map[int64]string{
-		1: "Introduction to Machine Learning: A Beginner's Guide",
-		2: "Advanced Machine Learning Techniques and Deep Learning",
-		3: "Natural Language Processing with Python",
-		4: "Building Scalable Web Applications with Go",
-		5: "机器学习入门教程",
-		6: "深度学习与神经网络",
-		7: "Python自然语言处理实战",
-		8: "Go语言Web开发指南",
-	}
-
-	// Index all documents
-	for id, text := range documents {
-		if err := fts.Index(ctx, id, text); err != nil {
-			t.Fatalf("Failed to index document %d: %v", id, err)
-		}
-	}
-
-	// Test scenario 1: Search for machine learning
-	t.Run("Search machine learning", func(t *testing.T) {
-		_, results, err := fts.Search(ctx, "machine learning")
-		if err != nil {
-			t.Fatalf("Search() error = %v", err)
-		}
-
-		if len(results) < 2 {
-			t.Errorf("Expected at least 2 results for 'machine learning', got %d", len(results))
-		}
-
-		// Document 2 should rank higher (more terms)
-		if results[0].ID != 2 {
-			t.Logf("Warning: Expected document 2 to rank highest, got %d", results[0].ID)
-		}
-	})
-
-	// Test scenario 2: Update a document
-	t.Run("Update document content", func(t *testing.T) {
-		// Update document 1
-		newContent := "Introduction to Deep Learning and Neural Networks"
-		if err := fts.Reindex(ctx, 1, newContent); err != nil {
-			t.Fatalf("Reindex() error = %v", err)
-		}
-
-		// Search for old content should not return doc 1
-		_, results, err := fts.Search(ctx, "machine learning beginner")
-		if err != nil {
-			t.Fatalf("Search() error = %v", err)
-		}
-
-		for _, result := range results {
-			if result.ID == 1 {
-				t.Error("Document 1 should not appear in results after reindex")
-			}
-		}
-
-		// Search for new content should return doc 1
-		_, results, err = fts.Search(ctx, "deep learning neural")
-		if err != nil {
-			t.Fatalf("Search() error = %v", err)
-		}
-
-		found := false
-		for _, result := range results {
-			if result.ID == 1 {
-				found = true
-				break
-			}
-		}
-		if !found {
-			t.Error("Document 1 should appear in results with new content")
-		}
-	})
-
-	// Test scenario 3: Delete a document
-	t.Run("Delete document", func(t *testing.T) {
-		initialCount, err := fts.GetDocCount(ctx)
-		if err != nil {
-			t.Fatalf("GetDocCount() error = %v", err)
-		}
-
-		// Delete document 3
-		if err := fts.Deindex(ctx, 3); err != nil {
-			t.Fatalf("Deindex() error = %v", err)
-		}
-
-		// Doc count should decrease
-		newCount, err := fts.GetDocCount(ctx)
-		if err != nil {
-			t.Fatalf("GetDocCount() error = %v", err)
-		}
-
-		if newCount != initialCount-1 {
-			t.Errorf("Expected doc count to decrease by 1, got %d -> %d", initialCount, newCount)
-		}
-
-		// Deleted document should not appear in search
-		_, results, err := fts.Search(ctx, "natural language processing python")
-		if err != nil {
-			t.Fatalf("Search() error = %v", err)
-		}
-
-		for _, result := range results {
-			if result.ID == 3 {
-				t.Error("Deleted document 3 should not appear in search results")
-			}
-		}
-	})
-
-	// Test scenario 4: Chinese search
-	t.Run("Chinese content search", func(t *testing.T) {
-		_, results, err := fts.Search(ctx, "机器学习")
-		if err != nil {
-			t.Fatalf("Search() error = %v", err)
-		}
-
-		if len(results) < 1 {
-			t.Errorf("Expected at least 1 result for Chinese query, got %d", len(results))
-		}
-
-		// Should find document 5
-		found := false
-		for _, result := range results {
-			if result.ID == 5 {
-				found = true
-				break
-			}
-		}
-		if !found {
-			t.Error("Expected to find Chinese document 5 in results")
-		}
-	})
-}
-
-func BenchmarkFullTextSearch_Index(b *testing.B) {
-	client := redis.NewClient(&redis.Options{
-		Addr: "localhost:6379",
-		DB:   15,
-	})
-	defer client.Close()
-
-	ctx := context.Background()
-	client.FlushDB(ctx)
-
-	tokenizer := NewGseTokenizer()
-	defer tokenizer.Close()
-
-	fts := NewFullTextSearch(client, tokenizer, false, 100, "bench:fts:")
-
-	text := "Machine learning is a subset of artificial intelligence that focuses on algorithms"
-
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		fts.Index(ctx, int64(i), text)
-	}
-}
-
-func BenchmarkFullTextSearch_Search(b *testing.B) {
-	client := redis.NewClient(&redis.Options{
-		Addr: "localhost:6379",
-		DB:   15,
-	})
-	defer client.Close()
-
-	ctx := context.Background()
-	client.FlushDB(ctx)
-
-	tokenizer := NewGseTokenizer()
-	defer tokenizer.Close()
-
-	fts := NewFullTextSearch(client, tokenizer, false, 100, "bench:fts:")
-
-	// Index some documents
-	for i := 0; i < 100; i++ {
-		text := fmt.Sprintf("Document %d about machine learning and artificial intelligence", i)
-		fts.Index(ctx, int64(i), text)
-	}
-
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		fts.Search(ctx, "machine learning")
 	}
 }

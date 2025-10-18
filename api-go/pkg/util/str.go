@@ -7,57 +7,58 @@ import (
 	"unicode"
 )
 
-// isChineseCharacter 检查字符是否为中文字符
+// IsChineseCharacter checks if a rune is a Chinese character
 func IsChineseCharacter(c rune) bool {
 	return c >= '\u4e00' && c <= '\u9fff'
 }
 
-// highlight 在HTML文本中标记所有出现的令牌
+// Highlight highlights all occurrences of the given tokens in the HTML string
+// by wrapping them with <mark> tags, while preserving existing HTML tags.
 func Highlight(html string, tokens []string) string {
 	if len(tokens) == 0 {
 		return html
 	}
 
-	// 按长度降序排序令牌
+	// Sort tokens by length in descending order to match longer tokens first
 	sortedTokens := make([]string, len(tokens))
 	copy(sortedTokens, tokens)
 	sort.Slice(sortedTokens, func(i, j int) bool {
 		return len(sortedTokens[i]) > len(sortedTokens[j])
 	})
 
-	// 构建模式
+	// Build regex pattern to match any of the tokens
 	patterns := make([]string, len(sortedTokens))
 	for i, token := range sortedTokens {
 		patterns[i] = tokenToPattern(token)
 	}
 
-	// 组合HTML标签和令牌模式
+	// Combine HTML tag pattern with token patterns
 	pattern := `(<[^>]*>)|(` + strings.Join(patterns, "|") + `)`
 	re, err := regexp.Compile(pattern)
 	if err != nil {
-		// 如果正则编译失败，返回原始HTML
+		// In case of regex compilation error, return original HTML
 		return html
 	}
 
-	// 处理文本
+	// Replace matches with highlighted versions, preserving HTML tags
 	result := re.ReplaceAllStringFunc(html, func(match string) string {
-		// 检查是否是HTML标签
+		// If it's an HTML tag, return as is
 		if len(match) > 0 && match[0] == '<' && match[len(match)-1] == '>' {
-			return match // HTML标签保持不变
+			return match
 		}
-		// 令牌匹配 - 用mark标签包裹
+		// Otherwise, highlight the matched token
 		return "<mark>" + match + "</mark>"
 	})
 
 	return result
 }
 
-// tokenToPattern 将令牌转换为正则表达式模式
+// tokenToPattern converts a token into a regex pattern for matching
 func tokenToPattern(token string) string {
-	// 对正则特殊字符进行转义
+	// Escape special regex characters in the token
 	escaped := regexp.QuoteMeta(token)
 
-	// 检查是否包含中文字符
+	// Check if the token contains any Chinese characters
 	hasChinese := false
 	for _, c := range token {
 		if IsChineseCharacter(c) {
@@ -70,7 +71,7 @@ func tokenToPattern(token string) string {
 		return escaped
 	}
 
-	// 检查是否全是字母数字或空格
+	// Check if it's purely alphanumeric or spaces
 	isPureAlphanumeric := true
 	for _, c := range token {
 		if !unicode.IsLetter(c) && !unicode.IsNumber(c) && !unicode.IsSpace(c) {

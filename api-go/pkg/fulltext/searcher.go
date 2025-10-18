@@ -19,27 +19,21 @@ type TokenFrequency struct {
 
 // FullTextSearch provides full-text search functionality
 type FullTextSearch struct {
-	client       *redis.Client
-	tokenizer    Tokenizer
-	partialMatch bool
-	maxResults   int
-	keyPrefix    string
+	client    *redis.Client
+	tokenizer Tokenizer
+	keyPrefix string
 }
 
 // NewFullTextSearch creates a new FullTextSearch instance
 func NewFullTextSearch(
 	client *redis.Client,
 	tokenizer Tokenizer,
-	partialMatch bool,
-	maxResults int,
 	keyPrefix string,
 ) *FullTextSearch {
 	return &FullTextSearch{
-		client:       client,
-		tokenizer:    tokenizer,
-		partialMatch: partialMatch,
-		maxResults:   maxResults,
-		keyPrefix:    keyPrefix,
+		client:    client,
+		tokenizer: tokenizer,
+		keyPrefix: keyPrefix,
 	}
 }
 
@@ -196,7 +190,7 @@ type SearchResult struct {
 
 // Search performs a full-text search
 // Returns the tokens, ranked results, and any error encountered
-func (f *FullTextSearch) Search(ctx context.Context, query string) ([]string, []SearchResult, error) {
+func (f *FullTextSearch) Search(ctx context.Context, query string, partial bool, limit int) ([]string, []SearchResult, error) {
 	tokens := f.tokenizer.Analyze(query)
 	if len(tokens) == 0 {
 		return tokens, []SearchResult{}, nil
@@ -227,9 +221,9 @@ func (f *FullTextSearch) Search(ctx context.Context, query string) ([]string, []
 		}
 	}
 
-	// Combine results based on partial match setting
+	// Combine document ID sets based on partial flag
 	var ids map[int64]struct{}
-	if f.partialMatch {
+	if partial {
 		// Union
 		ids = make(map[int64]struct{})
 		for _, set := range docSets {
@@ -271,14 +265,14 @@ func (f *FullTextSearch) Search(ctx context.Context, query string) ([]string, []
 	})
 
 	// Limit results
-	if len(rankedResults) > f.maxResults {
-		rankedResults = rankedResults[:f.maxResults]
+	if limit > 0 && len(rankedResults) > limit {
+		rankedResults = rankedResults[:limit]
 	}
 
 	return tokens, rankedResults, nil
 }
 
-// rank calculates TF-IDF scores for documents
+// Rank calculates TF-IDF scores for documents
 func (f *FullTextSearch) rank(ctx context.Context, tokens []string, ids map[int64]struct{}) ([]SearchResult, error) {
 	totalDocs, err := f.GetDocCount(ctx)
 	if err != nil {
