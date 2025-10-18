@@ -51,7 +51,7 @@ func (s *TagService) GetAllWithPostCount(ctx context.Context) ([]models.TagWithP
 		FROM tags t
 	`
 
-	var tags []models.TagWithPostCount
+	tags := []models.TagWithPostCount{}
 	err := s.db.SelectContext(ctx, &tags, query)
 	return tags, err
 }

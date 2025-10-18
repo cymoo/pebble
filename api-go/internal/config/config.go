@@ -84,7 +84,7 @@ func Load() *Config {
 
 	config.HTTP = HTTPConfig{
 		IP:           env.GetString("HTTP_IP", "localhost"),
-		Port:         env.GetInt("HTTP_PORT", 8080),
+		Port:         env.GetInt("HTTP_PORT", 8000),
 		MaxBodySize:  env.GetByteSize("HTTP_MAX_BODY_SIZE", 1024*1024*5),
 		ReadTimeout:  env.GetDuration("HTTP_READ_TIMEOUT", 10*time.Second),
 		WriteTimeout: env.GetDuration("HTTP_WRITE_TIMEOUT", 10*time.Second),
@@ -99,16 +99,16 @@ func Load() *Config {
 	}
 
 	config.DB = DBConfig{
-		URL:         env.GetString("DB_URL", "file:app.db?cache=shared&_fk=true&_journal_mode=WAL"),
-		PoolSize:    env.GetInt("DB_POOL_SIZE", 10),
-		AutoMigrate: env.GetBool("DB_AUTO_MIGRATE", false),
+		URL:         env.GetString("DB_URL", "app.db"),
+		PoolSize:    env.GetInt("DB_POOL_SIZE", 5),
+		AutoMigrate: env.GetBool("DB_AUTO_MIGRATE", true),
 	}
 
 	config.Redis = RedisConfig{
 		URL:      env.GetString("REDIS_URL", "localhost:6379"),
 		Password: env.GetString("REDIS_PASSWORD", ""),
 		DB:       env.GetInt("REDIS_DB", 0),
-		PoolSize: env.GetInt("REDIS_POOL_SIZE", 10),
+		PoolSize: env.GetInt("REDIS_POOL_SIZE", 5),
 	}
 
 	config.Upload = UploadConfig{
@@ -128,7 +128,7 @@ func Load() *Config {
 	config.AppVersion = env.GetString("APP_VERSION", "1.0.0")
 
 	config.PostsPerPage = env.GetInt("POSTS_PER_PAGE", 30)
-	config.StaticPath = env.GetString("STATIC_BASE_PATH", "./static")
+	config.StaticPath = env.GetString("STATIC_BASE_PATH", "")
 	config.StaticURL = env.GetString("STATIC_BASE_URL", "/static")
 
 	return config

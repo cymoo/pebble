@@ -5,9 +5,9 @@ import (
 	"time"
 
 	m "github.com/cymoo/mint"
+	"github.com/cymoo/pebble/assets"
 	e "github.com/cymoo/pebble/internal/errors"
 	"github.com/cymoo/pebble/internal/handlers"
-	"github.com/cymoo/pebble/internal/handlers/page"
 	"github.com/cymoo/pebble/internal/models"
 	"github.com/cymoo/pebble/internal/services"
 	"github.com/go-chi/chi"
@@ -66,7 +66,7 @@ func NewApiRouter(app *App) *chi.Mux {
 func NewPageRouter(app *App) *chi.Mux {
 	r := chi.NewRouter()
 
-	pageHandler, err := page.NewPostHandler(app.db)
+	pageHandler, err := handlers.NewPostPageHandler(app.db, assets.TemplateFS())
 	if err != nil {
 		panic("failed to create page handler: " + err.Error())
 	}

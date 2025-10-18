@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	"errors"
 	"log"
 	"net/http"
 
@@ -23,9 +22,6 @@ func (h *TagHandler) GetTags(r *http.Request) ([]models.TagWithPostCount, error)
 	if err != nil {
 		log.Printf("error getting tags: %v", err)
 		return nil, err
-	}
-	if tags == nil {
-		return nil, errors.New("no tags found")
 	}
 	return tags, nil
 }

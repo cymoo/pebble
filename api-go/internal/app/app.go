@@ -13,6 +13,7 @@ import (
 
 	"github.com/cymoo/mita"
 
+	"github.com/cymoo/pebble/assets"
 	"github.com/cymoo/pebble/internal/config"
 	"github.com/cymoo/pebble/internal/tasks"
 	"github.com/cymoo/pebble/pkg/fulltext"
@@ -22,7 +23,7 @@ import (
 
 	"github.com/golang-migrate/migrate/v4"
 	_ "github.com/golang-migrate/migrate/v4/database/sqlite3"
-	_ "github.com/golang-migrate/migrate/v4/source/file"
+	"github.com/golang-migrate/migrate/v4/source/iofs"
 
 	"github.com/jmoiron/sqlx"
 	_ "github.com/mattn/go-sqlite3"
@@ -170,25 +171,41 @@ func (app *App) setupTasks() error {
 func (app *App) setupRoutes() {
 	r := chi.NewRouter()
 
+	// setup middleware
 	r.Use(middleware.Logger)
 	r.Use(PanicRecovery(app.config.Debug))
 	r.Use(CORS(app.config.HTTP.CORS))
 
+	// serve uploaded files
 	uploadUrl := app.config.Upload.BaseURL
 	uploadPath := app.config.Upload.BasePath
 	r.Handle(uploadUrl+"/*", http.StripPrefix(uploadUrl, http.FileServer(http.Dir(uploadPath))))
 
+	// serve static files
 	staticUrl := app.config.StaticURL
 	staticPath := app.config.StaticPath
-	r.Handle(staticUrl+"/*", http.StripPrefix(staticUrl, http.FileServer(http.Dir(staticPath))))
 
+	// serve from embedded FS if no static path is set
+	var staticFs http.FileSystem
+	if staticPath == "" {
+		staticFs = http.FS(assets.StaticFS())
+	} else {
+		staticFs = http.Dir(staticPath)
+	}
+
+	r.Handle(staticUrl+"/*", http.StripPrefix(staticUrl, http.FileServer(staticFs)))
+
+	// health check endpoint
 	r.Get("/health", app.checkHealth)
 
 	// mount task web ui
 	r.Mount("/", app.tm.WebHandler("/tasks"))
+
+	// mount API and page routers
 	r.Mount("/api", NewApiRouter(app))
 	r.Mount("/shared", NewPageRouter(app))
 
+	// create HTTP server
 	app.server = &http.Server{
 		Addr:         fmt.Sprintf("%s:%d", app.config.HTTP.IP, app.config.HTTP.Port),
 		Handler:      r,
@@ -307,19 +324,25 @@ func verifyWALMode(db *sqlx.DB) {
 }
 
 func runMigrations(url string) error {
-	migrator, err := migrate.New(
-		"file://migrations",
+	iofsDriver, err := iofs.New(assets.MigrationFS(), "migrations")
+	if err != nil {
+		return fmt.Errorf("failed to create iofs driver: %w", err)
+	}
+
+	migrator, err := migrate.NewWithSourceInstance(
+		"iofs",
+		iofsDriver,
 		"sqlite3://"+url,
 	)
 	if err != nil {
 		return fmt.Errorf("failed to create migrator: %w", err)
 	}
+
 	defer migrator.Close()
 
 	err = migrator.Up()
 	switch {
 	case errors.Is(err, migrate.ErrNoChange):
-		log.Println("no new migrations to apply")
 		return nil
 	case err != nil:
 		return fmt.Errorf("migration failed: %w", err)

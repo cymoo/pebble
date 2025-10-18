@@ -1,11 +1,11 @@
-package page
+package handlers
 
 import (
 	"database/sql"
-	"embed"
 	"encoding/json"
 	"fmt"
 	"html/template"
+	"io/fs"
 	"log"
 	"net/http"
 	"regexp"
@@ -18,12 +18,9 @@ import (
 	"github.com/jmoiron/sqlx"
 )
 
-//go:embed templates/*.tpl
-var templatesFS embed.FS
-
 var (
-	headerBoldParagraphPattern = regexp.MustCompile(`<h[1-3][^>]*>(.*?)</h[1-3]>\s*(?:<p[^>]*><strong>(.*?)</strong></p>)?`)
-	strongTagPattern           = regexp.MustCompile(`</?strong>`)
+	headerAndBoldParagraphPattern = regexp.MustCompile(`<h[1-3][^>]*>(.*?)</h[1-3]>\s*(?:<p[^>]*><strong>(.*?)</strong></p>)?`)
+	strongTagPattern              = regexp.MustCompile(`</?strong>`)
 )
 
 // PostMetaData represents post metadata for list view
@@ -34,14 +31,14 @@ type PostMetaData struct {
 	CreatedAt   string `json:"created_at"`
 }
 
-// PostHandler handles post-related HTTP requests
-type PostHandler struct {
+// PostPageHandler handles post-related HTTP requests
+type PostPageHandler struct {
 	db        *sqlx.DB
 	templates map[string]*template.Template
 }
 
-// NewPostHandler creates a new PostHandler
-func NewPostHandler(db *sqlx.DB) (*PostHandler, error) {
+// NewPostPageHandler creates a new PostHandler
+func NewPostPageHandler(db *sqlx.DB, templateFS fs.FS) (*PostPageHandler, error) {
 	templates := make(map[string]*template.Template)
 
 	funcMap := template.FuncMap{
@@ -57,21 +54,21 @@ func NewPostHandler(db *sqlx.DB) (*PostHandler, error) {
 	}
 
 	for pageName, files := range pages {
-		tmpl, err := template.New("").Funcs(funcMap).ParseFS(templatesFS, files...)
+		tmpl, err := template.New("").Funcs(funcMap).ParseFS(templateFS, files...)
 		if err != nil {
 			return nil, fmt.Errorf("parsing templates for %s: %w", pageName, err)
 		}
 		templates[pageName] = tmpl
 	}
 
-	return &PostHandler{
+	return &PostPageHandler{
 		db:        db,
 		templates: templates,
 	}, nil
 }
 
 // PostList handles the post list page
-func (h *PostHandler) PostList(w http.ResponseWriter, r *http.Request) {
+func (h *PostPageHandler) PostList(w http.ResponseWriter, r *http.Request) {
 	var posts []models.Post
 	query := `
 		SELECT * FROM posts
@@ -110,7 +107,7 @@ func (h *PostHandler) PostList(w http.ResponseWriter, r *http.Request) {
 }
 
 // PostItem handles the individual post page
-func (h *PostHandler) PostItem(w http.ResponseWriter, r *http.Request) {
+func (h *PostPageHandler) PostItem(w http.ResponseWriter, r *http.Request) {
 	idStr := chi.URLParam(r, "id")
 
 	id, err := strconv.ParseInt(idStr, 10, 64)
@@ -165,7 +162,7 @@ func (h *PostHandler) PostItem(w http.ResponseWriter, r *http.Request) {
 }
 
 // render404 renders the 404 page
-func (h *PostHandler) render404(w http.ResponseWriter) {
+func (h *PostPageHandler) render404(w http.ResponseWriter) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.WriteHeader(http.StatusNotFound)
 	if err := h.templates["error"].ExecuteTemplate(w, "404", nil); err != nil {
@@ -174,7 +171,7 @@ func (h *PostHandler) render404(w http.ResponseWriter) {
 }
 
 // renderError renders an error page
-func (h *PostHandler) renderError(w http.ResponseWriter, status int, err error) {
+func (h *PostPageHandler) renderError(w http.ResponseWriter, status int, err error) {
 	log.Printf("Error: %v", err)
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.WriteHeader(status)
@@ -185,7 +182,7 @@ func (h *PostHandler) renderError(w http.ResponseWriter, status int, err error) 
 
 // extractHeaderAndDescriptionFromHTML extracts title and description from HTML
 func extractHeaderAndDescriptionFromHTML(html string) (string, string) {
-	matches := headerBoldParagraphPattern.FindStringSubmatch(html)
+	matches := headerAndBoldParagraphPattern.FindStringSubmatch(html)
 	if len(matches) < 2 {
 		return "", ""
 	}
