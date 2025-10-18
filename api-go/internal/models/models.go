@@ -141,9 +141,9 @@ type StickyTagRequest struct {
 
 // SearchRequest represents the request to search posts
 type SearchRequest struct {
-	Query   string `json:"query"`
-	Limit   int    `json:"limit,omitempty"`
-	Partial bool   `json:"partial,omitempty"`
+	Query   string `schema:"query"`
+	Limit   int    `schema:"limit"`
+	Partial bool   `schema:"partial"`
 }
 
 // CreatePostRequest represents the request to create a post
@@ -172,17 +172,17 @@ type DeletePostRequest struct {
 
 // FilterPostRequest represents filtering options for posts
 type FilterPostRequest struct {
-	Cursor    *int64  `json:"cursor,omitempty"`
-	Deleted   bool    `json:"deleted"`
-	ParentID  *int64  `json:"parent_id,omitempty"`
-	Color     *string `json:"color,omitempty"`
-	Tag       *string `json:"tag,omitempty"`
-	Shared    *bool   `json:"shared,omitempty"`
-	HasFiles  *bool   `json:"has_files,omitempty"`
-	OrderBy   string  `json:"order_by"`
-	Ascending bool    `json:"ascending"`
-	StartDate *int64  `json:"start_date,omitempty"`
-	EndDate   *int64  `json:"end_date,omitempty"`
+	Cursor    *int64  `schema:"cursor"`
+	Deleted   bool    `schema:"deleted"`
+	ParentID  *int64  `schema:"parent_id"`
+	Color     *string `schema:"color"`
+	Tag       *string `schema:"tag"`
+	Shared    *bool   `schema:"shared"`
+	HasFiles  *bool   `schema:"has_files"`
+	OrderBy   string  `schema:"order_by"`
+	Ascending bool    `schema:"ascending"`
+	StartDate *int64  `schema:"start_date"`
+	EndDate   *int64  `schema:"end_date"`
 }
 
 // PostPagination represents paginated posts
@@ -208,18 +208,18 @@ type CreateResponse struct {
 
 // ID represents a simple ID query string parameter
 type ID struct {
-	ID int64 `json:"id" schema:"id"`
+	ID int64 `schema:"id"`
 }
 
 // Name represents a simple Name query string parameter
 type Name struct {
-	Name string `json:"name" schema:"name"`
+	Name string `schema:"name"`
 }
 
 type DateRange struct {
-	StartDate string `json:"start_date" schema:"start_date"`
-	EndDate   string `json:"end_date" schema:"end_date"`
-	Offset    int    `json:"offset" schema:"offset"` // in minutes
+	StartDate string `schema:"start_date"`
+	EndDate   string `schema:"end_date"`
+	Offset    int    `schema:"offset"` // in minutes
 }
 
 type LoginRequest struct {
