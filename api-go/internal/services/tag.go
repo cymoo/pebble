@@ -311,8 +311,8 @@ func (s *TagService) rename(ctx context.Context, tx *sqlx.Tx, tag *models.Tag, n
 	}
 
 	// Update post content
-	sourcePattern := fmt.Sprintf(">%s<", tag.Name)
-	targetPattern := fmt.Sprintf(">%s<", newName)
+	sourcePattern := fmt.Sprintf(">#%s<", tag.Name)
+	targetPattern := fmt.Sprintf(">#%s<", newName)
 
 	updateQuery := `
 		UPDATE posts
@@ -330,8 +330,8 @@ func (s *TagService) rename(ctx context.Context, tx *sqlx.Tx, tag *models.Tag, n
 
 func (s *TagService) merge(ctx context.Context, tx *sqlx.Tx, sourceTag, targetTag *models.Tag) error {
 	// Update post content
-	sourcePattern := fmt.Sprintf(">%s<", sourceTag.Name)
-	targetPattern := fmt.Sprintf(">%s<", targetTag.Name)
+	sourcePattern := fmt.Sprintf(">#%s<", sourceTag.Name)
+	targetPattern := fmt.Sprintf(">#%s<", targetTag.Name)
 
 	updateQuery := `
 		UPDATE posts
