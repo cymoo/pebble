@@ -55,31 +55,31 @@ func CORS(config config.CORSConfig) func(http.Handler) http.Handler {
 					}
 				}
 			}
-			// set allowed methods
+			// Set allowed methods
 			methods := "GET, POST, PUT, DELETE, OPTIONS"
 			if len(config.AllowedMethods) > 0 {
 				methods = strings.Join(config.AllowedMethods, ", ")
 			}
 			w.Header().Set("Access-Control-Allow-Methods", methods)
 
-			// set default headers if none specified
+			// Set default headers if none specified
 			headers := "Content-Type, Authorization"
 			if len(config.AllowedHeaders) > 0 {
 				headers = strings.Join(config.AllowedHeaders, ", ")
 			}
 			w.Header().Set("Access-Control-Allow-Headers", headers)
 
-			// set Allow-Credentials header
+			// Set Allow-Credentials header
 			if config.AllowCredentials {
 				w.Header().Set("Access-Control-Allow-Credentials", "true")
 			}
 
-			// set Access-Control-Max-Age header
+			// Set Access-Control-Max-Age header
 			if config.MaxAge > 0 {
 				w.Header().Set("Access-Control-Max-Age", strconv.Itoa(config.MaxAge))
 			}
 
-			// handle preflight requests
+			// Handle preflight requests
 			if r.Method == "OPTIONS" {
 				w.WriteHeader(http.StatusNoContent)
 				return

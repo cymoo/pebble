@@ -34,7 +34,7 @@ func (h *PostHandler) HelloWorld() string {
 func (h *PostHandler) SearchPosts(r *http.Request, query m.Query[models.SearchRequest]) (*models.PostPagination, error) {
 	ctx := r.Context()
 
-	tokens, results, err := h.fts.Search(ctx, query.Value.Query)
+	tokens, results, err := h.fts.Search(ctx, query.Value.Query, query.Value.Partial, query.Value.Limit)
 	if err != nil {
 		log.Printf("error searching posts with query %q: %v", query.Value.Query, err)
 		return nil, e.InternalError()
@@ -48,7 +48,7 @@ func (h *PostHandler) SearchPosts(r *http.Request, query m.Query[models.SearchRe
 		}, nil
 	}
 
-	// build a map from ID to Score
+	// Build a map from ID to Score
 	idToScore := make(map[int64]float64, len(results))
 	ids := make([]int64, 0, len(results))
 
@@ -57,24 +57,24 @@ func (h *PostHandler) SearchPosts(r *http.Request, query m.Query[models.SearchRe
 		ids = append(ids, result.ID)
 	}
 
-	// get posts by IDs
+	// Get posts by IDs
 	posts, err := h.postService.FindByIDs(ctx, ids)
 	if err != nil {
 		log.Printf("error finding posts with ids %v: %v", ids, err)
 		return nil, err
 	}
 
-	// process each post's content and score
+	// Process each post's content and score
 	for i := range posts {
 		score, exists := idToScore[posts[i].ID]
 		if exists {
-			// highlight all occurrences of tokens in the content
+			// Highlight all occurrences of tokens in the content
 			posts[i].Content = util.Highlight(posts[i].Content, tokens)
 			posts[i].Score = &score
 		}
 	}
 
-	// order by score desc
+	// Order by score desc
 	sort.Slice(posts, func(i, j int) bool {
 		scoreI, existsI := idToScore[posts[i].ID]
 		scoreJ, existsJ := idToScore[posts[j].ID]

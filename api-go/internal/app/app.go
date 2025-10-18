@@ -96,7 +96,7 @@ func (app *App) initDatabase() error {
 	verifyForeignKeysConstraints(db)
 	verifyWALMode(db)
 
-	// configure connection pool
+	// Configure connection pool
 	poolSize := app.config.DB.PoolSize
 	db.SetMaxOpenConns(poolSize)
 	db.SetMaxIdleConns(poolSize)
@@ -110,7 +110,7 @@ func (app *App) initDatabase() error {
 		}
 	}
 
-	// test connection
+	// Test connection
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
@@ -130,7 +130,7 @@ func (app *App) initRedis() error {
 		DB:       app.config.Redis.DB,
 	})
 
-	// test connection
+	// Test connection
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
@@ -146,9 +146,7 @@ func (app *App) initFullTextSearch() error {
 	app.fts = fulltext.NewFullTextSearch(
 		app.redis,
 		fulltext.NewGseTokenizer(),
-		app.config.Search.PartialMatch,
-		app.config.Search.MaxResults,
-		app.config.Search.KeyPrefix,
+		"fts:",
 	)
 	log.Println("full-text search initialized successfully")
 	return nil
@@ -171,21 +169,21 @@ func (app *App) setupTasks() error {
 func (app *App) setupRoutes() {
 	r := chi.NewRouter()
 
-	// setup middleware
+	// Setup middleware
 	r.Use(middleware.Logger)
 	r.Use(PanicRecovery(app.config.Debug))
 	r.Use(CORS(app.config.HTTP.CORS))
 
-	// serve uploaded files
+	// Serve uploaded files
 	uploadUrl := app.config.Upload.BaseURL
 	uploadPath := app.config.Upload.BasePath
 	r.Handle(uploadUrl+"/*", http.StripPrefix(uploadUrl, http.FileServer(http.Dir(uploadPath))))
 
-	// serve static files
+	// Serve static files
 	staticUrl := app.config.StaticURL
 	staticPath := app.config.StaticPath
 
-	// serve from embedded FS if no static path is set
+	// Serve from embedded FS if no static path is set
 	var staticFs http.FileSystem
 	if staticPath == "" {
 		staticFs = http.FS(assets.StaticFS())
@@ -195,17 +193,17 @@ func (app *App) setupRoutes() {
 
 	r.Handle(staticUrl+"/*", http.StripPrefix(staticUrl, http.FileServer(staticFs)))
 
-	// health check endpoint
+	// Health check endpoint
 	r.Get("/health", app.checkHealth)
 
-	// mount task web ui
+	// Mount task web ui
 	r.Mount("/", app.tm.WebHandler("/tasks"))
 
-	// mount API and page routers
+	// Mount API and page routers
 	r.Mount("/api", NewApiRouter(app))
 	r.Mount("/shared", NewPageRouter(app))
 
-	// create HTTP server
+	// Create HTTP server
 	app.server = &http.Server{
 		Addr:         fmt.Sprintf("%s:%d", app.config.HTTP.IP, app.config.HTTP.Port),
 		Handler:      r,
@@ -216,13 +214,13 @@ func (app *App) setupRoutes() {
 }
 
 func (app *App) checkHealth(w http.ResponseWriter, r *http.Request) {
-	// check database connection
+	// Check database connection
 	if err := app.db.Ping(); err != nil {
 		http.Error(w, "database not available", http.StatusServiceUnavailable)
 		return
 	}
 
-	// check redis connection
+	// Check redis connection
 	ctx, cancel := context.WithTimeout(r.Context(), 2*time.Second)
 	defer cancel()
 	if err := app.redis.Ping(ctx).Err(); err != nil {
@@ -238,7 +236,7 @@ func (app *App) checkHealth(w http.ResponseWriter, r *http.Request) {
 // Run starts the HTTP server and listens for shutdown signals
 func (app *App) Run() error {
 
-	// start background tasks
+	// Start background tasks
 	app.tm.Start()
 
 	go func() {
@@ -248,8 +246,8 @@ func (app *App) Run() error {
 		}
 	}()
 
-	// wait for interrupt signal to gracefully shutdown the server
-	// catch SIGINT and SIGTERM
+	// Wait for interrupt signal to gracefully shutdown the server
+	// Catch SIGINT and SIGTERM
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
@@ -258,27 +256,27 @@ func (app *App) Run() error {
 	return app.Shutdown()
 }
 
-// shutdown cleans up resources and gracefully shuts down the server
+// Shutdown cleans up resources and gracefully shuts down the server
 func (app *App) Shutdown() error {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	// stop background tasks
+	// Stop background tasks
 	app.tm.Stop()
 
-	// gracefully shutdown the server
+	// Gracefully shutdown the server
 	if err := app.server.Shutdown(ctx); err != nil {
 		return fmt.Errorf("server shutdown failed: %w", err)
 	}
 
-	// close database connection
+	// Close database connection
 	if app.db != nil {
 		if err := app.db.Close(); err != nil {
 			return fmt.Errorf("database connection close failed: %w", err)
 		}
 	}
 
-	// close redis connection
+	// Close redis connection
 	if app.redis != nil {
 		if err := app.redis.Close(); err != nil {
 			return fmt.Errorf("redis connection close failed: %w", err)

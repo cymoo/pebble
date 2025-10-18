@@ -12,6 +12,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strings"
 
 	"github.com/cymoo/pebble/internal/config"
@@ -33,7 +34,7 @@ func NewUploadService(config *config.UploadConfig) *UploadService {
 		config.ThumbWidth = 200
 	}
 
-	// ensure upload directory exists
+	// Ensure upload directory exists
 	if err := os.MkdirAll(config.BasePath, 0755); err != nil {
 		panic(fmt.Sprintf("failed to create upload directory: %v", err))
 	}
@@ -54,13 +55,13 @@ func (s *UploadService) UploadFile(fileHeader *multipart.FileHeader) (*models.Fi
 	secureFileName := generateSecureFilename(fileHeader.Filename, 8)
 	filePath := filepath.Join(s.config.BasePath, secureFileName)
 
-	// create the destination file
+	// Create the destination file
 	dst, err := os.Create(filePath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create file: %w", err)
 	}
 
-	// copy the file content
+	// Copy the file content
 	if _, err := io.Copy(dst, file); err != nil {
 		dst.Close()
 		os.Remove(filePath)
@@ -68,7 +69,7 @@ func (s *UploadService) UploadFile(fileHeader *multipart.FileHeader) (*models.Fi
 	}
 	dst.Close()
 
-	// get content type from header
+	// Get content type from header
 	contentType := fileHeader.Header.Get("Content-Type")
 	if contentType == "" {
 		// detectContentType reads the first 512 bytes of the file to determine its content type.
@@ -100,28 +101,28 @@ func (s *UploadService) processRegularFile(filePath string) (*models.FileInfo, e
 
 // processImageFile handles image-specific processing like EXIF rotation and thumbnail generation
 func (s *UploadService) processImageFile(filePath, contentType string) (*models.FileInfo, error) {
-	// read the image
+	// Read the image
 	img, err := decodeImage(filePath, contentType)
 	if err != nil {
 		return nil, fmt.Errorf("failed to decode image: %w", err)
 	}
 
-	// handle EXIF rotation
+	// Handle EXIF rotation
 	if needsExifRotation(contentType) {
 		img, err = handleExifRotation(filePath, img)
 		if err != nil {
-			// log errors, but do not fail the upload
+			// Log errors, but do not fail the upload
 			log.Printf("failed to handle EXIF rotation: %v", err)
 		}
 	}
 
-	// handle thumbnail generation
+	// Handle thumbnail generation
 	thumbURL, err := s.generateThumbnail(filePath, img)
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate thumbnail: %w", err)
 	}
 
-	// get file info
+	// Get file info
 	fileInfo, err := os.Stat(filePath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get file info: %w", err)
@@ -178,7 +179,7 @@ func (s *UploadService) isImage(contentType string) bool {
 	}
 
 	format := strings.ToLower(strings.TrimPrefix(contentType, "image/"))
-	return contains(s.config.ImageFormats, format)
+	return slices.Contains(s.config.ImageFormats, format)
 
 }
 
@@ -281,7 +282,7 @@ func detectContentType(filePath string) (string, error) {
 	}
 	defer file.Close()
 
-	// read 512 bytes as per http.DetectContentType documentation
+	// Read 512 bytes as per http.DetectContentType documentation
 	buffer := make([]byte, 512)
 	if _, err := file.Read(buffer); err != nil {
 		return "", err
@@ -303,36 +304,27 @@ func generateSecureFilename(filename string, uuidLength int) string {
 		filename = "file"
 	}
 
-	// sanitize filename: keep word characters, hyphens, dots, and Chinese characters
+	// Sanitize filename: keep word characters, hyphens, dots, and Chinese characters
 	sanitized := invalidCharsRegex.ReplaceAllString(filename, "_")
 
-	// split name and extension
+	// Split name and extension
 	ext := filepath.Ext(sanitized)
 	name := strings.TrimSuffix(sanitized, ext)
 
-	// ensure name is not empty after sanitization
+	// Ensure name is not empty after sanitization
 	if name == "" || name == "_" {
 		name = "file"
 	}
 
-	// generate UUID suffix
+	// Generate UUID suffix
 	uuidStr := strings.ReplaceAll(uuid.New().String(), "-", "")
 	if len(uuidStr) > uuidLength {
 		uuidStr = uuidStr[:uuidLength]
 	}
 
-	// build final filename: name.uuid.ext or name.uuid (if no extension)
+	// Build final filename: name.uuid.ext or name.uuid (if no extension)
 	if ext != "" {
 		return fmt.Sprintf("%s.%s%s", name, uuidStr, ext)
 	}
 	return fmt.Sprintf("%s.%s", name, uuidStr)
-}
-
-func contains[T comparable](slice []T, item T) bool {
-	for _, v := range slice {
-		if v == item {
-			return true
-		}
-	}
-	return false
 }

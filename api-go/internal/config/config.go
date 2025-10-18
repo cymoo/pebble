@@ -10,37 +10,30 @@ import (
 )
 
 type Config struct {
-	// basic app info
-	AppName     string
-	AppVersion  string
-	Environment string
-	Debug       bool
+	// Basic app info
+	AppName    string
+	AppVersion string
+	AppEnv     string
+	Debug      bool
 
-	// application settings
+	// Application settings
 	PostsPerPage int
 	StaticURL    string
 	StaticPath   string
 
-	// server settings
+	// Server settings
 	HTTP   HTTPConfig
 	Upload UploadConfig
-	Search SearchConfig
-	DB     DBConfig
-	Redis  RedisConfig
+
+	DB    DBConfig
+	Redis RedisConfig
 }
 
 type UploadConfig struct {
-	MaxSize      int64
 	BaseURL      string
 	BasePath     string
 	ImageFormats []string
 	ThumbWidth   uint32
-}
-
-type SearchConfig struct {
-	MaxResults   int
-	PartialMatch bool
-	KeyPrefix    string
 }
 
 type DBConfig struct {
@@ -53,7 +46,6 @@ type RedisConfig struct {
 	URL      string
 	Password string
 	DB       int
-	PoolSize int
 }
 
 type CORSConfig struct {
@@ -77,10 +69,19 @@ type HTTPConfig struct {
 func Load() *Config {
 	config := &Config{}
 	envType := env.GetString("APP_ENV", "development")
-	config.Environment = envType
+	config.AppEnv = envType
 	config.Debug = envType == "development" || envType == "dev"
 
 	env.LoadConfigFiles(envType)
+
+	config.AppName = env.GetString("APP_NAME", "Pebble")
+	config.AppVersion = env.GetString("APP_VERSION", "1.0.0")
+
+	config.PostsPerPage = env.GetInt("POSTS_PER_PAGE", 30)
+
+	config.StaticURL = env.GetString("STATIC_URL", "/static")
+	// If StaticPath is not set, then static files will be served from embedded FS
+	config.StaticPath = env.GetString("STATIC_PATH", "")
 
 	config.HTTP = HTTPConfig{
 		IP:           env.GetString("HTTP_IP", "localhost"),
@@ -98,6 +99,13 @@ func Load() *Config {
 		},
 	}
 
+	config.Upload = UploadConfig{
+		BaseURL:      env.GetString("UPLOAD_URL", "/uploads"),
+		BasePath:     env.GetString("UPLOAD_PATH", "./uploads"),
+		ImageFormats: env.GetSlice("UPLOAD_IMAGE_FORMATS", []string{"jpg", "jpeg", "png", "webp", "gif"}),
+		ThumbWidth:   uint32(env.GetInt("UPLOAD_THUMB_WIDTH", 128)),
+	}
+
 	config.DB = DBConfig{
 		URL:         env.GetString("DB_URL", "app.db"),
 		PoolSize:    env.GetInt("DB_POOL_SIZE", 5),
@@ -108,34 +116,13 @@ func Load() *Config {
 		URL:      env.GetString("REDIS_URL", "localhost:6379"),
 		Password: env.GetString("REDIS_PASSWORD", ""),
 		DB:       env.GetInt("REDIS_DB", 0),
-		PoolSize: env.GetInt("REDIS_POOL_SIZE", 5),
 	}
-
-	config.Upload = UploadConfig{
-		BaseURL:      env.GetString("UPLOAD_BASE_URL", "/uploads"),
-		BasePath:     env.GetString("UPLOAD_BASE_PATH", "./uploads"),
-		ImageFormats: env.GetSlice("UPLOAD_IMAGE_FORMATS", []string{"jpg", "jpeg", "png", "webp", "gif"}),
-		ThumbWidth:   uint32(env.GetInt("UPLOAD_THUMB_WIDTH", 200)),
-	}
-
-	config.Search = SearchConfig{
-		MaxResults:   env.GetInt("SEARCH_MAX_RESULTS", 100),
-		PartialMatch: env.GetBool("SEARCH_PARTIAL_MATCH", true),
-		KeyPrefix:    env.GetString("SEARCH_KEY_PREFIX", ""),
-	}
-
-	config.AppName = env.GetString("APP_NAME", "Pebble")
-	config.AppVersion = env.GetString("APP_VERSION", "1.0.0")
-
-	config.PostsPerPage = env.GetInt("POSTS_PER_PAGE", 30)
-	config.StaticPath = env.GetString("STATIC_BASE_PATH", "")
-	config.StaticURL = env.GetString("STATIC_BASE_URL", "/static")
 
 	return config
 }
 
 func (c *Config) ToJSON(hideSensitive bool) (string, error) {
-	// create a copy to avoid exposing sensitive info
+	// Create a copy to avoid exposing sensitive info
 	safe := *c
 
 	if hideSensitive {
@@ -154,19 +141,19 @@ func (c *Config) ToJSON(hideSensitive bool) (string, error) {
 
 // maskSensitive masks sensitive information in URLs
 func maskSensitive(url string) string {
-	// check if it contains "://"
+	// Check if it contains "://"
 	if strings.Contains(url, "://") {
 		parts := strings.Split(url, "://")
 		if len(parts) == 2 {
 			scheme := parts[0]
 			rest := parts[1]
 
-			// look for user info part
+			// Look for user info part
 			if atIndex := strings.Index(rest, "@"); atIndex != -1 {
 				userInfo := rest[:atIndex]
 				hostPath := rest[atIndex:]
 
-				// mask password part
+				// Mask password part
 				if colonIndex := strings.Index(userInfo, ":"); colonIndex != -1 {
 					username := userInfo[:colonIndex]
 					return fmt.Sprintf("%s://%s:***%s", scheme, username, hostPath)

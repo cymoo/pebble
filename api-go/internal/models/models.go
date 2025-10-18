@@ -141,7 +141,9 @@ type StickyTagRequest struct {
 
 // SearchRequest represents the request to search posts
 type SearchRequest struct {
-	Query string `json:"query"`
+	Query   string `json:"query"`
+	Limit   int    `json:"limit,omitempty"`
+	Partial bool   `json:"partial,omitempty"`
 }
 
 // CreatePostRequest represents the request to create a post
