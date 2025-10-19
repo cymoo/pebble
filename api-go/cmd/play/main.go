@@ -18,10 +18,6 @@ func expirePost(postID int64) {
 
 	application := app.New(cfg)
 
-	if err := application.Initialize(); err != nil {
-		panic(err)
-	}
-
 	db := application.GetDB()
 
 	thirtyOneDaysAgo := time.Now().UTC().AddDate(0, 0, -31).UnixMilli()

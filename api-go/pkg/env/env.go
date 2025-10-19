@@ -63,6 +63,9 @@ func GetBool(key string, defaultValue bool) bool {
 	return boolValue
 }
 
+// GetDuration retrieves a time.Duration from an environment variable
+// Example: If the environment variable "TIMEOUT" is set to "30s", calling
+// GetDuration("TIMEOUT", 10*time.Second) will return 30*time.Second
 func GetDuration(key string, defaultValue time.Duration) time.Duration {
 	if value := os.Getenv(key); value != "" {
 		if duration, err := time.ParseDuration(value); err == nil {
@@ -73,6 +76,7 @@ func GetDuration(key string, defaultValue time.Duration) time.Duration {
 	return defaultValue
 }
 
+// GetSlice retrieves a slice of strings from an environment variable, splitting by commas
 func GetSlice(key string, defaultValue []string) []string {
 	value, exists := os.LookupEnv(key)
 	if !exists {
@@ -91,6 +95,7 @@ func GetSlice(key string, defaultValue []string) []string {
 	return result
 }
 
+// ParseByteSize parses a human-readable byte size string (e.g., "10M", "2G") into its equivalent number of bytes
 func ParseByteSize(s string) (int64, error) {
 	s = strings.TrimSpace(s)
 	if len(s) == 0 {
@@ -133,6 +138,11 @@ func ParseByteSize(s string) (int64, error) {
 	}
 }
 
+// LoadConfigFiles loads environment variables from .env files based on the specified environment
+// env: the application environment (e.g., "dev", "prod", "test")
+// It loads .env, .env.{env}, and .env.local files in that order
+// Local overrides are loaded last
+// Panics if any file fails to load
 func LoadConfigFiles(env string) {
 	configFiles := []string{
 		".env",
@@ -160,6 +170,7 @@ func LoadConfigFiles(env string) {
 	}
 }
 
+// fileExists checks if a file exists at the given path
 func fileExists(filename string) bool {
 	_, err := os.Stat(filename)
 	return !os.IsNotExist(err)

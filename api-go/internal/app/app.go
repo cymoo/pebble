@@ -36,21 +36,24 @@ type App struct {
 	db     *sqlx.DB
 	redis  *redis.Client
 	fts    *fulltext.FullTextSearch
-	server *http.Server
 	tm     *mita.TaskManager
+	server *http.Server
 }
 
+// New creates a new App instance with the given configuration
 func New(cfg *config.Config) *App {
-	return &App{
-		config: cfg,
+	app := &App{config: cfg}
+	if err := app.initialize(); err != nil {
+		panic(err)
 	}
+	return app
 }
 
 // Initialize sets up the application, including database, redis, routes, and tasks
-func (app *App) Initialize() error {
+func (app *App) initialize() error {
 	configJSON, err := app.config.ToJSON(true)
 	if err != nil {
-		panic(err)
+		return err
 	}
 	log.Printf("app config:\n%s", configJSON)
 	log.Println("=================================")
@@ -76,6 +79,7 @@ func (app *App) Initialize() error {
 	return nil
 }
 
+// initDatabase initializes the database connection and runs migrations if enabled
 func (app *App) initDatabase() error {
 	db, err := sqlx.Connect("sqlite3", app.config.DB.URL)
 	if err != nil {
@@ -123,6 +127,7 @@ func (app *App) initDatabase() error {
 	return nil
 }
 
+// initRedis initializes the Redis client and tests the connection
 func (app *App) initRedis() error {
 	app.redis = redis.NewClient(&redis.Options{
 		Addr:     app.config.Redis.URL,
@@ -142,6 +147,7 @@ func (app *App) initRedis() error {
 	return nil
 }
 
+// initFullTextSearch initializes the full-text search engine
 func (app *App) initFullTextSearch() error {
 	app.fts = fulltext.NewFullTextSearch(
 		app.redis,
@@ -152,6 +158,7 @@ func (app *App) initFullTextSearch() error {
 	return nil
 }
 
+// setupTasks sets up the background tasks using mita
 func (app *App) setupTasks() error {
 	tm := mita.New()
 
@@ -173,11 +180,14 @@ func (app *App) setupTasks() error {
 	return nil
 }
 
+// setupRoutes configures the HTTP routes and middleware
 func (app *App) setupRoutes() {
 	r := chi.NewRouter()
 
 	// Setup middleware
-	r.Use(middleware.Logger)
+	if app.config.Log.LogRequests {
+		r.Use(middleware.Logger)
+	}
 	r.Use(PanicRecovery(app.config.Debug))
 	r.Use(CORS(app.config.HTTP.CORS))
 
@@ -220,6 +230,7 @@ func (app *App) setupRoutes() {
 	}
 }
 
+// checkHealth handles the /health endpoint to report application health status
 func (app *App) checkHealth(w http.ResponseWriter, r *http.Request) {
 	// Check database connection
 	if err := app.db.Ping(); err != nil {
@@ -306,6 +317,7 @@ func (app *App) GetFTS() *fulltext.FullTextSearch {
 	return app.fts
 }
 
+// verifyForeignKeysConstraints checks if foreign key constraints are enabled
 func verifyForeignKeysConstraints(db *sqlx.DB) {
 	var rv int
 	err := db.Get(&rv, "PRAGMA foreign_keys;")
@@ -317,6 +329,7 @@ func verifyForeignKeysConstraints(db *sqlx.DB) {
 	}
 }
 
+// verifyWALMode checks if the database is in WAL mode
 func verifyWALMode(db *sqlx.DB) {
 	var rv string
 	err := db.Get(&rv, "PRAGMA journal_mode;")
@@ -328,6 +341,7 @@ func verifyWALMode(db *sqlx.DB) {
 	}
 }
 
+// runMigrations applies database migrations using embedded migration files
 func runMigrations(url string) error {
 	iofsDriver, err := iofs.New(assets.MigrationFS(), "migrations")
 	if err != nil {

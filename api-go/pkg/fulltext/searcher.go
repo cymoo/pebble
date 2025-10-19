@@ -74,11 +74,13 @@ func (f *FullTextSearch) Index(ctx context.Context, id int64, text string) error
 		return f.Reindex(ctx, id, text)
 	}
 
+	// Tokenize text
 	tokens := f.tokenizer.Analyze(text)
 	if len(tokens) == 0 {
 		return nil
 	}
 
+	// Calculate token frequencies
 	tokenFreq := countFrequencies(tokens)
 	freqJSON, err := json.Marshal(TokenFrequency{Frequencies: tokenFreq})
 	if err != nil {
@@ -90,6 +92,7 @@ func (f *FullTextSearch) Index(ctx context.Context, id int64, text string) error
 	pipe.Set(ctx, f.docTokensKey(id), freqJSON, 0)
 	pipe.Incr(ctx, f.docCountKey())
 
+	// Add document ID to token sets
 	for token := range tokenFreq {
 		pipe.SAdd(ctx, f.tokenDocsKey(token), id)
 	}
@@ -121,10 +124,12 @@ func (f *FullTextSearch) Reindex(ctx context.Context, id int64, text string) err
 		return fmt.Errorf("token frequency of doc %d not found: %w", id, err)
 	}
 
+	// Unmarshal old frequencies
 	if err := json.Unmarshal([]byte(data), &oldFreq); err != nil {
 		return err
 	}
 
+	// Calculate new frequencies
 	newFreq := countFrequencies(newTokens)
 	freqJSON, err := json.Marshal(TokenFrequency{Frequencies: newFreq})
 	if err != nil {
@@ -146,10 +151,10 @@ func (f *FullTextSearch) Reindex(ctx context.Context, id int64, text string) err
 	pipe := f.client.Pipeline()
 	pipe.Set(ctx, f.docTokensKey(id), freqJSON, 0)
 
+	// Remove document ID from old token sets and add to new token sets
 	for token := range tokensToRemove {
 		pipe.SRem(ctx, f.tokenDocsKey(token), id)
 	}
-
 	for token := range tokensToAdd {
 		pipe.SAdd(ctx, f.tokenDocsKey(token), id)
 	}
@@ -170,6 +175,7 @@ func (f *FullTextSearch) Deindex(ctx context.Context, id int64) error {
 		return err
 	}
 
+	// Remove document from index, update counts, and remove from token sets
 	pipe := f.client.Pipeline()
 	pipe.Del(ctx, f.docTokensKey(id))
 	pipe.Decr(ctx, f.docCountKey())
@@ -189,6 +195,9 @@ type SearchResult struct {
 }
 
 // Search performs a full-text search
+// query: the search query string
+// partial: if true, performs a partial match (OR); if false, performs an exact match (AND)
+// limit: maximum number of results to return (0 for no limit)
 // Returns the tokens, ranked results, and any error encountered
 func (f *FullTextSearch) Search(ctx context.Context, query string, partial bool, limit int) ([]string, []SearchResult, error) {
 	tokens := f.tokenizer.Analyze(query)
@@ -286,6 +295,7 @@ func (f *FullTextSearch) rank(ctx context.Context, tokens []string, ids map[int6
 		idList = append(idList, id)
 	}
 
+	// Get token frequencies for each document
 	tokenFreqs := make([]TokenFrequency, len(idList))
 	for i, id := range idList {
 		data, err := f.client.Get(ctx, f.docTokensKey(id)).Result()
@@ -372,6 +382,7 @@ func (f *FullTextSearch) ClearIndex(ctx context.Context) error {
 		f.keyPrefix + "token:",
 	}
 
+	// Scan and delete keys
 	for _, prefix := range prefixes {
 		keys, err := f.client.Keys(ctx, prefix+"*").Result()
 		if err != nil {

@@ -13,6 +13,7 @@ import (
 	"github.com/go-chi/chi"
 )
 
+// NewApiRouter creates and returns a router for API endpoints
 func NewApiRouter(app *App) *chi.Mux {
 	r := chi.NewRouter()
 
@@ -27,8 +28,10 @@ func NewApiRouter(app *App) *chi.Mux {
 
 	authService := services.NewAuthService()
 
+	// Use simple auth check middleware for all routes except /api/login
 	r.Use(SimpleAuthCheck(authService, "/api/login"))
 
+	// Use rate limiting middleware for login route
 	r.With(RateLimit(app.redis, 60*time.Second, 5)).
 		Post("/login", m.H(func(payload m.JSON[models.LoginRequest]) (m.StatusCode, error) {
 			if authService.IsValidToken(payload.Value.Password) {
@@ -63,6 +66,7 @@ func NewApiRouter(app *App) *chi.Mux {
 	return r
 }
 
+// NewPageRouter creates and returns a router for page endpoints
 func NewPageRouter(app *App) *chi.Mux {
 	r := chi.NewRouter()
 

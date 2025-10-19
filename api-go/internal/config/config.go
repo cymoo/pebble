@@ -27,6 +27,8 @@ type Config struct {
 
 	DB    DBConfig
 	Redis RedisConfig
+
+	Log LogConfig
 }
 
 type UploadConfig struct {
@@ -56,6 +58,10 @@ type CORSConfig struct {
 	MaxAge           int
 }
 
+type LogConfig struct {
+	LogRequests bool
+}
+
 type HTTPConfig struct {
 	IP           string
 	Port         int
@@ -66,6 +72,7 @@ type HTTPConfig struct {
 	CORS         CORSConfig
 }
 
+// Load loads the configuration from environment variables and config files
 func Load() *Config {
 	config := &Config{}
 	envType := env.GetString("APP_ENV", "development")
@@ -118,9 +125,14 @@ func Load() *Config {
 		DB:       env.GetInt("REDIS_DB", 0),
 	}
 
+	config.Log = LogConfig{
+		LogRequests: env.GetBool("LOG_REQUESTS", true),
+	}
+
 	return config
 }
 
+// ToJSON returns the configuration as a JSON string, optionally hiding sensitive information
 func (c *Config) ToJSON(hideSensitive bool) (string, error) {
 	// Create a copy to avoid exposing sensitive info
 	safe := *c

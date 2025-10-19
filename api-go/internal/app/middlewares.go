@@ -90,7 +90,7 @@ func CORS(config config.CORSConfig) func(http.Handler) http.Handler {
 	}
 }
 
-// RateLimit returns a net/http middleware that enforces rate limiting
+// RateLimit returns a net/http middleware that enforces rate limiting, using Redis as the backend
 // client: Redis client
 // expires: duration for rate limit window
 // maxCount: maximum number of requests allowed within the window
