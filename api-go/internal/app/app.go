@@ -156,8 +156,15 @@ func (app *App) setupTasks() error {
 	tm := mita.New()
 
 	tm.SetContextValue("db", app.db)
+	tm.SetContextValue("fts", app.fts)
 
+	// delete old posts daily at 2:00 AM
 	if err := tm.AddTask("delete-old-posts", mita.Every().Day().At(2, 0), tasks.DeleteOldPosts); err != nil {
+		return err
+	}
+
+	// rebuild full-text index on the first day of each month at 2:00 AM
+	if err := tm.AddTask("rebuild-fulltext-index", mita.Every().Day().At(2, 0).OnDay(1), tasks.RebuildFullTextIndex); err != nil {
 		return err
 	}
 

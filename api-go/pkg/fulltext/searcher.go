@@ -365,8 +365,8 @@ func (f *FullTextSearch) rank(ctx context.Context, tokens []string, ids map[int6
 	return results, nil
 }
 
-// ClearAllIndexes removes all indexes with the configured prefix
-func (f *FullTextSearch) ClearAllIndexes(ctx context.Context) error {
+// ClearIndex removes all indexes with the configured prefix
+func (f *FullTextSearch) ClearIndex(ctx context.Context) error {
 	prefixes := []string{
 		f.keyPrefix + "doc:",
 		f.keyPrefix + "token:",

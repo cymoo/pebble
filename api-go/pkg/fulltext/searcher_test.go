@@ -396,7 +396,7 @@ func TestFullTextSearch_MultipleKeyPrefixes(t *testing.T) {
 	}
 
 	// Clear fts1 should not affect fts2
-	if err := fts1.ClearAllIndexes(ctx); err != nil {
+	if err := fts1.ClearIndex(ctx); err != nil {
 		t.Fatalf("fts1.ClearAllIndexes() error = %v", err)
 	}
 
@@ -1262,7 +1262,7 @@ func TestFullTextSearch_PartialMatch(t *testing.T) {
 			t.Errorf("Expected 3 results with partial match, got %d", len(results))
 		}
 
-		if err := fts.ClearAllIndexes(ctx); err != nil {
+		if err := fts.ClearIndex(ctx); err != nil {
 			t.Fatalf("ClearAllIndexes() error = %v", err)
 		}
 	})
@@ -1293,7 +1293,7 @@ func TestFullTextSearch_PartialMatch(t *testing.T) {
 			t.Errorf("Expected only document 3 with exact match, got %v", results)
 		}
 
-		if err := fts.ClearAllIndexes(ctx); err != nil {
+		if err := fts.ClearIndex(ctx); err != nil {
 			t.Fatalf("ClearAllIndexes() error = %v", err)
 		}
 	})
@@ -1355,7 +1355,7 @@ func TestFullTextSearch_ClearAllIndexes(t *testing.T) {
 	}
 
 	// Clear all indexes
-	if err := fts.ClearAllIndexes(ctx); err != nil {
+	if err := fts.ClearIndex(ctx); err != nil {
 		t.Fatalf("ClearAllIndexes() error = %v", err)
 	}
 
