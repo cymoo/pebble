@@ -46,6 +46,10 @@ server {
         try_files $uri $uri/ @backend;
     }
 
+    location /tasks {
+        try_files $uri $uri/ @backend;
+    }
+
     location /static {
         alias ${WWW_ROOT}/current/api-dist/static;
         add_header Cache-Control "public, max-age=31536000, immutable";
