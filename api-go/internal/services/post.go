@@ -304,12 +304,12 @@ func (s *PostService) Create(ctx context.Context, req models.CreatePostRequest) 
 
 	var color models.NullString
 	if req.Color != nil {
-		color = models.NullString{sql.NullString{String: *req.Color, Valid: true}}
+		color = models.NullString{NullString: sql.NullString{String: *req.Color, Valid: true}}
 	}
 
 	var parentID models.NullInt64
 	if req.ParentID != nil {
-		parentID = models.NullInt64{sql.NullInt64{Int64: *req.ParentID, Valid: true}}
+		parentID = models.NullInt64{NullInt64: sql.NullInt64{Int64: *req.ParentID, Valid: true}}
 	}
 
 	// Insert post
