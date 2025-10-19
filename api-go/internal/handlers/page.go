@@ -50,7 +50,7 @@ func NewPostPageHandler(db *sqlx.DB, templateFS fs.FS) (*PostPageHandler, error)
 	pages := map[string][]string{
 		"post-list": {"templates/layout.tpl", "templates/post-list.tpl"},
 		"post-item": {"templates/layout.tpl", "templates/post-item.tpl"},
-		"error":     {"templates/404.tpl", "templates/500.tpl"},
+		"error":     {"templates/error.tpl"},
 	}
 
 	for pageName, files := range pages {
@@ -78,7 +78,7 @@ func (h *PostPageHandler) PostList(w http.ResponseWriter, r *http.Request) {
 
 	err := h.db.Select(&posts, query)
 	if err != nil {
-		h.renderError(w, http.StatusInternalServerError, err)
+		h.render500(w, err)
 		return
 	}
 
@@ -102,7 +102,7 @@ func (h *PostPageHandler) PostList(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	if err := h.templates["post-list"].ExecuteTemplate(w, "layout", data); err != nil {
-		h.renderError(w, http.StatusInternalServerError, err)
+		h.render500(w, err)
 	}
 }
 
@@ -128,7 +128,7 @@ func (h *PostPageHandler) PostItem(w http.ResponseWriter, r *http.Request) {
 			h.render404(w)
 			return
 		}
-		h.renderError(w, http.StatusInternalServerError, err)
+		h.render500(w, err)
 		return
 	}
 
@@ -157,26 +157,36 @@ func (h *PostPageHandler) PostItem(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	if err := h.templates["post-item"].ExecuteTemplate(w, "layout", data); err != nil {
-		h.renderError(w, http.StatusInternalServerError, err)
+		h.render500(w, err)
 	}
 }
 
 // render404 renders the 404 page
 func (h *PostPageHandler) render404(w http.ResponseWriter) {
+	data := map[string]any{
+		"code":    404,
+		"error":   "Page Not Found",
+		"message": "The page does not exist. Please check if the URL is correct.",
+	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	w.WriteHeader(http.StatusNotFound)
-	if err := h.templates["error"].ExecuteTemplate(w, "404", nil); err != nil {
-		http.Error(w, "Not Found", http.StatusNotFound)
+	w.WriteHeader(404)
+	if err := h.templates["error"].ExecuteTemplate(w, "error", data); err != nil {
+		http.Error(w, "Not Found", 404)
 	}
 }
 
-// renderError renders an error page
-func (h *PostPageHandler) renderError(w http.ResponseWriter, status int, err error) {
+// render500 renders an error page
+func (h *PostPageHandler) render500(w http.ResponseWriter, err error) {
 	log.Printf("Error: %v", err)
+	data := map[string]any{
+		"code":    500,
+		"error":   "Internal Server Error",
+		"message": "An unexpected error occurred. Please try again later.",
+	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	w.WriteHeader(status)
-	if err := h.templates["error"].ExecuteTemplate(w, "500", nil); err != nil {
-		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+	w.WriteHeader(500)
+	if err := h.templates["error"].ExecuteTemplate(w, "error", data); err != nil {
+		http.Error(w, "Internal Server Error", 500)
 	}
 }
 
