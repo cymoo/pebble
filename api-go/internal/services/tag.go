@@ -38,17 +38,11 @@ func (s *TagService) GetCount(ctx context.Context) (int64, error) {
 func (s *TagService) GetAllWithPostCount(ctx context.Context) ([]models.TagWithPostCount, error) {
 	query := `
 		SELECT t.name, t.sticky,
-			(
-				SELECT COUNT(DISTINCT a.post_id)
-				FROM tag_post_assoc a
-				WHERE a.tag_id IN (
-					SELECT id
-					FROM tags
-					WHERE name = t.name
-					   OR name LIKE t.name || '/%'
-				)
-			) AS post_count
+			COALESCE(COUNT(DISTINCT tpa.post_id), 0) AS post_count
 		FROM tags t
+		LEFT JOIN tags child ON child.name = t.name OR child.name LIKE (t.name || '/%')
+		LEFT JOIN tag_post_assoc tpa ON tpa.tag_id = child.id
+		GROUP BY t.name, t.sticky
 	`
 
 	tags := []models.TagWithPostCount{}
@@ -59,19 +53,14 @@ func (s *TagService) GetAllWithPostCount(ctx context.Context) ([]models.TagWithP
 // GetAllWithUndeletedPostCount retrieves all tags with counts of non-deleted posts
 func (s *TagService) GetAllWithUndeletedPostCount(ctx context.Context) ([]models.TagWithPostCount, error) {
 	query := `
-		WITH tag_posts AS (
-			SELECT t.name AS tag_name, p.id AS post_id
-			FROM tags t
-			JOIN tag_post_assoc tpa ON t.id = tpa.tag_id
-			JOIN posts p ON tpa.post_id = p.id
-			WHERE p.deleted_at IS NULL
-		)
 		SELECT t.name AS name,
 			   t.sticky AS sticky,
-			   COUNT(DISTINCT tp.post_id) AS post_count
+			   COALESCE(COUNT(DISTINCT p.id), 0) AS post_count
 		FROM tags t
-		LEFT JOIN tag_posts tp ON tp.tag_name = t.name OR tp.tag_name LIKE (t.name || '/%')
-		GROUP BY t.name
+		LEFT JOIN tags child ON child.name = t.name OR child.name LIKE (t.name || '/%')
+		LEFT JOIN tag_post_assoc tpa ON tpa.tag_id = child.id
+		LEFT JOIN posts p ON tpa.post_id = p.id AND p.deleted_at IS NULL
+		GROUP BY t.name, t.sticky
 	`
 
 	var tags []models.TagWithPostCount
@@ -81,7 +70,7 @@ func (s *TagService) GetAllWithUndeletedPostCount(ctx context.Context) ([]models
 
 // GetPosts retrieves all posts associated with a tag (including subtags)
 func (s *TagService) GetPosts(ctx context.Context, name string) ([]models.Post, error) {
-	namePattern := name + "/%"
+	namePattern := escapeLike(name) + "/%"
 	query := `
 		SELECT p.*
 		FROM posts p
@@ -90,7 +79,7 @@ func (s *TagService) GetPosts(ctx context.Context, name string) ([]models.Post, 
 			FROM tags t
 			JOIN tag_post_assoc tp ON t.id = tp.tag_id
 			WHERE tp.post_id = p.id
-			AND (t.name = ? OR t.name LIKE ?)
+			AND (t.name = ? OR t.name LIKE ? ESCAPE '\')
 		)
 		AND p.deleted_at IS NULL
 	`
@@ -99,10 +88,6 @@ func (s *TagService) GetPosts(ctx context.Context, name string) ([]models.Post, 
 	err := s.db.SelectContext(ctx, &posts, query, name, namePattern)
 	if err != nil {
 		return nil, err
-	}
-
-	for i := range posts {
-		posts[i].Tags = []string{}
 	}
 
 	return posts, nil
@@ -127,7 +112,7 @@ func (s *TagService) InsertOrUpdate(ctx context.Context, name string, sticky boo
 // DeleteAssociatedPosts soft-deletes all posts associated with a tag
 func (s *TagService) DeleteAssociatedPosts(ctx context.Context, name string) error {
 	now := time.Now().UnixMilli()
-	namePattern := name + "/%"
+	namePattern := escapeLike(name) + "/%"
 
 	query := `
 		UPDATE posts
@@ -138,7 +123,7 @@ func (s *TagService) DeleteAssociatedPosts(ctx context.Context, name string) err
 			WHERE tag_id IN (
 				SELECT id
 				FROM tags
-				WHERE name = ? OR name LIKE ?
+				WHERE name = ? OR name LIKE ? ESCAPE '\'
 			)
 		)
 	`
@@ -148,32 +133,49 @@ func (s *TagService) DeleteAssociatedPosts(ctx context.Context, name string) err
 }
 
 // RenameOrMerge renames a tag or merges it with an existing tag
-func (s *TagService) RenameOrMerge(ctx context.Context, name, newName string) error {
-	if name == newName {
+// NewName cannot be a subtag of oldName, for example, renaming "animal" to "animal/mammal" is invalid
+// If newName already exists, posts from oldName will be merged into newName, and oldName will be deleted
+// If newName does not exist, oldName will be renamed to newName
+// All subtags of oldName will be processed similarly
+// For example, renaming "animal" to "creature" will also rename "animal/mammal" to "creature/mammal"
+// If "creature/mammal" already exists, "animal/mammal" will be merged into it
+// If "creature/mammal" does not exist, "animal/mammal" will be renamed to "creature/mammal"
+// The operation is atomic; if any part fails, no changes are made
+func (s *TagService) RenameOrMerge(ctx context.Context, oldName, newName string) error {
+	if oldName == newName {
 		return nil
 	}
 
 	// Check for invalid hierarchy
-	if strings.HasPrefix(newName, name+"/") {
-		newDepth := strings.Count(newName, "/")
-		oldDepth := strings.Count(name, "/")
-		if newDepth > oldDepth {
-			return fmt.Errorf("cannot move %q to a subtag of itself %q", name, newName)
-		}
+	// It should be impossible to hit this case via the API, but we check anyway
+	if strings.HasPrefix(newName, oldName+"/") {
+		panic(fmt.Sprintf("cannot move %q to a subtag of itself %q", oldName, newName))
 	}
 
-	namePattern := name + "/%"
+	namePattern := escapeLike(oldName) + "/%"
 
 	// Get all affected tags
 	query := `
 		SELECT * FROM tags
-		WHERE name = ? OR name = ? OR name LIKE ?
+		WHERE name = ? OR name = ? OR name LIKE ? ESCAPE '\'
 	`
 
 	var affectedTags []models.Tag
-	err := s.db.SelectContext(ctx, &affectedTags, query, name, newName, namePattern)
+	err := s.db.SelectContext(ctx, &affectedTags, query, oldName, newName, namePattern)
 	if err != nil {
 		return err
+	}
+
+	// Check if source tag exists
+	var sourceExists bool
+	for i := range affectedTags {
+		if affectedTags[i].Name == oldName {
+			sourceExists = true
+			break
+		}
+	}
+	if !sourceExists {
+		return ErrTagNotFound
 	}
 
 	tx, err := s.db.BeginTxx(ctx, nil)
@@ -189,22 +191,14 @@ func (s *TagService) RenameOrMerge(ctx context.Context, name, newName string) er
 
 	for i := range affectedTags {
 		tag := &affectedTags[i]
-		if tag.Name == name {
+		switch tag.Name {
+		case oldName:
 			sourceTag = tag
-		} else if tag.Name == newName {
+		case newName:
 			targetTag = tag
-		} else {
+		default:
 			descendants = append(descendants, tag)
 		}
-	}
-
-	// Create source tag if it doesn't exist
-	if sourceTag == nil {
-		newTag, err := s.create(ctx, tx, name)
-		if err != nil {
-			return err
-		}
-		sourceTag = newTag
 	}
 
 	// Sort descendants by depth (deepest first)
@@ -214,7 +208,7 @@ func (s *TagService) RenameOrMerge(ctx context.Context, name, newName string) er
 
 	// Process descendants
 	for _, descendant := range descendants {
-		newDescendantName := replacePrefix(descendant.Name, name, newName)
+		newDescendantName := replacePrefix(descendant.Name, oldName, newName)
 		targetDescendant, err := s.findByName(ctx, tx, newDescendantName)
 		if err != nil {
 			return err
@@ -247,8 +241,6 @@ func (s *TagService) RenameOrMerge(ctx context.Context, name, newName string) er
 	return tx.Commit()
 }
 
-// Helper functions
-
 func (s *TagService) findOrCreate(ctx context.Context, tx *sqlx.Tx, name string) (*models.Tag, error) {
 	tag, err := s.findByName(ctx, tx, name)
 	if err != nil {
@@ -260,6 +252,8 @@ func (s *TagService) findOrCreate(ctx context.Context, tx *sqlx.Tx, name string)
 
 	return s.create(ctx, tx, name)
 }
+
+// Helper functions
 
 func (s *TagService) findByName(ctx context.Context, tx *sqlx.Tx, name string) (*models.Tag, error) {
 	query := `SELECT * FROM tags WHERE name = ?`
@@ -368,11 +362,10 @@ func (s *TagService) merge(ctx context.Context, tx *sqlx.Tx, sourceTag, targetTa
 		return err
 	}
 
-	// Optionally delete the source tag itself
-	// deleteTagQuery := `DELETE FROM tags WHERE id = ?`
-	// _, err = tx.ExecContext(ctx, deleteTagQuery, sourceTag.ID)
-
-	return nil
+	// Delete the source tag itself
+	deleteTagQuery := `DELETE FROM tags WHERE id = ?`
+	_, err = tx.ExecContext(ctx, deleteTagQuery, sourceTag.ID)
+	return err
 }
 
 // replacePrefix replaces the prefix of a string
@@ -381,4 +374,12 @@ func replacePrefix(s, oldPrefix, newPrefix string) string {
 		return s
 	}
 	return newPrefix + s[len(oldPrefix):]
+}
+
+// escapeLike escapes special characters in LIKE patterns
+func escapeLike(s string) string {
+	s = strings.ReplaceAll(s, `\`, `\\`)
+	s = strings.ReplaceAll(s, `%`, `\%`)
+	s = strings.ReplaceAll(s, `_`, `\_`)
+	return s
 }

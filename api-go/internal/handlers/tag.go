@@ -1,10 +1,13 @@
 package handlers
 
 import (
+	"fmt"
 	"log"
 	"net/http"
+	"strings"
 
 	m "github.com/cymoo/mint"
+	e "github.com/cymoo/pebble/internal/errors"
 	"github.com/cymoo/pebble/internal/models"
 	"github.com/cymoo/pebble/internal/services"
 )
@@ -29,6 +32,12 @@ func (h *TagHandler) GetTags(r *http.Request) ([]models.TagWithPostCount, error)
 func (h *TagHandler) RenameTag(r *http.Request, payload m.JSON[models.RenameTagRequest]) (m.StatusCode, error) {
 	oldName := payload.Value.Name
 	newName := payload.Value.NewName
+
+	// Check for invalid hierarchy
+	if strings.HasPrefix(newName, oldName+"/") {
+		return 0, e.BadRequest(fmt.Sprintf("cannot move %q to a subtag of itself %q", oldName, newName))
+	}
+
 	err := h.tagService.RenameOrMerge(r.Context(), oldName, newName)
 	if err != nil {
 		log.Printf("error renaming tag %q to %q: %v", oldName, newName, err)
