@@ -15,10 +15,10 @@ trim_trailing_whitespace = false
 insert_final_newline = false
 trim_trailing_whitespace = false
 
-[*.py]
+[*.sh]
 indent_size = 4
 
-[*.sh]
+[*.py]
 indent_size = 4
 
 [*.java]
@@ -28,4 +28,7 @@ indent_size = 4
 indent_size = 4
 
 [*.rs]
+indent_size = 4
+
+[*.go]
 indent_size = 4

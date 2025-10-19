@@ -1,17 +1,34 @@
-# 使用说明
+# Go API
 
-1. **初始化项目**
-   ```bash
-   go mod download
-   cp .env.example .env
-   ```
+The backend built with Go, net/http and SQLite.
 
-2. **运行数据库迁移**
-   ```bash
-   make migrate
-   ```
+## Getting Started
 
-3. **启动服务**
-   ```bash
-   make run
-   ```
+To begin with this project:
+
+### Run Redis
+
+```bash
+redis-server
+```
+
+### Configure the Application
+
+This project uses a `.env` file for all configuration settings.
+
+Uncomment and modify any settings if you need to change from their defaults.
+
+
+### Starting the Application
+
+```bash
+PEBBLE_PASSWORD=xxx go run cmd/server/main.go
+```
+
+NOTE: The `PEBBLE_PASSWORD` variable is used for login. Ensure it is complex and securely stored in production.
+
+### Test
+
+```bash
+go test -v ./...
+```

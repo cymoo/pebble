@@ -1,6 +1,6 @@
 # Flask API
 
-A web service built with Python, Flask, SQLite, SQLAlchemy and Redis.
+The backend built with Python, Flask, SQLite, SQLAlchemy and Redis.
 
 ## Getting Started
 

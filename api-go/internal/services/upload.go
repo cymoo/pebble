@@ -148,6 +148,7 @@ func (s *UploadService) processImageFile(filePath, contentType string) (*models.
 }
 
 // generates a thumbnail with a fixed width, maintaining aspect ratio
+// It returns the thumbnail URL
 func (s *UploadService) generateThumbnail(originalPath string, img image.Image) (string, error) {
 	bounds := img.Bounds()
 	width := bounds.Dx()

@@ -150,7 +150,7 @@ func SimpleAuthCheck(authService *services.AuthService, excludedPaths ...string)
 			path := r.URL.Path
 
 			// check if the path should be skipped
-			if shouldSkip(path, excludedPaths) {
+			if shouldExclude(path, excludedPaths) {
 				next.ServeHTTP(w, r)
 				return
 			}
@@ -179,8 +179,8 @@ func SimpleAuthCheck(authService *services.AuthService, excludedPaths ...string)
 	}
 }
 
-// shouldSkip checks if the given path matches any of the skip paths
-func shouldSkip(path string, skipPaths []string) bool {
+// shouldExclude checks if the given path matches any of the skip paths
+func shouldExclude(path string, skipPaths []string) bool {
 	for _, skipPath := range skipPaths {
 		if strings.HasPrefix(path, skipPath) {
 			return true

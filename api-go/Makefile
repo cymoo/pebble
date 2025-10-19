@@ -1,4 +1,4 @@
-.PHONY: run build migrate test
+.PHONY: run build test
 
 run:
 	go run cmd/server/main.go
@@ -6,11 +6,8 @@ run:
 build:
 	go build -o bin/api cmd/server/main.go
 
-migrate:
-	go run cmd/server/main.go -migrate
-
 test:
 	go test -v ./...
 
 clean:
-	rm -rf bin/ data/
+	rm -rf bin/
