@@ -28,6 +28,8 @@ There are three backend implementations in different languages, each providing t
 
 Switch to the corresponding directory for details:
 
+* [api-go](./api-go): Go + net/http
+
 * [api-rs](./api-rs): Rust + Axum
 
 * [api-kt](./api-kt): Kotlin + SpringBoot
@@ -60,15 +62,17 @@ This project provides a deployment example using Rust and Axum as the backend se
 
   Of course, as the "de facto standard" among React frameworks, I often find myself quite pleased to work with Next.js.
 
-* Three different backend APIs
+* Four different backend APIs
 
-  The initial backend service was written in Python. One day, a simple typo caused a hard-to-locate bug, and there were no runtime exceptions.
+  The initial backend service was written in Python. One day, a simple typo caused a hard-to-locate bug.
 
-  After finding the issue, I decided to rewrite it in Kotlin. Of course, it was mostly written by Claude 3.5 Sonnet, and the development experience was excellent.
+  After fixing that, I decided to rewrite it in Kotlin. Of course, it was mostly written by Claude 3.5 Sonnet, and the development experience was excellent.
 
   The only minor issue was the relatively high runtime memory usage, and my cloud server also hosts other services.
 
   Then I rewrote it in Rust, and the memory usage dropped to about 1/5 of the previous version.
+
+  Finally, it was rewritten in Go, with 90% of the code written by Claude 4.5 Sonnet.
 
 * Slate-based rich text editor
 

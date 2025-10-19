@@ -1,6 +1,6 @@
 # Kotlin API
 
-A web service built with Kotlin, Spring Boot, SQLite, JOOQ and Redis.
+The backend built with Kotlin, Spring Boot, SQLite, JOOQ and Redis.
 
 ## Getting Started
 

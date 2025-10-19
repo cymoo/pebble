@@ -18,7 +18,7 @@ export const useInfinitePosts = (queryString?: string) => {
 
       const params = new URLSearchParams(queryString)
       if (params.has('query')) {
-        return `${SEARCH}?${params.toString()}`
+        return `${SEARCH}?${params.toString()}&partial=true`
       }
 
       if (previousPageData) params.set('cursor', previousPageData.cursor.toString())

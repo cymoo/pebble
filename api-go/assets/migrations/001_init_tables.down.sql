@@ -1,0 +1,3 @@
+DROP TABLE IF EXISTS tag_post_assoc;
+DROP TABLE IF EXISTS posts;
+DROP TABLE IF EXISTS tags;

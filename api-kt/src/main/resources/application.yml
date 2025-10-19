@@ -61,7 +61,7 @@ spring:
     activate:
       on-profile: dev
   datasource:
-    url: jdbc:sqlite:../data/app-dev.db?foreign_keys=on
+    url: jdbc:sqlite:../data/app-dev.db?foreign_keys=on&journal_mode=WAL
     driver-class-name: org.sqlite.JDBC
 pebble:
   cache: false
@@ -91,7 +91,7 @@ spring:
     activate:
       on-profile: prod
   datasource:
-    url: jdbc:sqlite:../data/app.db?foreign_keys=on
+    url: jdbc:sqlite:../data/app.db?foreign_keys=on&journal_mode=WAL
     driver-class-name: org.sqlite.JDBC
 logging:
   level:

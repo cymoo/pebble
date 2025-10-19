@@ -1,6 +1,6 @@
 # Rust API
 
-A web service built with Rust, Axum and SQLite.
+The backend built with Rust, Axum and SQLite.
 
 ## Getting Started
 
