@@ -45,6 +45,7 @@ func NewUploadService(config *config.UploadConfig) *UploadService {
 }
 
 // UploadFile handles the file upload process
+// It saves the file, processes images, and returns FileInfo
 func (s *UploadService) UploadFile(fileHeader *multipart.FileHeader) (*models.FileInfo, error) {
 	file, err := fileHeader.Open()
 	if err != nil {
@@ -84,6 +85,8 @@ func (s *UploadService) UploadFile(fileHeader *multipart.FileHeader) (*models.Fi
 	return s.processRegularFile(filePath)
 }
 
+// processRegularFile handles non-image files
+// It simply returns the FileInfo with URL and size
 func (s *UploadService) processRegularFile(filePath string) (*models.FileInfo, error) {
 	fileInfo, err := os.Stat(filePath)
 	if err != nil {
@@ -100,6 +103,7 @@ func (s *UploadService) processRegularFile(filePath string) (*models.FileInfo, e
 }
 
 // processImageFile handles image-specific processing like EXIF rotation and thumbnail generation
+// It returns the FileInfo with URL, thumbnail URL, size, width, and height
 func (s *UploadService) processImageFile(filePath, contentType string) (*models.FileInfo, error) {
 	// Read the image
 	img, err := decodeImage(filePath, contentType)

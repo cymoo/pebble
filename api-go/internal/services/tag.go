@@ -51,6 +51,7 @@ func (s *TagService) GetAllWithPostCount(ctx context.Context) ([]models.TagWithP
 }
 
 // GetAllWithUndeletedPostCount retrieves all tags with counts of non-deleted posts
+// It excludes posts that have a non-null deleted_at timestamp
 func (s *TagService) GetAllWithUndeletedPostCount(ctx context.Context) ([]models.TagWithPostCount, error) {
 	query := `
 		SELECT t.name AS name,
@@ -69,6 +70,7 @@ func (s *TagService) GetAllWithUndeletedPostCount(ctx context.Context) ([]models
 }
 
 // GetPosts retrieves all posts associated with a tag (including subtags)
+// For example, the tag "animal" will include posts tagged with "animal/mammal"
 func (s *TagService) GetPosts(ctx context.Context, name string) ([]models.Post, error) {
 	namePattern := escapeLike(name) + "/%"
 	query := `
@@ -94,6 +96,8 @@ func (s *TagService) GetPosts(ctx context.Context, name string) ([]models.Post, 
 }
 
 // InsertOrUpdate inserts a new tag or updates its sticky status
+// If the tag already exists, its sticky status is updated
+// If it does not exist, a new tag is created
 func (s *TagService) InsertOrUpdate(ctx context.Context, name string, sticky bool) error {
 	now := time.Now().UnixMilli()
 
@@ -110,6 +114,7 @@ func (s *TagService) InsertOrUpdate(ctx context.Context, name string, sticky boo
 }
 
 // DeleteAssociatedPosts soft-deletes all posts associated with a tag
+// It sets the deleted_at field to the current timestamp for posts linked to the specified tag and its subtags
 func (s *TagService) DeleteAssociatedPosts(ctx context.Context, name string) error {
 	now := time.Now().UnixMilli()
 	namePattern := escapeLike(name) + "/%"
@@ -241,6 +246,7 @@ func (s *TagService) RenameOrMerge(ctx context.Context, oldName, newName string)
 	return tx.Commit()
 }
 
+// findOrCreate finds a tag by name or creates it if it doesn't exist
 func (s *TagService) findOrCreate(ctx context.Context, tx *sqlx.Tx, name string) (*models.Tag, error) {
 	tag, err := s.findByName(ctx, tx, name)
 	if err != nil {
@@ -255,6 +261,7 @@ func (s *TagService) findOrCreate(ctx context.Context, tx *sqlx.Tx, name string)
 
 // Helper functions
 
+// findByName finds a tag by its name
 func (s *TagService) findByName(ctx context.Context, tx *sqlx.Tx, name string) (*models.Tag, error) {
 	query := `SELECT * FROM tags WHERE name = ?`
 
@@ -270,6 +277,7 @@ func (s *TagService) findByName(ctx context.Context, tx *sqlx.Tx, name string) (
 	return &tag, nil
 }
 
+// create creates a new tag with the given name, returning the created tag
 func (s *TagService) create(ctx context.Context, tx *sqlx.Tx, name string) (*models.Tag, error) {
 	now := time.Now().UnixMilli()
 
@@ -294,6 +302,8 @@ func (s *TagService) create(ctx context.Context, tx *sqlx.Tx, name string) (*mod
 	}, nil
 }
 
+// rename renames a tag to a new name
+// It also updates post contents to reflect the new tag name, including subtags
 func (s *TagService) rename(ctx context.Context, tx *sqlx.Tx, tag *models.Tag, newName string) error {
 	now := time.Now().UnixMilli()
 
@@ -322,6 +332,9 @@ func (s *TagService) rename(ctx context.Context, tx *sqlx.Tx, tag *models.Tag, n
 	return err
 }
 
+// merge merges a source tag into a target tag
+// It updates post contents to replace source tag with target tag
+// It also updates tag associations and deletes the source tag
 func (s *TagService) merge(ctx context.Context, tx *sqlx.Tx, sourceTag, targetTag *models.Tag) error {
 	// Update post content
 	sourcePattern := fmt.Sprintf(">#%s<", sourceTag.Name)

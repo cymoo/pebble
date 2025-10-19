@@ -216,12 +216,14 @@ type Name struct {
 	Name string `schema:"name"`
 }
 
+// DateRange represents a date range with start and end dates
 type DateRange struct {
 	StartDate string `schema:"start_date"`
 	EndDate   string `schema:"end_date"`
 	Offset    int    `schema:"offset"` // in minutes
 }
 
+// LoginRequest represents a login request with password
 type LoginRequest struct {
 	Password string `json:"password"`
 }

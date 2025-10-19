@@ -19,8 +19,10 @@ import (
 )
 
 var (
+	// regex patterns to extract header and bold paragraph
 	headerAndBoldParagraphPattern = regexp.MustCompile(`<h[1-3][^>]*>(.*?)</h[1-3]>\s*(?:<p[^>]*><strong>(.*?)</strong></p>)?`)
-	strongTagPattern              = regexp.MustCompile(`</?strong>`)
+	// regex pattern to remove strong tags
+	strongTagPattern = regexp.MustCompile(`</?strong>`)
 )
 
 // PostMetaData represents post metadata for list view
@@ -31,7 +33,6 @@ type PostMetaData struct {
 	CreatedAt   string `json:"created_at"`
 }
 
-// PostPageHandler handles post-related HTTP requests
 type PostPageHandler struct {
 	db        *sqlx.DB
 	templates map[string]*template.Template
@@ -41,18 +42,21 @@ type PostPageHandler struct {
 func NewPostPageHandler(db *sqlx.DB, templateFS fs.FS) (*PostPageHandler, error) {
 	templates := make(map[string]*template.Template)
 
+	// safe function to prevent HTML escaping
 	funcMap := template.FuncMap{
 		"safe": func(s string) template.HTML {
 			return template.HTML(s)
 		},
 	}
 
+	// Define pages and their associated template files
 	pages := map[string][]string{
 		"post-list": {"templates/layout.tpl", "templates/post-list.tpl"},
 		"post-item": {"templates/layout.tpl", "templates/post-item.tpl"},
 		"error":     {"templates/error.tpl"},
 	}
 
+	// Parse templates for each page
 	for pageName, files := range pages {
 		tmpl, err := template.New("").Funcs(funcMap).ParseFS(templateFS, files...)
 		if err != nil {
@@ -76,12 +80,14 @@ func (h *PostPageHandler) PostList(w http.ResponseWriter, r *http.Request) {
 		ORDER BY created_at DESC
 	`
 
+	// Fetch posts from the database
 	err := h.db.Select(&posts, query)
 	if err != nil {
 		h.render500(w, err)
 		return
 	}
 
+	// Extract metadata for each post
 	result := make([]PostMetaData, 0, len(posts))
 	for _, post := range posts {
 		title, description := extractHeaderAndDescriptionFromHTML(post.Content)
@@ -121,7 +127,7 @@ func (h *PostPageHandler) PostItem(w http.ResponseWriter, r *http.Request) {
 		SELECT * FROM posts
 		WHERE id = ? AND deleted_at IS NULL AND shared = 1
 	`
-
+	// Fetch the post from the database
 	err = h.db.Get(&post, query, id)
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -132,6 +138,7 @@ func (h *PostPageHandler) PostItem(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Extract title from post content
 	title, _ := extractHeaderAndDescriptionFromHTML(post.Content)
 
 	var images []models.FileInfo
@@ -175,7 +182,7 @@ func (h *PostPageHandler) render404(w http.ResponseWriter) {
 	}
 }
 
-// render500 renders an error page
+// render500 renders the 500 page
 func (h *PostPageHandler) render500(w http.ResponseWriter, err error) {
 	log.Printf("Error: %v", err)
 	data := map[string]any{

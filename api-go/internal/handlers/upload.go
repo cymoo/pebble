@@ -18,6 +18,9 @@ func NewUploadHandler(uploadService *services.UploadService) *UploadHandler {
 	return &UploadHandler{uploadService: uploadService}
 }
 
+// UploadFile handles file uploads
+// It processes the uploaded file and returns its FileInfo.
+// Returns a BadRequest error if the file is invalid.
 func (h *UploadHandler) UploadFile(r *http.Request) (*models.FileInfo, error) {
 	file, header, err := r.FormFile("file")
 	if err != nil {
@@ -38,6 +41,8 @@ func (h *UploadHandler) UploadFile(r *http.Request) (*models.FileInfo, error) {
 	return fileInfo, nil
 }
 
+// SimpleFileForm returns a simple HTML form for file upload
+// This is useful for testing file uploads via a web browser.
 func (h *UploadHandler) SimpleFileForm() m.HTML {
 	return `<!doctype html>
   <html>

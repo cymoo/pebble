@@ -280,6 +280,8 @@ func (s *PostService) Filter(ctx context.Context, options models.FilterPostReque
 }
 
 // Create creates a new post
+// It also extracts hashtags and creates tag associations
+// Returns the created post's ID and timestamps
 func (s *PostService) Create(ctx context.Context, req models.CreatePostRequest) (*models.CreateResponse, error) {
 	now := time.Now().UnixMilli()
 
@@ -365,6 +367,8 @@ func (s *PostService) Create(ctx context.Context, req models.CreatePostRequest) 
 }
 
 // Update updates an existing post
+// It also updates tag associations if the content changes
+// It updates the parent children counts if the parent_id changes
 func (s *PostService) Update(ctx context.Context, req models.UpdatePostRequest) error {
 	now := time.Now().UnixMilli()
 
@@ -479,6 +483,7 @@ func (s *PostService) Update(ctx context.Context, req models.UpdatePostRequest) 
 }
 
 // Delete soft deletes a post
+// It sets the deleted_at timestamp and updates parent children count
 func (s *PostService) Delete(ctx context.Context, id int64) error {
 	now := time.Now().UnixMilli()
 
@@ -508,6 +513,7 @@ func (s *PostService) Delete(ctx context.Context, id int64) error {
 }
 
 // Restore restores a soft-deleted post
+// It clears the deleted_at timestamp and updates parent children count
 func (s *PostService) Restore(ctx context.Context, id int64) error {
 	tx, err := s.db.BeginTxx(ctx, nil)
 	if err != nil {
@@ -535,6 +541,7 @@ func (s *PostService) Restore(ctx context.Context, id int64) error {
 }
 
 // HardDelete permanently deletes a post
+// It only deletes posts that are already soft-deleted
 func (s *PostService) HardDelete(ctx context.Context, id int64) error {
 	query := `DELETE FROM posts WHERE id = ? AND deleted_at IS NOT NULL`
 	_, err := s.db.ExecContext(ctx, query, id)
@@ -542,6 +549,7 @@ func (s *PostService) HardDelete(ctx context.Context, id int64) error {
 }
 
 // ClearAll permanently deletes all soft-deleted posts
+// It returns the IDs of the deleted posts
 func (s *PostService) ClearAll(ctx context.Context) ([]int64, error) {
 	query := `DELETE FROM posts WHERE deleted_at IS NOT NULL RETURNING id`
 
@@ -552,6 +560,8 @@ func (s *PostService) ClearAll(ctx context.Context) ([]int64, error) {
 
 // Helper functions
 
+// updateChildrenCount updates the children_count of a parent post
+// If increment is true, it increments the count; otherwise, it decrements it
 func (s *PostService) updateChildrenCount(ctx context.Context, tx *sqlx.Tx, parentID int64, increment bool) error {
 	query := "UPDATE posts SET children_count = children_count - 1 WHERE id = ?"
 	if increment {
@@ -562,6 +572,8 @@ func (s *PostService) updateChildrenCount(ctx context.Context, tx *sqlx.Tx, pare
 	return err
 }
 
+// attachTags attaches tags to the given posts
+// It modifies the posts slice in place
 func (s *PostService) attachTags(ctx context.Context, posts []models.Post) error {
 	if len(posts) == 0 {
 		return nil
@@ -609,6 +621,8 @@ func (s *PostService) attachTags(ctx context.Context, posts []models.Post) error
 	return nil
 }
 
+// attachParents attaches parent posts to the given posts
+// It modifies the posts slice in place
 func (s *PostService) attachParents(ctx context.Context, posts []models.Post) error {
 	if len(posts) == 0 {
 		return nil
@@ -660,6 +674,8 @@ func (s *PostService) attachParents(ctx context.Context, posts []models.Post) er
 	return nil
 }
 
+// extractHashTags extracts hashtags from the post content
+// It returns a map of unique hashtag names
 func extractHashTags(content string) map[string]bool {
 	tags := make(map[string]bool)
 	matches := hashTagRegex.FindAllStringSubmatch(content, -1)
