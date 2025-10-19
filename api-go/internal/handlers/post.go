@@ -189,6 +189,9 @@ func (h *PostHandler) GetDailyCounts(r *http.Request, query m.Query[models.DateR
 		return nil, e.BadRequest(fmt.Sprintf("invalid date '%s': must be in YYYY-MM-DD format", endDateStr))
 	}
 
+	// Include the entire end date by adding one day
+	endDate = endDate.AddDate(0, 0, 1)
+
 	if endDate.Before(startDate) {
 		return nil, e.BadRequest("end_date must be after start_date")
 	}
