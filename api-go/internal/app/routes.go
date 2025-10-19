@@ -31,15 +31,23 @@ func NewApiRouter(app *App) *chi.Mux {
 	// Use simple auth check middleware for all routes except /api/login
 	r.Use(SimpleAuthCheck(authService, "/api/login"))
 
+	// handleLogin processes login requests by validating the provided password
+	handleLogin := func(payload m.JSON[models.LoginRequest]) (m.StatusCode, error) {
+		if authService.IsValidToken(payload.Value.Password) {
+			return http.StatusNoContent, nil
+		} else {
+			return 0, e.Unauthorized("password is wrong")
+		}
+	}
+
 	// Use rate limiting middleware for login route
-	r.With(RateLimit(app.redis, 60*time.Second, 5)).
-		Post("/login", m.H(func(payload m.JSON[models.LoginRequest]) (m.StatusCode, error) {
-			if authService.IsValidToken(payload.Value.Password) {
-				return http.StatusNoContent, nil
-			} else {
-				return 0, e.Unauthorized("password is wrong")
-			}
-		}))
+	r.With(RateLimit(app.redis, 60*time.Second, 5)).Post("/login", m.H(handleLogin))
+
+	// A simple endpoint to verify authentication
+	// Nginx can use this to check if the token is valid, and handle uploads accordingly
+	r.Get("/auth", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(200)
+	})
 
 	r.Get("/hello", m.H(postHandler.HelloWorld))
 
