@@ -17,7 +17,7 @@ def search_engine(redis_client):
     """Create a FullTextSearch instance test fixture"""
     from app.lib.search import FullTextSearch
 
-    return FullTextSearch(redis_client, max_results=100, key_prefix='test:')
+    return FullTextSearch(redis_client, key_prefix='test:')
 
 
 def test_basic_indexing(search_engine):
@@ -118,7 +118,7 @@ def test_max_results_limit(search_engine):
     for i in range(500):
         search_engine.index(i, f"测试文档 {i}")
 
-    tokens, results = search_engine.search("测试")
+    tokens, results = search_engine.search("测试", limit=300)
     assert len(results) <= 300  # Default max results
 
 

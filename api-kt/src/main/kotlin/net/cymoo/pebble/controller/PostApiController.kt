@@ -51,7 +51,7 @@ class PostApiController(
 
     @PostMapping("/rename-tag")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    fun renameTag(@Validated @RequestBody payload: TagRename) {
+    fun renameTag(@Validated @RequestBody payload: RenameTagRequest) {
         tagService.renameOrMerge(payload.name, payload.newName)
     }
 
@@ -63,12 +63,12 @@ class PostApiController(
 
     @PostMapping("/stick-tag")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    fun stickTag(@RequestBody payload: TagStick) {
+    fun stickTag(@RequestBody payload: StickyTagRequest) {
         tagService.insertOrUpdate(payload.name, payload.sticky)
     }
 
     @PostMapping("/create-post")
-    fun createPost(@Validated @RequestBody payload: PostCreate): CreateResponse {
+    fun createPost(@Validated @RequestBody payload: CreatePostRequest): CreateResponse {
         return postService.create(
             Post(
                 content = payload.content,
@@ -84,7 +84,7 @@ class PostApiController(
 
     @PostMapping("/update-post")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    fun updatePost(@Validated @RequestBody payload: PostUpdate) {
+    fun updatePost(@Validated @RequestBody payload: UpdatePostRequest) {
         val post = postService.findById(payload.id)
         if (post == null || post.deletedAt != null) {
             throw NotFoundException("Post not found")
@@ -101,7 +101,7 @@ class PostApiController(
 
     @PostMapping("/delete-post")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    fun deletePost(@RequestBody payload: PostDelete) {
+    fun deletePost(@RequestBody payload: DeletePostRequest) {
         if (payload.hard) {
             postService.clear(payload.id)
             taskService.deleteIndex(payload.id)
@@ -126,8 +126,8 @@ class PostApiController(
     }
 
     @GetMapping("/search")
-    fun search(@Validated @ModelAttribute payload: PostQuery): PostPagination {
-        val (tokens, results) = searchService.search(payload.query)
+    fun search(@Validated @ModelAttribute payload: SearchRequest): PostPagination {
+        val (tokens, results) = searchService.search(payload.query, payload.partial, payload.limit)
 
         if (results.isEmpty()) {
             return PostPagination(posts = emptyList(), cursor = -1, size = 0)
@@ -154,7 +154,7 @@ class PostApiController(
 
 
     @GetMapping("/get-posts")
-    fun getPosts(@Validated @ModelAttribute queries: PostFilterOptions): PostPagination {
+    fun getPosts(@Validated @ModelAttribute queries: FilterPostRequest): PostPagination {
         val posts = postService.filterPosts(queries)
         return PostPagination(
             posts = posts,

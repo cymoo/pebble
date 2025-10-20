@@ -3,9 +3,11 @@ package net.cymoo.pebble.config
 import jakarta.annotation.PostConstruct
 import net.cymoo.pebble.logger
 import org.jooq.DSLContext
+import org.springframework.context.annotation.Profile
 import org.springframework.stereotype.Component
 
 @Component
+@Profile("!test")
 class DatabaseConfigValidator(
     private val dslContext: DSLContext
 ) {

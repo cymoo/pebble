@@ -169,6 +169,9 @@ class Tag(db.Model):
             post.content = post.content.replace(f'>#{old_name}<', f'>#{new_name}<')
             db.session.add(post)
 
+        # delete the old tag
+        db.session.delete(self)
+
     @property
     def descendants(self) -> list[Self]:
         """Retrieve all descendants of the tag."""

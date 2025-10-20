@@ -13,9 +13,11 @@ import (
 )
 
 // TokenFrequency stores token frequencies for a document
-type TokenFrequency struct {
-	Frequencies map[string]int `json:"frequencies"`
-}
+// type TokenFrequency struct {
+// 	Frequencies map[string]int `json:"frequencies"`
+// }
+
+type TokenFrequency map[string]int
 
 // FullTextSearch provides full-text search functionality
 type FullTextSearch struct {
@@ -82,7 +84,7 @@ func (f *FullTextSearch) Index(ctx context.Context, id int64, text string) error
 
 	// Calculate token frequencies
 	tokenFreq := countFrequencies(tokens)
-	freqJSON, err := json.Marshal(TokenFrequency{Frequencies: tokenFreq})
+	freqJSON, err := json.Marshal(tokenFreq)
 	if err != nil {
 		return err
 	}
@@ -131,14 +133,14 @@ func (f *FullTextSearch) Reindex(ctx context.Context, id int64, text string) err
 
 	// Calculate new frequencies
 	newFreq := countFrequencies(newTokens)
-	freqJSON, err := json.Marshal(TokenFrequency{Frequencies: newFreq})
+	freqJSON, err := json.Marshal(newFreq)
 	if err != nil {
 		return err
 	}
 
 	// Calculate differences
 	oldTokenSet := types.NewSet[string]()
-	for token := range oldFreq.Frequencies {
+	for token := range oldFreq {
 		oldTokenSet.Add(token)
 	}
 
@@ -180,7 +182,7 @@ func (f *FullTextSearch) Deindex(ctx context.Context, id int64) error {
 	pipe.Del(ctx, f.docTokensKey(id))
 	pipe.Decr(ctx, f.docCountKey())
 
-	for token := range tokenFreq.Frequencies {
+	for token := range tokenFreq {
 		pipe.SRem(ctx, f.tokenDocsKey(token), id)
 	}
 
@@ -327,12 +329,12 @@ func (f *FullTextSearch) rank(ctx context.Context, tokens []string, ids map[int6
 	// Calculate scores
 	results := make([]SearchResult, len(idList))
 	for i, id := range idList {
-		tokenFreq := &tokenFreqs[i]
+		tokenFreq := tokenFreqs[i]
 		score := 0.0
 		matchingTerms := 0
 
 		for j, token := range tokens {
-			tf := float64(tokenFreq.Frequencies[token])
+			tf := float64(tokenFreq[token])
 			if tf > 0.0 {
 				matchingTerms++
 			}
@@ -354,7 +356,7 @@ func (f *FullTextSearch) rank(ctx context.Context, tokens []string, ids map[int6
 
 		// Length normalization
 		totalTerms := 0
-		for _, count := range tokenFreq.Frequencies {
+		for _, count := range tokenFreq {
 			totalTerms += count
 		}
 		if totalTerms > 0 {

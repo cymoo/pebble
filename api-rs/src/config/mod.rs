@@ -1,4 +1,4 @@
-use crate::util::common::{get_bool_from_env_or, get_env_or, get_size_from_env_or, get_vec_from_env_or, load_dotenv};
+use crate::util::common::{get_env_or, get_size_from_env_or, get_vec_from_env_or, load_dotenv};
 use std::env;
 
 pub mod db;
@@ -31,29 +31,6 @@ impl UploadConfig {
 }
 
 #[derive(Debug, Clone)]
-pub struct SearchConfig {
-    pub partial_match: bool,
-    pub max_results: usize,
-    pub key_prefix: String,
-}
-
-impl SearchConfig {
-    pub fn from_env() -> Self {
-        load_dotenv();
-
-        let partial_match = get_bool_from_env_or("PARTIAL_MATCH", true).unwrap();
-        let key_prefix = get_env_or("KEY_PREFIX", "".to_string()).unwrap();
-        let max_results = get_env_or("MAX_RESULTS", 500).unwrap();
-
-        Self {
-            partial_match,
-            max_results,
-            key_prefix,
-        }
-    }
-}
-
-#[derive(Debug, Clone)]
 pub struct AppConfig {
     pub ip: String,
     pub port: u16,
@@ -71,7 +48,6 @@ pub struct AppConfig {
     pub posts_per_page: u32,
 
     pub upload_config: UploadConfig,
-    pub search_config: SearchConfig,
 }
 
 impl AppConfig {
@@ -109,7 +85,6 @@ impl AppConfig {
             posts_per_page,
 
             upload_config: UploadConfig::from_env(),
-            search_config: SearchConfig::from_env(),
         }
     }
 }

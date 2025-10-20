@@ -46,12 +46,8 @@ class SearchService(
     private val redisService: RedisService,
     private val objectMapper: ObjectMapper,
 
-    @Value("\${app.search.max-result:400}")
-    private val maxResult: Int,
     @Value("\${app.search.key-prefix:}")
     private val keyPrefix: String,
-    @Value("\${app.search.partial-match:true}")
-    private val partialMatch: Boolean
 ) {
     private val textAnalyzer = TextAnalyzer()
 
@@ -131,32 +127,35 @@ class SearchService(
         redisService.deleteByPrefix("${keyPrefix}token:")
     }
 
-    fun search(query: String): SearchResult {
+    fun search(query: String, partial: Boolean = true, limit: Int = 0): SearchResult {
         val tokens = textAnalyzer.analyze(query)
         if (tokens.isEmpty()) {
             return SearchResult(tokens, emptyList())
         }
 
-        val docIds = findMatchingDocuments(tokens)
+        val docIds = findMatchingDocuments(tokens, partial)
         if (docIds.isEmpty()) {
             return SearchResult(tokens, emptyList())
         }
 
-        val rankedResults = rankDocuments(tokens, docIds)
+        var rankedResults = rankDocuments(tokens, docIds)
             .sortedByDescending { it.score }
-            .take(maxResult)
+
+        if (limit > 0) {
+            rankedResults = rankedResults.take(limit)
+        }
 
         return SearchResult(tokens, rankedResults)
     }
 
-    private fun findMatchingDocuments(tokens: List<String>): Set<Int> {
+    private fun findMatchingDocuments(tokens: List<String>, partial: Boolean): Set<Int> {
         val results = redisService.pipeline {
             tokens.map { token -> smembers(tokenDocsKey(token)) }
         }
 
         return results.map { result -> result.map { it.toInt() }.toSet() }
             .reduce { acc, ids ->
-                if (partialMatch) acc.union(ids) else acc.intersect(ids)
+                if (partial) acc.union(ids) else acc.intersect(ids)
             }
     }
 

@@ -8,9 +8,10 @@ use std::cmp::Reverse;
 
 impl Tag {
     pub async fn get_count(pool: &SqlitePool) -> ApiResult<i64> {
-        let count = query!(
-            "SELECT COUNT(*) as count FROM tags"
-        ).fetch_one(pool).await?.count;
+        let count = query!("SELECT COUNT(*) as count FROM tags")
+            .fetch_one(pool)
+            .await?
+            .count;
 
         Ok(count)
     }
@@ -32,13 +33,17 @@ impl Tag {
             ) AS post_count
             FROM tags t;
             "#
-        ).fetch_all(pool).await?;
+        )
+        .fetch_all(pool)
+        .await?;
 
         Ok(tags)
     }
 
     #[allow(dead_code)]
-    pub async fn get_all_with_undeleted_post_count(pool: &SqlitePool) -> ApiResult<Vec<TagWithPostCount>> {
+    pub async fn get_all_with_undeleted_post_count(
+        pool: &SqlitePool,
+    ) -> ApiResult<Vec<TagWithPostCount>> {
         let tags = query_as!(
             TagWithPostCount,
             r#"
@@ -56,7 +61,9 @@ impl Tag {
             LEFT JOIN tag_posts tp ON tp.tag_name = t.name OR tp.tag_name LIKE (t.name || '/%')
             GROUP BY t.name
             "#
-        ).fetch_all(pool).await?;
+        )
+        .fetch_all(pool)
+        .await?;
 
         Ok(tags)
     }
@@ -80,7 +87,9 @@ impl Tag {
             "#,
             name,
             name_pattern,
-        ).fetch_all(pool).await?;
+        )
+        .fetch_all(pool)
+        .await?;
 
         Ok(posts)
     }
@@ -109,7 +118,9 @@ impl Tag {
             sticky,
             now,
             now,
-        ).execute(pool).await?;
+        )
+        .execute(pool)
+        .await?;
 
         Ok(())
     }
@@ -135,17 +146,17 @@ impl Tag {
             now,
             name,
             name_pattern
-        ).execute(pool).await?;
+        )
+        .execute(pool)
+        .await?;
 
         Ok(())
     }
 
     async fn find_by_name(tx: &mut Transaction<'_, Sqlite>, name: &str) -> ApiResult<Option<Self>> {
-        let tag = query_as!(
-            Tag,
-            "SELECT * FROM tags WHERE name = ?",
-            name,
-        ).fetch_optional(&mut **tx).await?;
+        let tag = query_as!(Tag, "SELECT * FROM tags WHERE name = ?", name,)
+            .fetch_optional(&mut **tx)
+            .await?;
 
         Ok(tag)
     }
@@ -162,7 +173,10 @@ impl Tag {
             name,
             now,
             now
-        ).fetch_one(&mut **tx).await?.id;
+        )
+        .fetch_one(&mut **tx)
+        .await?
+        .id;
 
         Ok(Tag {
             id,
@@ -182,9 +196,10 @@ impl Tag {
 
         // Check for invalid hierarchy
         if new_name.starts_with(name) && new_name.matches('/').count() > name.matches('/').count() {
-            return Err(bad_request(
-                &format!(r#"Cannot move "{}" to a subtag of itself "{}""#, name, new_name)
-            ));
+            return Err(bad_request(&format!(
+                r#"Cannot move "{}" to a subtag of itself "{}""#,
+                name, new_name
+            )));
         }
 
         let name_pattern = format!("{}/%", name);
@@ -199,7 +214,9 @@ impl Tag {
             name,
             new_name,
             name_pattern
-        ).fetch_all(pool).await?;
+        )
+        .fetch_all(pool)
+        .await?;
 
         let mut tx = pool.begin().await?;
 
@@ -244,11 +261,7 @@ impl Tag {
     }
 
     /// Rename a tag and update all related post content.
-    async fn rename(
-        tx: &mut Transaction<'_, Sqlite>,
-        tag: &Tag,
-        new_name: &str,
-    ) -> ApiResult<()> {
+    async fn rename(tx: &mut Transaction<'_, Sqlite>, tag: &Tag, new_name: &str) -> ApiResult<()> {
         let now = Utc::now().timestamp_millis();
 
         // Update tag name
@@ -261,7 +274,9 @@ impl Tag {
             new_name,
             now,
             tag.id
-        ).execute(&mut **tx).await?;
+        )
+        .execute(&mut **tx)
+        .await?;
 
         let source_pattern = format!(">#{}<", tag.name);
         let target_pattern = format!(">#{}<", new_name);
@@ -280,7 +295,9 @@ impl Tag {
             source_pattern,
             target_pattern,
             tag.id
-        ).execute(&mut **tx).await?;
+        )
+        .execute(&mut **tx)
+        .await?;
 
         Ok(())
     }
@@ -308,7 +325,9 @@ impl Tag {
             source_pattern,
             target_pattern,
             source_tag.id
-        ).execute(&mut **tx).await?;
+        )
+        .execute(&mut **tx)
+        .await?;
 
         // Insert new tag associations (ignoring if they already exist)
         sqlx::query!(
@@ -320,7 +339,9 @@ impl Tag {
             "#,
             target_tag.id,
             source_tag.id
-        ).execute(&mut **tx).await?;
+        )
+        .execute(&mut **tx)
+        .await?;
 
         // Delete old tag associations
         sqlx::query!(
@@ -329,7 +350,20 @@ impl Tag {
             WHERE tag_id = ?
             "#,
             source_tag.id
-        ).execute(&mut **tx).await?;
+        )
+        .execute(&mut **tx)
+        .await?;
+
+        // Delete the source tag itself
+        sqlx::query!(
+            r#"
+            DELETE FROM tags
+            WHERE id = ?
+            "#,
+            source_tag.id
+        )
+        .execute(&mut **tx)
+        .await?;
 
         Ok(())
     }

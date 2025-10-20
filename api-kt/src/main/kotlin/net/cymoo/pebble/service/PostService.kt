@@ -126,7 +126,7 @@ class PostService(
     fun getCount() =
         dsl.fetchCount(POSTS, POSTS.DELETED_AT.isNull)
 
-    fun filterPosts(options: PostFilterOptions, perPage: Int = 20): List<Post> {
+    fun filterPosts(options: FilterPostRequest, perPage: Int = 20): List<Post> {
         var condition: Condition = trueCondition()
 
         with(options) {
@@ -225,7 +225,7 @@ class PostService(
         )
     }
 
-    fun update(post: PostUpdate) {
+    fun update(post: UpdatePostRequest) {
         val updatedAt = Instant.now().toEpochMilli()
 
         // 1. update `children_count` of parent

@@ -6,7 +6,6 @@ Application factory
 import os
 from dataclasses import is_dataclass
 
-from dotenv import load_dotenv
 from flask import Flask, send_from_directory, Response, jsonify
 from flask.json.provider import JSONProvider
 from orjson import orjson
@@ -56,9 +55,7 @@ def register_db(app: Flask) -> None:
     rd = Redis(**app.config['REDIS'])
     app.rd = rd
 
-    app.searcher = FullTextSearch(
-        rd, app.config['PARTIAL_MATCH'], app.config['SEARCH_MAX_RESULTS']
-    )
+    app.fts = FullTextSearch(rd, 'fts:')
 
 
 def register_blueprints(app: Flask) -> None:

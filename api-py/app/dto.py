@@ -55,12 +55,12 @@ class LoginRequest(BaseModel):
     password: str
 
 
-class TagRename(BaseModel):
+class RenameTagRequest(BaseModel):
     name: str
     new_name: Annotated[str, AfterValidator(check_hashtag)]
 
 
-class TagStick(BaseModel):
+class StickTagRequest(BaseModel):
     name: str
     sticky: bool
 
@@ -71,11 +71,13 @@ class DateRange(BaseModel):
     offset: int = 480  # timezone offset in minutes
 
 
-class PostQuery(BaseModel):
+class SearchRequest(BaseModel):
     query: str = Field(..., min_length=1)
+    partial: bool = False
+    limit: int = 0
 
 
-class PostFilterOptions(BaseModel):
+class FilterPostRequest(BaseModel):
     cursor: Optional[int] = None
     deleted: bool = False
     parent_id: Optional[int] = None
@@ -99,7 +101,7 @@ class FileInfo:
     height: Optional[int] = None
 
 
-class PostCreate(BaseModel):
+class CreatePostRequest(BaseModel):
     content: str = Field(..., min_length=1)
     files: Optional[list[FileInfo]] = None
     color: Optional[CategoryColor] = None
@@ -107,7 +109,7 @@ class PostCreate(BaseModel):
     parent_id: Optional[int] = None
 
 
-class PostUpdate(BaseModel):
+class UpdatePostRequest(BaseModel):
     id: int
     # https://github.com/pydantic/pydantic/issues/1223
     # How to have an “optional” field but if present required to conform to non None value?
@@ -123,7 +125,7 @@ class PostUpdate(BaseModel):
     parent_id: Optional[int] = missing
 
 
-class PostDelete(BaseModel):
+class DeletePostRequest(BaseModel):
     id: int
     hard: bool = False
 

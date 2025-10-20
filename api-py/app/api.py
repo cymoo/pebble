@@ -61,7 +61,7 @@ def get_tags() -> list[TagDto]:
 
 @api.post('/stick-tag')
 @validate
-def stick_tag(payload: TagStick) -> NoContent:
+def stick_tag(payload: StickTagRequest) -> NoContent:
     Tag.insert_or_update(payload.name, payload.sticky)
     return NO_CONTENT
 
@@ -69,7 +69,7 @@ def stick_tag(payload: TagStick) -> NoContent:
 @api.post('/rename-tag')
 @limit_request(count=5, interval=60)
 @validate
-def rename_tag(payload: TagRename) -> NoContent:
+def rename_tag(payload: RenameTagRequest) -> NoContent:
     Tag.rename_or_merge(payload.name, payload.new_name)
     return NO_CONTENT
 
@@ -88,10 +88,10 @@ def delete_tag(payload: Name) -> NoContent:
 
 @api.get('/search')
 @validate(type='query')
-def search(payload: PostQuery) -> PostPagination:
-    query = payload.query
+def search(payload: SearchRequest) -> PostPagination:
+    query, partial, limit = payload.query, payload.partial, payload.limit
 
-    tokens, results = app.searcher.search(query)  # noqa
+    tokens, results = app.fts.search(query, partial, limit)  # noqa
 
     if not results:
         return PostPagination(posts=[], cursor=-1, size=0)
@@ -113,7 +113,7 @@ def search(payload: PostQuery) -> PostPagination:
 
 @api.get('/get-posts')
 @validate(type='query')
-def get_posts(payload: PostFilterOptions) -> PostPagination:
+def get_posts(payload: FilterPostRequest) -> PostPagination:
     posts = Post.filter_posts(
         **payload.model_dump(),
         per_page=app.config['POST_NUM_PER_PAGE'],
@@ -137,7 +137,7 @@ def get_post(payload: Id) -> PostDto:
 
 @api.post('/create-post')
 @validate
-def create_post(payload: PostCreate) -> CreationDto:
+def create_post(payload: CreatePostRequest) -> CreationDto:
     post = Post(
         content=payload.content,
         files=json.dumps(payload.files) if payload.files else None,
@@ -147,7 +147,7 @@ def create_post(payload: PostCreate) -> CreationDto:
     )
     post.save()
 
-    executor.submit(app.searcher.index, post.id, payload.content)
+    executor.submit(app.fts.index, post.id, payload.content)
 
     return CreationDto(
         id=post.id,
@@ -158,7 +158,7 @@ def create_post(payload: PostCreate) -> CreationDto:
 
 @api.post('/update-post')
 @validate
-def update_post(payload: PostUpdate) -> NoContent:
+def update_post(payload: UpdatePostRequest) -> NoContent:
     post = db.get_or_404(Post, payload.id, description='post not found')
     if post.deleted:
         abort(404)
@@ -186,20 +186,20 @@ def update_post(payload: PostUpdate) -> NoContent:
     post.save()
 
     if payload.content is not None and post.content != old_content:
-        executor.submit(app.searcher.reindex, post.id, payload.content)
+        executor.submit(app.fts.reindex, post.id, payload.content)
 
     return NO_CONTENT
 
 
 @api.post('/delete-post')
 @validate
-def delete_post(payload: PostDelete) -> NoContent:
+def delete_post(payload: DeletePostRequest) -> NoContent:
     hard, id = payload.hard, payload.id  # noqa
     post = db.get_or_404(Post, id, description='post not found')
 
     if hard:
         post.clear()
-        executor.submit(app.searcher.deindex, id)
+        executor.submit(app.fts.deindex, id)
     else:
         post.delete()
 
@@ -218,10 +218,10 @@ def restore_post(payload: Id) -> NoContent:
 @api.post('/clear-posts')
 def clear_posts() -> NoContent:
     ids = Post.clear_all()
-    searcher = app.searcher
+    fts = app.fts
 
     for id in ids:  # noqa
-        executor.submit(searcher.deindex, id)
+        executor.submit(fts.deindex, id)
     return NO_CONTENT
 
 
@@ -313,13 +313,13 @@ def upload_file() -> FileInfo:
 def rebuild_indexes() -> Response:
     posts = Post.query.with_entities(Post.id, Post.content).all()
 
-    searcher = app.searcher
+    fts = app.fts
 
     def generate():
         yield 'Indexing...\n'
-        searcher.clear_all_indexes()
+        fts.clear_all_indexes()
         for post in posts:
-            searcher.index(post.id, post.content)
+            fts.index(post.id, post.content)
         yield 'Done'
 
     return Response(stream_with_context(generate()), content_type='text/plain')

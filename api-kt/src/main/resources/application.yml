@@ -28,9 +28,7 @@ server:
   port: 8000
 app:
   search:
-    max-result: 500
-    partial-match: true
-    key-prefix: ""
+    key-prefix: "fts:"
   upload:
     upload-url: uploads
     upload-dir: ../data/uploads
@@ -80,7 +78,7 @@ spring:
     driver-class-name: org.sqlite.JDBC
 app:
   search:
-    key-prefix: "test:"
+    key-prefix: "fts-test:"
 logging:
   level:
     root: warn

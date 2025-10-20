@@ -37,10 +37,6 @@ class BaseConfig:
         'decode_responses': True,
     }
 
-    # Search
-    PARTIAL_MATCH = True
-    SEARCH_MAX_RESULTS = 500
-
     # Misc
     ABOUT_URL = os.environ.get('ABOUT_URL')
 

@@ -96,14 +96,16 @@ pub struct FileInfo {
 }
 
 #[derive(Debug, Deserialize, Validate)]
-pub struct PostQuery {
+pub struct SearchRequest {
     #[validate(length(min = 1, message = "can not be empty"))]
     pub query: String,
+    pub limit: Option<usize>,
+    pub partial: Option<bool>,
 }
 
 #[derive(Debug, Deserialize, Default)]
 #[serde(default)]
-pub struct PostFilterOptions {
+pub struct FilterPostRequest {
     pub cursor: Option<i64>,
     pub deleted: bool,
     pub parent_id: Option<i64>,
@@ -118,7 +120,7 @@ pub struct PostFilterOptions {
 }
 
 #[derive(Debug, Deserialize, Validate)]
-pub struct PostCreate {
+pub struct CreatePostRequest {
     #[validate(length(min = 1, message = "can not be empty"))]
     pub content: String,
     pub files: Option<Vec<FileInfo>>,
@@ -128,7 +130,7 @@ pub struct PostCreate {
 }
 
 #[derive(Debug, Deserialize)]
-pub struct PostUpdate {
+pub struct UpdatePostRequest {
     pub id: i64,
 
     #[serde(default)]
@@ -146,7 +148,7 @@ pub struct PostUpdate {
 }
 
 #[derive(Debug, Deserialize)]
-pub struct PostDelete {
+pub struct DeletePostRequest {
     pub id: i64,
     #[serde(default)]
     pub hard: bool,
@@ -188,9 +190,10 @@ where
 {
     match value {
         Some(v) => {
-            let json: serde_json::Value = serde_json::from_str(v).unwrap_or(serde_json::Value::Null);
+            let json: serde_json::Value =
+                serde_json::from_str(v).unwrap_or(serde_json::Value::Null);
             json.serialize(serializer)
         }
-        None => serializer.serialize_none()
+        None => serializer.serialize_none(),
     }
 }

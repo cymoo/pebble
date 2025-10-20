@@ -18,13 +18,13 @@ pub struct TagWithPostCount {
 }
 
 #[derive(Debug, Deserialize)]
-pub struct TagRename {
+pub struct RenameTagRequest {
     pub name: String,
     pub new_name: String,
 }
 
 #[derive(Debug, Deserialize)]
-pub struct TagStick {
+pub struct StickyTagRequest {
     pub name: String,
     pub sticky: bool,
 }

@@ -19,11 +19,18 @@ use axum::response::Response;
 /// # Returns
 /// * `AppResult<Response>` - Returns the response from the next middleware/handler if the token is valid or the path is skipped.
 ///   Otherwise, returns an error indicating the reason for failure (e.g., missing or unauthorized token).
-pub async fn check_access(skip_paths: &[&str], request: Request, next: Next) -> ApiResult<Response> {
+pub async fn check_access(
+    skip_paths: &[&str],
+    request: Request,
+    next: Next,
+) -> ApiResult<Response> {
     let path = request.uri().path();
 
     // Check if verification should be skipped
-    if skip_paths.iter().any(|skip_path| path.starts_with(skip_path)) {
+    if skip_paths
+        .iter()
+        .any(|skip_path| path.starts_with(skip_path))
+    {
         return Ok(next.run(request).await);
     }
 
@@ -39,6 +46,7 @@ pub async fn check_access(skip_paths: &[&str], request: Request, next: Next) -> 
     Ok(response)
 }
 
+// Helper function to extract Bearer token from Authorization header
 fn extract_bearer(request: &Request) -> Option<String> {
     let auth_header = request.headers().get(header::AUTHORIZATION)?;
     let auth_str = auth_header.to_str().ok()?;
@@ -47,21 +55,20 @@ fn extract_bearer(request: &Request) -> Option<String> {
     Some(token.to_string())
 }
 
+// Helper function to get a cookie by name from the request
 fn get_cookie(request: &Request, name: &str) -> Option<String> {
     let cookie_header = request.headers().get(header::COOKIE)?;
     let cookie_str = cookie_header.to_str().ok()?;
 
-    cookie_str
-        .split(';')
-        .find_map(|s| {
-            let mut parts = s.trim().splitn(2, '=');
-            let cookie_name = parts.next()?;
-            let cookie_value = parts.next()?;
+    cookie_str.split(';').find_map(|s| {
+        let mut parts = s.trim().splitn(2, '=');
+        let cookie_name = parts.next()?;
+        let cookie_value = parts.next()?;
 
-            if cookie_name == name {
-                Some(cookie_value.to_string())
-            } else {
-                None
-            }
-        })
+        if cookie_name == name {
+            Some(cookie_value.to_string())
+        } else {
+            None
+        }
+    })
 }

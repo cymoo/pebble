@@ -71,10 +71,8 @@ class FullTextSearch:
     # - Reverse index of tokens to document IDs `token:{token}:docs`
     db: Redis
 
-    def __init__(self, db: Redis, partial_match: bool = True, max_results: int = 300, key_prefix: str = ''):
+    def __init__(self, db: Redis, key_prefix: str = ''):
         self.db = db
-        self.partial_match = partial_match
-        self.max_results = max_results
         self.key_prefix = key_prefix
 
         assert db.connection_pool.connection_kwargs.get('decode_responses') is True
@@ -176,7 +174,7 @@ class FullTextSearch:
             pipe.sadd(self._token_docs_key(token), id)
         pipe.execute()
 
-    def search(self, query: str) -> tuple[list[str], list[Tuple[int, float]]]:
+    def search(self, query: str, partial: bool = True, limit: int = 0) -> tuple[list[str], list[Tuple[int, float]]]:
         """Perform a full-text search on the indexed documents.
 
         Returns:
@@ -192,15 +190,15 @@ class FullTextSearch:
             return tokens, []
 
         indexes = [self.db.smembers(self._token_docs_key(token)) for token in tokens]
-        op = set.union if self.partial_match else set.intersection
+        op = set.union if partial else set.intersection
         ids = [int(idx) for idx in reduce(op, indexes)]
         if not ids:
             return tokens, []
 
         ranked_results = sorted(self._rank(tokens, ids), key=lambda x: x[1], reverse=True)
 
-        if len(ids) > self.max_results:
-            ranked_results = ranked_results[:self.max_results]
+        if limit and len(ids) > limit:
+            ranked_results = ranked_results[:limit]
 
         return tokens, ranked_results
 

@@ -9,15 +9,16 @@ use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
 lazy_static! {
-    static ref PUNCTUATION: Regex = Regex::new(r"\p{P}").expect("Failed to compile punctuation regex");
-
+    static ref PUNCTUATION: Regex =
+        Regex::new(r"\p{P}").expect("Failed to compile punctuation regex");
     static ref HTML_TAG: Regex = Regex::new(r"<[^>]*>").expect("Failed to compile HTML tag regex");
-
     static ref STOP_WORDS: HashSet<&'static str> = vec![
-        "a", "an", "and", "are", "as", "at", "be", "by", "can", "for", "from", "have", "if", "in", "is",
-        "it", "may", "not", "of", "on", "or", "tbd", "that", "the", "this", "to", "us", "we", "when",
-        "will", "with", "yet", "you", "your", "的", "了", "和", "着", "与"
-    ].into_iter().collect();
+        "a", "an", "and", "are", "as", "at", "be", "by", "can", "for", "from", "have", "if", "in",
+        "is", "it", "may", "not", "of", "on", "or", "tbd", "that", "the", "this", "to", "us", "we",
+        "when", "will", "with", "yet", "you", "your", "的", "了", "和", "着", "与"
+    ]
+    .into_iter()
+    .collect();
 }
 
 pub trait Tokenizer: Send + Sync {
@@ -52,20 +53,16 @@ struct TokenFrequency(HashMap<String, usize>);
 pub struct FullTextSearch {
     rd: Arc<RD>,
     tokenizer: Arc<dyn Tokenizer>,
-    partial_match: bool,
-    max_results: usize,
     key_prefix: String,
 }
 
 impl FullTextSearch {
-    pub fn new(
-        rd: Arc<RD>,
-        tokenizer: Arc<dyn Tokenizer>,
-        partial_match: bool,
-        max_results: usize,
-        key_prefix: String,
-    ) -> Self {
-        Self { rd, tokenizer, partial_match, max_results, key_prefix }
+    pub fn new(rd: Arc<RD>, tokenizer: Arc<dyn Tokenizer>, key_prefix: String) -> Self {
+        Self {
+            rd,
+            tokenizer,
+            key_prefix,
+        }
     }
 
     pub async fn indexed(&self, id: i64) -> Result<bool> {
@@ -74,7 +71,10 @@ impl FullTextSearch {
 
     pub async fn get_doc_count(&self) -> Result<i64> {
         let count: Option<String> = self.rd.get(self.doc_count_key()).await?;
-        count.unwrap_or("0".to_string()).parse::<i64>().context("Failed to parse doc count")
+        count
+            .unwrap_or("0".to_string())
+            .parse::<i64>()
+            .context("Failed to parse doc count")
     }
 
     pub async fn index(&self, id: i64, text: &str) -> Result<()> {
@@ -94,13 +94,16 @@ impl FullTextSearch {
 
         let token_set = tokens.into_iter().collect::<HashSet<String>>();
 
-        let _: () = self.rd.pipeline(|pipe| {
-            pipe.set(self.doc_tokens_key(id), freq_json);
-            pipe.incr(self.doc_count_key(), 1);
-            for token in token_set.iter() {
-                pipe.sadd(self.token_docs_key(token), id);
-            }
-        }).await?;
+        let _: () = self
+            .rd
+            .pipeline(|pipe| {
+                pipe.set(self.doc_tokens_key(id), freq_json);
+                pipe.incr(self.doc_count_key(), 1);
+                for token in token_set.iter() {
+                    pipe.sadd(self.token_docs_key(token), id);
+                }
+            })
+            .await?;
 
         Ok(())
     }
@@ -115,7 +118,10 @@ impl FullTextSearch {
             return self.deindex(id).await;
         }
 
-        let old_freq: TokenFrequency = self.rd.get_object(self.doc_tokens_key(id)).await?
+        let old_freq: TokenFrequency = self
+            .rd
+            .get_object(self.doc_tokens_key(id))
+            .await?
             .ok_or(anyhow::anyhow!("Token frequency of doc `{}` not found", id))?;
 
         let new_freq = count_frequencies(&new_tokens);
@@ -126,50 +132,67 @@ impl FullTextSearch {
         let tokens_to_remove = old_token_set.difference(&new_token_set).collect::<Vec<_>>();
         let tokens_to_add = new_token_set.difference(&old_token_set).collect::<Vec<_>>();
 
-        let _: () = self.rd.pipeline(|pipe| {
-            pipe.set(self.doc_tokens_key(id), freq_json);
-            for token in tokens_to_remove {
-                pipe.srem(self.token_docs_key(token), id);
-            }
-            for token in tokens_to_add {
-                pipe.sadd(self.token_docs_key(token), id);
-            }
-        }).await?;
+        let _: () = self
+            .rd
+            .pipeline(|pipe| {
+                pipe.set(self.doc_tokens_key(id), freq_json);
+                for token in tokens_to_remove {
+                    pipe.srem(self.token_docs_key(token), id);
+                }
+                for token in tokens_to_add {
+                    pipe.sadd(self.token_docs_key(token), id);
+                }
+            })
+            .await?;
 
         Ok(())
     }
 
     pub async fn deindex(&self, id: i64) -> Result<()> {
-        let token_freq: TokenFrequency = self.rd.get_object(self.doc_tokens_key(id)).await?
+        let token_freq: TokenFrequency = self
+            .rd
+            .get_object(self.doc_tokens_key(id))
+            .await?
             .ok_or(anyhow::anyhow!("Token frequency of doc `{}` not found", id))?;
 
         let token_set = token_freq.0.keys().collect::<HashSet<_>>();
 
-        let _: () = self.rd.pipeline(|pipe| {
-            pipe.del(self.doc_tokens_key(id));
-            pipe.decr(self.doc_count_key(), 1);
-            for token in token_set.iter() {
-                pipe.srem(self.token_docs_key(token), id);
-            }
-        }).await?;
+        let _: () = self
+            .rd
+            .pipeline(|pipe| {
+                pipe.del(self.doc_tokens_key(id));
+                pipe.decr(self.doc_count_key(), 1);
+                for token in token_set.iter() {
+                    pipe.srem(self.token_docs_key(token), id);
+                }
+            })
+            .await?;
 
         Ok(())
     }
 
-    pub async fn search(&self, query: &str) -> Result<(Vec<String>, Vec<(i64, f64)>)> {
+    pub async fn search(
+        &self,
+        query: &str,
+        partial: bool,
+        limit: usize,
+    ) -> Result<(Vec<String>, Vec<(i64, f64)>)> {
         let tokens = self.tokenizer.analyze(query);
         if tokens.is_empty() {
             return Ok((tokens, vec![]));
         }
 
         // Retrieve the document IDs containing the query term
-        let doc_sets: Vec<HashSet<String>> = self.rd.pipeline(|pipe| {
-            for token in tokens.iter() {
-                pipe.smembers(self.token_docs_key(token));
-            }
-        }).await?;
+        let doc_sets: Vec<HashSet<String>> = self
+            .rd
+            .pipeline(|pipe| {
+                for token in tokens.iter() {
+                    pipe.smembers(self.token_docs_key(token));
+                }
+            })
+            .await?;
 
-        let ids: HashSet<i64> = if self.partial_match {
+        let ids: HashSet<i64> = if partial {
             // union
             doc_sets
                 .into_iter()
@@ -196,8 +219,8 @@ impl FullTextSearch {
         ranked_results.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
 
         // Limit the number of results
-        if ranked_results.len() > self.max_results {
-            ranked_results.truncate(self.max_results);
+        if limit > 0 && ranked_results.len() > limit {
+            ranked_results.truncate(limit);
         }
 
         Ok((tokens, ranked_results))
@@ -208,19 +231,27 @@ impl FullTextSearch {
 
         let total_docs = self.get_doc_count().await? as f64;
 
-        let token_frequencies: Vec<Option<TokenFrequency>> = self.rd
-            .mget_object(ids.iter().map(
-                |id| self.doc_tokens_key(*id)).collect::<Vec<String>>()
-            ).await?;
+        let token_frequencies: Vec<Option<TokenFrequency>> = self
+            .rd
+            .mget_object(
+                ids.iter()
+                    .map(|id| self.doc_tokens_key(*id))
+                    .collect::<Vec<String>>(),
+            )
+            .await?;
 
-        let doc_frequencies: Vec<f64> = self.rd.pipeline(|pipe| {
-            for token in tokens.iter() {
-                pipe.scard(self.token_docs_key(token));
-            }
-        }).await?;
+        let doc_frequencies: Vec<f64> = self
+            .rd
+            .pipeline(|pipe| {
+                for token in tokens.iter() {
+                    pipe.scard(self.token_docs_key(token));
+                }
+            })
+            .await?;
 
         for (&id, token_frequency) in ids.iter().zip(token_frequencies.iter()) {
-            let token_freq = token_frequency.as_ref()
+            let token_freq = token_frequency
+                .as_ref()
                 .expect(&format!("Token frequency of doc `{}` not found", id));
 
             let mut score = 0.0;
@@ -233,11 +264,7 @@ impl FullTextSearch {
                 }
 
                 // Use an improved TF calculation: 1 + log(tf) to reduce the weight of high-frequency terms
-                let normalized_tf = if tf > 0.0 {
-                    1.0 + (tf.log10())
-                } else {
-                    0.0
-                };
+                let normalized_tf = if tf > 0.0 { 1.0 + (tf.log10()) } else { 0.0 };
 
                 let idf = if *df > 0.0 {
                     (total_docs / df).max(1.0).log10()
@@ -256,7 +283,11 @@ impl FullTextSearch {
 
             // Calculate query term coverage
             let coverage_ratio = matching_terms as f64 / tokens.len() as f64;
-            score *= if coverage_ratio > 0.999 { 2.0 } else { coverage_ratio };
+            score *= if coverage_ratio > 0.999 {
+                2.0
+            } else {
+                coverage_ratio
+            };
 
             results.push((id, score));
         }
@@ -300,7 +331,7 @@ mod tests {
     async fn setup() -> FullTextSearch {
         let rd = Arc::new(RD::new("redis://127.0.0.1").await.unwrap());
         let tokenizer = Arc::new(Jieba::new());
-        FullTextSearch::new(rd, tokenizer, true, 300, "test:".to_owned())
+        FullTextSearch::new(rd, tokenizer, "test:".to_owned())
     }
 
     #[tokio::test]
@@ -312,13 +343,13 @@ mod tests {
 
         assert_eq!(fts.get_doc_count().await.unwrap(), 1);
 
-        let (_, results) = fts.search("hello").await.unwrap();
+        let (_, results) = fts.search("hello", true, 300).await.unwrap();
         assert_eq!(results.len(), 1);
 
-        let (_, results) = fts.search("测试").await.unwrap();
+        let (_, results) = fts.search("测试", true, 300).await.unwrap();
         assert_eq!(results.len(), 1);
 
-        let (_, results) = fts.search("hello rust").await.unwrap();
+        let (_, results) = fts.search("hello rust", true, 300).await.unwrap();
         assert_eq!(results.len(), 1);
 
         fts.clear_all_indexes().await.unwrap();

@@ -17,7 +17,7 @@ def search_engine(redis_client):
     """Create a FullTextSearch instance test fixture"""
     from app.lib.search import FullTextSearch
 
-    return FullTextSearch(redis_client, max_results=100, key_prefix='test:')
+    return FullTextSearch(redis_client, key_prefix='test:')
 
 
 def test_index_and_has_indexed(search_engine):
@@ -119,7 +119,7 @@ def test_max_results(search_engine):
     for i in range(500):
         search_engine.index(i, f"document with common word {i}")
 
-    tokens, results = search_engine.search("common")
+    tokens, results = search_engine.search("common", limit=300)
 
     # Verify result count does not exceed max_results
     assert len(results) <= 300

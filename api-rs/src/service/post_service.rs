@@ -1,5 +1,5 @@
 use crate::errors::{ApiError, ApiResult};
-use crate::model::post::{CreateResponse, Post, PostCreate, PostFilterOptions, PostRow, PostUpdate};
+use crate::model::post::{CreateResponse, Post, CreatePostRequest, FilterPostRequest, PostRow, UpdatePostRequest};
 use crate::model::tag::Tag;
 use chrono::{DateTime, FixedOffset, Utc};
 use regex::Regex;
@@ -145,7 +145,7 @@ impl Post {
 
     pub async fn filter_posts(
         pool: &SqlitePool,
-        options: &PostFilterOptions,
+        options: &FilterPostRequest,
         per_page: i64,
     ) -> ApiResult<Vec<Post>> {
         let mut builder = if options.tag.is_some() {
@@ -237,7 +237,7 @@ impl Post {
 
     pub async fn create(
         pool: &SqlitePool,
-        post: &PostCreate,
+        post: &CreatePostRequest,
     ) -> ApiResult<CreateResponse> {
         let now = Utc::now().timestamp_millis();
 
@@ -299,7 +299,7 @@ impl Post {
 
     pub async fn update(
         pool: &SqlitePool,
-        post: &PostUpdate,
+        post: &UpdatePostRequest,
     ) -> ApiResult<()> {
         let now = Utc::now().timestamp_millis();
 

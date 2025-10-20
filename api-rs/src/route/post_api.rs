@@ -3,10 +3,10 @@ use crate::errors::{not_found, ApiError, ApiResult};
 use crate::middleware::check_access::check_access;
 use crate::middleware::limit_request::limit_request;
 use crate::model::post::{
-    CreateResponse, DateRange, FileInfo, Id, LoginRequest, Name, Post, PostCreate, PostDelete,
-    PostFilterOptions, PostPagination, PostQuery, PostStats, PostUpdate,
+    CreatePostRequest, CreateResponse, DateRange, DeletePostRequest, FileInfo, FilterPostRequest,
+    Id, LoginRequest, Name, Post, PostPagination, PostStats, SearchRequest, UpdatePostRequest,
 };
-use crate::model::tag::{Tag, TagRename, TagStick, TagWithPostCount};
+use crate::model::tag::{RenameTagRequest, StickyTagRequest, Tag, TagWithPostCount};
 use crate::service::auth_service::AuthService;
 use crate::service::upload_service::FileUploadService;
 use crate::util::common::{highlight, to_datetime, Pipe};
@@ -68,7 +68,7 @@ async fn get_tags(State(state): State<AppState>) -> ApiResult<Json<Vec<TagWithPo
 
 async fn rename_tag(
     State(state): State<AppState>,
-    Json(tag): Json<TagRename>,
+    Json(tag): Json<RenameTagRequest>,
 ) -> ApiResult<StatusCode> {
     Tag::rename_or_merge(&state.db, &tag.name, &tag.new_name).await?;
     Ok(StatusCode::NO_CONTENT)
@@ -84,7 +84,7 @@ async fn delete_tag(
 
 async fn stick_tag(
     State(state): State<AppState>,
-    Json(tag): Json<TagStick>,
+    Json(tag): Json<StickyTagRequest>,
 ) -> ApiResult<StatusCode> {
     Tag::insert_or_update(&state.db, &tag.name, tag.sticky).await?;
     Ok(StatusCode::NO_CONTENT)
@@ -92,7 +92,7 @@ async fn stick_tag(
 
 async fn get_posts(
     State(state): State<AppState>,
-    Query(query): Query<PostFilterOptions>,
+    Query(query): Query<FilterPostRequest>,
 ) -> ApiResult<Json<PostPagination>> {
     let posts = Post::filter_posts(&state.db, &query, 30).await?;
     let size = posts.len() as i64;
@@ -116,9 +116,16 @@ async fn get_post(State(state): State<AppState>, Query(query): Query<Id>) -> Api
 
 async fn search_posts(
     State(state): State<AppState>,
-    ValidatedQuery(query): ValidatedQuery<PostQuery>,
+    ValidatedQuery(query): ValidatedQuery<SearchRequest>,
 ) -> ApiResult<Json<PostPagination>> {
-    let (tokens, results) = state.searcher.search(query.query.as_str()).await?;
+    let (tokens, results) = state
+        .fts
+        .search(
+            query.query.as_str(),
+            query.partial.unwrap_or(false),
+            query.limit.unwrap_or(0),
+        )
+        .await?;
     if results.is_empty() {
         return Ok(Json(PostPagination {
             posts: vec![],
@@ -154,13 +161,13 @@ async fn search_posts(
 
 async fn create_post(
     State(state): State<AppState>,
-    ValidatedJson(post): ValidatedJson<PostCreate>,
+    ValidatedJson(post): ValidatedJson<CreatePostRequest>,
 ) -> ApiResult<Json<CreateResponse>> {
     let content = post.content.clone();
     let res = Post::create(&state.db, &post).await?;
 
     tokio::spawn(async move {
-        let rv = state.searcher.index(res.id, &content).await;
+        let rv = state.fts.index(res.id, &content).await;
         if rv.is_err() {
             error!("Cannot index post: {:?}", rv);
         }
@@ -170,7 +177,7 @@ async fn create_post(
 
 async fn update_post(
     State(state): State<AppState>,
-    Json(post): Json<PostUpdate>,
+    Json(post): Json<UpdatePostRequest>,
 ) -> ApiResult<StatusCode> {
     let record = Post::find_by_id(&state.db, post.id).await?;
 
@@ -182,7 +189,7 @@ async fn update_post(
 
     if post.content.is_present() {
         tokio::spawn(async move {
-            let rv = state.searcher.reindex(post.id, post.content.get()).await;
+            let rv = state.fts.reindex(post.id, post.content.get()).await;
             if rv.is_err() {
                 error!("Cannot rebuild index: {:?}", rv);
             }
@@ -194,13 +201,13 @@ async fn update_post(
 
 async fn delete_post(
     State(state): State<AppState>,
-    Json(payload): Json<PostDelete>,
+    Json(payload): Json<DeletePostRequest>,
 ) -> ApiResult<StatusCode> {
     if payload.hard {
         Post::clear(&state.db, payload.id).await?;
 
         tokio::spawn(async move {
-            let rv = state.searcher.deindex(payload.id).await;
+            let rv = state.fts.deindex(payload.id).await;
             if rv.is_err() {
                 error!("Cannot delete index: {:?}", rv);
             }
@@ -216,7 +223,7 @@ async fn clear_posts(State(state): State<AppState>) -> ApiResult<StatusCode> {
 
     tokio::spawn(async move {
         for id in ids {
-            let rv = state.searcher.deindex(id).await;
+            let rv = state.fts.deindex(id).await;
             if rv.is_err() {
                 error!("Cannot delete index: {:?}", rv);
                 break;
@@ -296,14 +303,14 @@ async fn rebuild_all_indexes(State(state): State<AppState>) -> ApiResult<&'stati
         .await?;
 
     tokio::spawn(async move {
-        let rv = state.searcher.clear_all_indexes().await;
+        let rv = state.fts.clear_all_indexes().await;
         if rv.is_err() {
             error!("Cannot clear indexes: {:?}", rv);
             return;
         }
 
         for post in posts {
-            let rv = state.searcher.index(post.id, &post.content).await;
+            let rv = state.fts.index(post.id, &post.content).await;
             if rv.is_err() {
                 error!("Cannot rebuild index: {:?}", rv);
                 break;

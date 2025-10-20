@@ -18,7 +18,7 @@ data class TagWithPostCount(
     val postCount: Long
 )
 
-data class TagRename(
+data class RenameTagRequest(
     @field:NotBlank
     val name: String,
 
@@ -34,7 +34,7 @@ data class TagRename(
     val newName: String
 )
 
-data class TagStick(
+data class StickyTagRequest(
     @field:NotBlank
     val name: String,
 

@@ -219,5 +219,10 @@ class TagService(private val dsl: DSLContext) {
         dsl.deleteFrom(ASSOC)
             .where(ASSOC.TAG_ID.eq(sourceTag.id))
             .execute()
+
+        // Delete the source tag itself
+        dsl.deleteFrom(TAGS)
+            .where(TAGS.ID.eq(sourceTag.id))
+            .execute()
     }
 }

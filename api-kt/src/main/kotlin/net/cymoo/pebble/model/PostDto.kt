@@ -71,12 +71,15 @@ data class FileInfo(
     val height: Int?
 )
 
-data class PostQuery(
+data class SearchRequest(
     @field:NotBlank
     val query: String,
+
+    val limit: Int = 0,
+    val partial: Boolean = false,
 )
 
-data class PostFilterOptions(
+data class FilterPostRequest(
     val cursor: Long?,
     val deleted: Boolean = false,
 
@@ -115,7 +118,7 @@ data class DateRange(
     val offset: Int = 480, // timezone offset in minutes
 )
 
-data class PostCreate(
+data class CreatePostRequest(
     @field:NotBlank
     val content: String,
 
@@ -125,7 +128,7 @@ data class PostCreate(
     val parentId: Int?,
 )
 
-data class PostUpdate(
+data class UpdatePostRequest(
     val id: Int,
 
     val content: String?,
@@ -136,7 +139,7 @@ data class PostUpdate(
     val parentId: MaybeMissing<Int?>,
 )
 
-data class PostDelete(
+data class DeletePostRequest(
     val id: Int,
     val hard: Boolean = false,
 )
