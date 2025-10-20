@@ -1,7 +1,10 @@
-.PHONY: help install deploy deploy-frontend deploy-backend clean status logs restart
+.PHONY: help install deploy deploy-frontend deploy-backend clean status logs restart backup rollback list-backups
 
 # Default backend to deploy
 BACKEND ?= go
+
+# Maximum number of backups to keep
+MAX_BACKUPS ?= 5
 
 # Required environment variables
 ifndef DOMAIN
@@ -22,6 +25,7 @@ SCRIPT_DIR := $(shell pwd)/scripts
 export DOMAIN
 export EMAIL
 export BACKEND
+export MAX_BACKUPS
 
 help:
 	@echo "Pebble Deployment System"
@@ -34,6 +38,9 @@ help:
 	@echo "  deploy           - Full deployment (frontend + backend + nginx)"
 	@echo "  deploy-frontend  - Deploy frontend only"
 	@echo "  deploy-backend   - Deploy backend only (specify BACKEND=go|py|kt|rs)"
+	@echo "  backup           - Create manual backup"
+	@echo "  list-backups     - List available backups"
+	@echo "  rollback         - Rollback to previous version (or specify BACKUP_ID=xxx)"
 	@echo "  clean            - Stop services and remove deployment files"
 	@echo "  status           - Show service status"
 	@echo "  logs             - Show service logs"
@@ -42,6 +49,10 @@ help:
 	@echo "Examples:"
 	@echo "  make deploy DOMAIN=pebble.com EMAIL=admin@pebble.com BACKEND=go"
 	@echo "  make deploy-backend BACKEND=py"
+	@echo "  make backup"
+	@echo "  make list-backups"
+	@echo "  make rollback"
+	@echo "  make rollback BACKUP_ID=20250120_143022"
 	@echo "  make status"
 
 install:
@@ -89,3 +100,19 @@ restart:
 	@sudo systemctl restart pebble-backend
 	@sudo systemctl reload nginx
 	@echo "Services restarted successfully"
+
+backup:
+	@echo "=== Creating backup ==="
+	@sudo MAX_BACKUPS=$(MAX_BACKUPS) $(SCRIPT_DIR)/backup.sh
+
+list-backups:
+	@echo "=== Available backups ==="
+	@sudo $(SCRIPT_DIR)/list-backups.sh
+
+rollback:
+	@echo "=== Rolling back deployment ==="
+ifdef BACKUP_ID
+	@sudo BACKUP_ID=$(BACKUP_ID) $(SCRIPT_DIR)/rollback.sh
+else
+	@sudo $(SCRIPT_DIR)/rollback.sh
+endif

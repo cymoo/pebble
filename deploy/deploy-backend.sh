@@ -4,13 +4,20 @@ set -eo pipefail
 BACKEND="${BACKEND:?BACKEND environment variable must be set (go|py|kt|rs)}"
 SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)
 PROJECT_ROOT=$(dirname "$SCRIPT_DIR")
-DEPLOY_DIR="/opt/pebble"
-API_PORT="${API_PORT:-8000}"
+
+# Load configuration
+source "${SCRIPT_DIR}/deploy.conf"
 
 # Check for root privileges
 if [[ $EUID -ne 0 ]]; then
     echo "Error: This script must be run as root" >&2
     exit 1
+fi
+
+# Create backup before deployment if deployment exists
+if [[ -d "$BACKEND_DIR" ]] && [[ -n "$(ls -A "$BACKEND_DIR" 2>/dev/null)" ]]; then
+    echo "Creating backup before deployment..."
+    "$SCRIPT_DIR/backup.sh" || echo "Warning: Backup failed, continuing with deployment"
 fi
 
 # Stop existing service
@@ -52,11 +59,11 @@ After=network.target
 
 [Service]
 Type=simple
-User=www-data
-Group=www-data
-WorkingDirectory=$DEPLOY_DIR/backend
+User=$SERVICE_USER
+Group=$SERVICE_GROUP
+WorkingDirectory=$BACKEND_DIR
 Environment="PORT=$API_PORT"
-ExecStart=$DEPLOY_DIR/backend/start.sh
+ExecStart=$BACKEND_DIR/start.sh
 Restart=always
 RestartSec=5
 StandardOutput=journal

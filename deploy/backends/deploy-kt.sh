@@ -4,8 +4,9 @@ set -eo pipefail
 SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)
 PROJECT_ROOT=$(dirname "$(dirname "$SCRIPT_DIR")")
 SOURCE_DIR="$PROJECT_ROOT/api-kt"
-DEPLOY_DIR="/opt/pebble/backend"
-API_PORT="${API_PORT:-8000}"
+
+# Load configuration
+source "${SCRIPT_DIR}/deploy.conf"
 
 # Validate source
 if [[ ! -d "$SOURCE_DIR" ]]; then
@@ -45,25 +46,28 @@ fi
 echo "Found JAR: $JAR_FILE"
 
 # Deploy
-mkdir -p "$DEPLOY_DIR"
-cp "$JAR_FILE" "$DEPLOY_DIR/pebble-api.jar"
+mkdir -p "$BACKEND_DIR"
+cp "$JAR_FILE" "$BACKEND_DIR/pebble-api.jar"
 
 # Copy application properties if exists
 if [[ -f "src/main/resources/application.properties" ]]; then
-    mkdir -p "$DEPLOY_DIR/config"
-    cp "src/main/resources/application.properties" "$DEPLOY_DIR/config/"
+    mkdir -p "$BACKEND_DIR/config"
+    cp "src/main/resources/application.properties" "$BACKEND_DIR/config/"
 fi
 
 # Create start script
-cat > "$DEPLOY_DIR/start.sh" <<EOF
+cat > "$BACKEND_DIR/start.sh" <<EOF
 #!/bin/bash
 export PORT=${API_PORT}
 export SERVER_PORT=\${PORT}
-exec java -jar $DEPLOY_DIR/pebble-api.jar \
+exec java -jar $BACKEND_DIR/pebble-api.jar \
     --server.port=\${PORT}
 EOF
 
-chmod +x "$DEPLOY_DIR/start.sh"
-chown -R www-data:www-data "$DEPLOY_DIR"
+chmod +x "$BACKEND_DIR/start.sh"
+chown -R www-data:www-data "$BACKEND_DIR"
 
-echo "Kotlin backend deployed to $DEPLOY_DIR"
+# Mark backend type
+echo "kotlin" > "$BACKEND_DIR/.backend_type"
+
+echo "Kotlin backend deployed to $BACKEND_DIR"

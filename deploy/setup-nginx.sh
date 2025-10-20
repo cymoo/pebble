@@ -6,9 +6,10 @@ EMAIL="${EMAIL:?The EMAIL environment variable must be set}"
 SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)
 NGINX_TEMPLATE="${SCRIPT_DIR}/nginx.template"
 
-export WWW_ROOT=/var/www/pebble
 export SERVER_NAME="$DOMAIN"
-export API_PORT=8000
+
+# Load configuration
+source "${SCRIPT_DIR}/deploy.conf"
 
 # Check for root privileges
 if [[ $EUID -ne 0 ]]; then

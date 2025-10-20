@@ -189,7 +189,6 @@ func (app *App) setupRoutes() {
 		r.Use(middleware.Logger)
 	}
 	r.Use(PanicRecovery(app.config.Debug))
-	r.Use(CORS(app.config.HTTP.CORS))
 
 	// Serve uploaded files
 	uploadUrl := app.config.Upload.BaseURL

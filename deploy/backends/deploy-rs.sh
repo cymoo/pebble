@@ -4,8 +4,9 @@ set -eo pipefail
 SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)
 PROJECT_ROOT=$(dirname "$(dirname "$SCRIPT_DIR")")
 SOURCE_DIR="$PROJECT_ROOT/api-rs"
-DEPLOY_DIR="/opt/pebble/backend"
-API_PORT="${API_PORT:-8000}"
+
+# Load configuration
+source "${SCRIPT_DIR}/deploy.conf"
 
 # Validate source
 if [[ ! -d "$SOURCE_DIR" ]]; then
@@ -48,23 +49,26 @@ fi
 echo "Found binary: $BINARY"
 
 # Deploy
-mkdir -p "$DEPLOY_DIR"
-cp "$BINARY" "$DEPLOY_DIR/pebble-api"
-chmod +x "$DEPLOY_DIR/pebble-api"
+mkdir -p "$BACKEND_DIR"
+cp "$BINARY" "$BACKEND_DIR/pebble-api"
+chmod +x "$BACKEND_DIR/pebble-api"
 
 # Copy config files if they exist
 if [[ -f "config.toml" ]]; then
-    cp config.toml "$DEPLOY_DIR/"
+    cp config.toml "$BACKEND_DIR/"
 fi
 
 # Create start script
-cat > "$DEPLOY_DIR/start.sh" <<EOF
+cat > "$BACKEND_DIR/start.sh" <<EOF
 #!/bin/bash
 export PORT=${API_PORT}
-exec $DEPLOY_DIR/pebble-api
+exec $BACKEND_DIR/pebble-api
 EOF
 
-chmod +x "$DEPLOY_DIR/start.sh"
-chown -R www-data:www-data "$DEPLOY_DIR"
+chmod +x "$BACKEND_DIR/start.sh"
+chown -R www-data:www-data "$BACKEND_DIR"
 
-echo "Rust backend deployed to $DEPLOY_DIR"
+# Mark backend type
+echo "rust" > "$BACKEND_DIR/.backend_type"
+
+echo "Rust backend deployed to $BACKEND_DIR"

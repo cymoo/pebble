@@ -17,6 +17,8 @@ import (
 func NewApiRouter(app *App) *chi.Mux {
 	r := chi.NewRouter()
 
+	r.Use(CORS(app.config.HTTP.CORS))
+
 	tagService := services.NewTagService(app.db)
 	tagHandler := handlers.NewTagHandler(tagService)
 

@@ -4,12 +4,20 @@ set -eo pipefail
 SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)
 PROJECT_ROOT=$(dirname "$SCRIPT_DIR")
 FRONTEND_SRC="$PROJECT_ROOT/pebble"
-WWW_ROOT="/var/www/pebble"
+
+# Load configuration
+source "${SCRIPT_DIR}/deploy.conf"
 
 # Check for root privileges
 if [[ $EUID -ne 0 ]]; then
     echo "Error: This script must be run as root" >&2
     exit 1
+fi
+
+# Create backup before deployment if deployment exists
+if [[ -d "$WWW_ROOT" ]] && [[ -n "$(ls -A "$WWW_ROOT" 2>/dev/null)" ]]; then
+    echo "Creating backup before deployment..."
+    "$SCRIPT_DIR/backup.sh" || echo "Warning: Backup failed, continuing with deployment"
 fi
 
 # Validate source directory
