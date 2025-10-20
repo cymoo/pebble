@@ -24,7 +24,7 @@ The frontend is developed using React. Check the [pebble](./pebble) directory fo
 
 ### Backend
 
-There are three backend implementations in different languages, each providing the same functionality. You can choose any one for development.
+There are four backend implementations in different languages, each providing the same functionality. You can choose any one for development.
 
 Switch to the corresponding directory for details:
 
