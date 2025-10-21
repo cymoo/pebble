@@ -37,7 +37,7 @@ import {
   isEditorEmpty,
   isElementActive,
   isFirstElementParagraph,
-  removeAllMasks,
+  removeAllMarks,
   toggleBlock,
   toggleMark,
 } from './utils'
@@ -256,7 +256,7 @@ export function MbEditor({
               }
               case 'k': {
                 event.preventDefault()
-                removeAllMasks(editor)
+                removeAllMarks(editor)
                 break
               }
               case '/': {

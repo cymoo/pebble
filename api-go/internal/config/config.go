@@ -91,9 +91,9 @@ func Load() *Config {
 	config.StaticPath = env.GetString("STATIC_PATH", "")
 
 	config.HTTP = HTTPConfig{
-		IP:           env.GetString("HTTP_IP", "localhost"),
+		IP:           env.GetString("HTTP_IP", "127.0.0.1"),
 		Port:         env.GetInt("HTTP_PORT", 8000),
-		MaxBodySize:  env.GetByteSize("HTTP_MAX_BODY_SIZE", 1024*1024*5),
+		MaxBodySize:  env.GetByteSize("HTTP_MAX_BODY_SIZE", 1024*1024*10),
 		ReadTimeout:  env.GetDuration("HTTP_READ_TIMEOUT", 10*time.Second),
 		WriteTimeout: env.GetDuration("HTTP_WRITE_TIMEOUT", 10*time.Second),
 		IdleTimeout:  env.GetDuration("HTTP_IDLE_TIMEOUT", 30*time.Second),
@@ -114,9 +114,9 @@ func Load() *Config {
 	}
 
 	config.DB = DBConfig{
-		URL:         env.GetString("DB_URL", "app.db"),
-		PoolSize:    env.GetInt("DB_POOL_SIZE", 5),
-		AutoMigrate: env.GetBool("DB_AUTO_MIGRATE", true),
+		URL:         env.GetString("DATABASE_URL", "app.db"),
+		PoolSize:    env.GetInt("DATABASE_POOL_SIZE", 5),
+		AutoMigrate: env.GetBool("DATABASE_AUTO_MIGRATE", true),
 	}
 
 	config.Redis = RedisConfig{

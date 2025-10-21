@@ -34,7 +34,7 @@ impl FileUploadService {
             .ok_or(ApiError::BadRequest("Invalid file type".into()))?.to_owned();
 
         let file_name = generate_secure_filename(&file_name, 8);
-        let upload_dir = self.config.upload_dir.clone();
+        let upload_dir = self.config.base_path.clone();
         let file_path = Path::new(&upload_dir).join(file_name);
 
         // Convert the stream into an `AsyncRead`.
@@ -67,7 +67,7 @@ impl FileUploadService {
     async fn process_regular_file(&self, filepath: &Path) -> Result<FileInfo> {
         let metadata = fs::metadata(filepath).await?;
         Ok(FileInfo {
-            url: format!("{}/{}", self.config.upload_url, Self::get_filename(filepath)),
+            url: format!("{}/{}", self.config.base_url, Self::get_filename(filepath)),
             size: Some(metadata.len()),
             thumb_url: None,
             width: None,
@@ -90,9 +90,9 @@ impl FileUploadService {
         // Generate thumbnail
         let thumb_path = self.generate_thumbnail(filepath, &img).context("Cannot create thumbnail")?;
 
-        let thumb_url = format!("{}/{}", self.config.upload_url, Self::get_filename(&*thumb_path));
+        let thumb_url = format!("{}/{}", self.config.base_url, Self::get_filename(&*thumb_path));
 
-        let url = format!("{}/{}", self.config.upload_url, Self::get_filename(filepath));
+        let url = format!("{}/{}", self.config.base_url, Self::get_filename(filepath));
 
         // Read filesize
         let metadata = fs::metadata(filepath).await?;
@@ -151,11 +151,11 @@ impl FileUploadService {
 
     fn generate_thumbnail(&self, original_path: &Path, img: &DynamicImage) -> Result<PathBuf> {
         let thumb_filename = format!("thumb_{}", Self::get_filename(original_path));
-        let thumb_path = PathBuf::from(&self.config.upload_dir).join(&thumb_filename);
+        let thumb_path = PathBuf::from(&self.config.base_path).join(&thumb_filename);
 
         let thumbnail = img.thumbnail(
-            self.config.thumbnail_size,
-            self.config.thumbnail_size,
+            self.config.thumb_width,
+            self.config.thumb_width,
         );
 
         thumbnail.save(&thumb_path)?;

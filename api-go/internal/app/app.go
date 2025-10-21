@@ -22,11 +22,11 @@ import (
 	"github.com/go-chi/chi/middleware"
 
 	"github.com/golang-migrate/migrate/v4"
-	_ "github.com/golang-migrate/migrate/v4/database/sqlite3"
+	_ "github.com/golang-migrate/migrate/v4/database/sqlite"
 	"github.com/golang-migrate/migrate/v4/source/iofs"
 
 	"github.com/jmoiron/sqlx"
-	_ "github.com/mattn/go-sqlite3"
+	_ "modernc.org/sqlite"
 
 	"github.com/redis/go-redis/v9"
 )
@@ -81,7 +81,7 @@ func (app *App) initialize() error {
 
 // initDatabase initializes the database connection and runs migrations if enabled
 func (app *App) initDatabase() error {
-	db, err := sqlx.Connect("sqlite3", app.config.DB.URL)
+	db, err := sqlx.Connect("sqlite", app.config.DB.URL)
 	if err != nil {
 		log.Printf("database connection error: %v", app.config.DB.URL)
 		return err
@@ -351,7 +351,7 @@ func runMigrations(url string) error {
 	migrator, err := migrate.NewWithSourceInstance(
 		"iofs",
 		iofsDriver,
-		"sqlite3://"+url,
+		"sqlite://"+url,
 	)
 	if err != nil {
 		return fmt.Errorf("failed to create migrator: %w", err)

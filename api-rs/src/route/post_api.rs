@@ -289,7 +289,7 @@ async fn upload_file(
     mut multipart: Multipart,
 ) -> ApiResult<Json<FileInfo>> {
     if let Some(field) = multipart.next_field().await? {
-        let upload_service = FileUploadService::new(state.config.upload_config.clone());
+        let upload_service = FileUploadService::new(state.config.upload.clone());
         let rv = upload_service.stream_to_file(field).await?;
         Ok(Json(rv))
     } else {

@@ -270,7 +270,7 @@ export function toggleMark(editor: Editor, format: MarkType) {
   }
 }
 
-export function removeAllMasks(editor: Editor) {
+export function removeAllMarks(editor: Editor) {
   const marks = Editor.marks(editor)
   for (const mark in marks) {
     Editor.removeMark(editor, mark)

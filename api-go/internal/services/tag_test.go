@@ -8,12 +8,12 @@ import (
 
 	"github.com/cymoo/pebble/internal/models"
 	"github.com/jmoiron/sqlx"
-	_ "github.com/mattn/go-sqlite3"
+	_ "modernc.org/sqlite"
 )
 
 func setupTestDB(t *testing.T) *sqlx.DB {
 	// Use shared cache mode to allow multiple connections to the same in-memory database
-	db, err := sqlx.Open("sqlite3", "file::memory:?cache=shared")
+	db, err := sqlx.Open("sqlite", "file::memory:?cache=shared")
 	if err != nil {
 		t.Fatalf("failed to open database: %v", err)
 	}

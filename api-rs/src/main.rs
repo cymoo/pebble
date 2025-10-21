@@ -50,7 +50,7 @@ async fn main() {
         }
     });
 
-    let addr = format!("{}:{}", &config.ip, &config.port);
+    let addr = format!("{}:{}", &config.http.ip, &config.http.port);
     let app = create_app(app_state).await;
     let listener = TcpListener::bind(&addr).await.unwrap();
     tracing::info!("Listening on {}", addr);

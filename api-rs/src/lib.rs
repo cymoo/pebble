@@ -14,7 +14,6 @@ use std::fs;
 use std::sync::Arc;
 use tower::ServiceBuilder;
 use tower_http::catch_panic::CatchPanicLayer;
-use tower_http::cors::{Any, CorsLayer};
 use tower_http::services::ServeDir;
 use tower_http::trace::TraceLayer;
 use tracing::error;
@@ -27,24 +26,37 @@ pub mod route;
 pub mod service;
 pub mod util;
 
+// Application state shared across handlers
+// Cloning AppState is cheap because it uses Arc internally to share resources like DB and Redis connections.
+#[derive(Clone)]
+pub struct AppState {
+    pub config: Arc<AppConfig>,
+    pub db: Arc<DB>,
+    pub rd: Arc<RD>,
+    pub fts: Arc<FullTextSearch>,
+}
+
+
+// Application router creation
+// Note: The order of layers is important.
 pub async fn create_app(state: AppState) -> Router {
     let config = &state.config;
 
     let static_route = Router::new().nest_service(
         &config.static_url,
-        ServeDir::new(config.static_dir.clone()).not_found_service(handle_404.into_service()),
+        ServeDir::new(config.static_path.clone()).not_found_service(handle_404.into_service()),
     );
 
-    fs::create_dir_all(config.upload_config.upload_dir.clone())
+    fs::create_dir_all(config.upload.base_path.clone())
         .expect("Failed to create 'uploads' directory");
 
     let uploads_route = Router::new().nest_service(
-        &config.upload_config.upload_url,
-        ServeDir::new(config.upload_config.upload_dir.clone())
+        &config.upload.base_url,
+        ServeDir::new(config.upload.base_path.clone())
             .not_found_service(handle_404.into_service()),
     );
 
-    let max_body_size = config.max_body_size;
+    let max_body_size = config.http.max_body_size;
 
     // The order of the layers is important.
     // https://docs.rs/axum/latest/axum/middleware/index.html#ordering
@@ -64,57 +76,25 @@ pub async fn create_app(state: AppState) -> Router {
                 // https://www.matsimitsu.com/blog/2023-07-30-trailing-slashes-for-axum-routes
                 // .layer(NormalizePathLayer::trim_trailing_slash())
                 .layer(DefaultBodyLimit::max(max_body_size as usize))
-                .layer(
-                    CorsLayer::new()
-                        .allow_origin(Any)
-                        .allow_methods(Any)
-                        .allow_headers(Any),
-                ),
+                .layer(config.http.cors.clone().into_layer()),
         )
         .with_state(state)
 }
 
-pub async fn handle_404(_uri: Uri) -> ApiError {
-    any_error(404, "Not Found", None)
-}
-
-async fn handle_405() -> ApiError {
-    any_error(405, "Method Not Allowed", None)
-}
-
-fn handle_panic(panic: Box<dyn std::any::Any + Send>) -> Response {
-    let panic_message = if let Some(s) = panic.downcast_ref::<&str>() {
-        *s
-    } else if let Some(s) = panic.downcast_ref::<String>() {
-        s.as_str()
-    } else {
-        "Unknown panic"
-    };
-
-    error!("App panicked: {}", panic_message);
-    any_error(500, "Internal Server Error", None).into_response()
-}
-
-#[derive(Clone)]
-pub struct AppState {
-    pub config: Arc<AppConfig>,
-    pub db: Arc<DB>,
-    pub rd: Arc<RD>,
-    pub fts: Arc<FullTextSearch>,
-}
-
+// Application state initialization
+// Cloning AppState is cheap because it uses Arc internally to share resources like DB and Redis connections.
 impl AppState {
     pub async fn new() -> Self {
         let config = AppConfig::from_env();
 
         let db = Arc::new(
-            DB::new(&config.database_url, config.pool_size)
+            DB::new(&config.db.url, config.db.pool_size)
                 .await
                 .expect("Cannot connect to database"),
         );
 
         let rd = Arc::new(
-            RD::new(&config.redis_url)
+            RD::new(&config.redis.url)
                 .await
                 .expect("Cannot connect to redis server"),
         );
@@ -141,4 +121,26 @@ impl AppState {
             fts: self.fts.clone(),
         }
     }
+}
+
+pub async fn handle_404(_uri: Uri) -> ApiError {
+    any_error(404, "Not Found", None)
+}
+
+async fn handle_405() -> ApiError {
+    any_error(405, "Method Not Allowed", None)
+}
+
+// Custom panic handler, logs the panic and returns a 500 response
+fn handle_panic(panic: Box<dyn std::any::Any + Send>) -> Response {
+    let panic_message = if let Some(s) = panic.downcast_ref::<&str>() {
+        *s
+    } else if let Some(s) = panic.downcast_ref::<String>() {
+        s.as_str()
+    } else {
+        "Unknown panic"
+    };
+
+    error!("App panicked: {}", panic_message);
+    any_error(500, "Internal Server Error", None).into_response()
 }

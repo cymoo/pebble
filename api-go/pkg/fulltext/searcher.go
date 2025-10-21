@@ -13,10 +13,6 @@ import (
 )
 
 // TokenFrequency stores token frequencies for a document
-// type TokenFrequency struct {
-// 	Frequencies map[string]int `json:"frequencies"`
-// }
-
 type TokenFrequency map[string]int
 
 // FullTextSearch provides full-text search functionality
