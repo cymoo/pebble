@@ -116,7 +116,7 @@ def search(payload: SearchRequest) -> PostPagination:
 def get_posts(payload: FilterPostRequest) -> PostPagination:
     posts = Post.filter_posts(
         **payload.model_dump(),
-        per_page=app.config['POST_NUM_PER_PAGE'],
+        per_page=app.config['POSTS_PER_PAGE'],
     )
     posts = [PostDto.from_model(post) for post in posts]
 
@@ -271,11 +271,11 @@ def upload_file() -> FileInfo:
         bad_request('filename is required')
 
     filename = gen_secure_filename(file.filename)
-    filepath = path.join(config['UPLOAD_FOLDER'], filename)
+    filepath = path.join(config['UPLOAD_PATH'], filename)
 
     ext = guess_extension(file.mimetype)
 
-    if ext not in config['IMAGE_FORMATS']:
+    if ext not in config['UPLOAD_IMAGE_FORMATS']:
         file.save(filepath)
         return FileInfo(
             url=url_for('uploaded_file', filename=filename),
@@ -288,10 +288,11 @@ def upload_file() -> FileInfo:
             if ext != '.gif':
                 # https://stackoverflow.com/questions/13872331/rotating-an-image-with-orientation-specified-in-exif-using-python-without-pil-in
                 img = ImageOps.exif_transpose(img)
-                image_thumb = gen_thumbnail(img, config['THUMBNAIL_WIDTH'])
+                # TODO: sometimes thumbnail generation will fail, figure out why later
+                image_thumb = gen_thumbnail(img, config['UPLOAD_THUMB_WIDTH'])
                 filename_thumb = add_suffix(filename, '.thumb')
                 image_thumb.save(
-                    path.join(config['UPLOAD_FOLDER'], filename_thumb), quality=90
+                    path.join(config['UPLOAD_PATH'], filename_thumb), quality=90
                 )
                 thumb_url = url_for('uploaded_file', filename=filename_thumb)
 

@@ -1,4 +1,6 @@
-from gevent import monkey; monkey.patch_all()
+from gevent import monkey
+
+monkey.patch_all()
 import click
 from flask.cli import AppGroup, with_appcontext
 from flask_migrate import Migrate
@@ -12,6 +14,7 @@ user_cli = AppGroup('user', help='user operations')
 
 
 # Flask Cli Demo: https://flask.palletsprojects.com/en/2.0.x/cli/
+
 
 @app.cli.command('create_tables', help='create tables')
 def create_tables():
@@ -51,4 +54,6 @@ migrate = Migrate(app, db, render_as_batch=True)
 
 
 if __name__ == '__main__':
-    app.run()
+    ip = app.config['HTTP_IP']
+    port = app.config['HTTP_PORT']
+    app.run(host=ip, port=port)

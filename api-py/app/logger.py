@@ -25,7 +25,7 @@ class RequestFormatter(logging.Formatter):
 
 def setup_logger(config):
     # ensures that the specified log directory exists
-    os.makedirs(os.path.dirname(config.LOG_FILE_PATH), exist_ok=True)
+    os.makedirs(os.path.dirname(config.LOG_FILE), exist_ok=True)
 
     logging_config = {
         'version': 1,
@@ -53,9 +53,9 @@ def setup_logger(config):
             'file': {
                 'class': 'logging.handlers.RotatingFileHandler',
                 'formatter': 'verbose',
-                'filename': config.LOG_FILE_PATH,
+                'filename': config.LOG_FILE,
                 'maxBytes': config.LOG_MAX_BYTES,
-                'backupCount': config.LOG_BACKUP_COUNT,
+                'backupCount': config.LOG_MAX_BACKUPS,
                 'encoding': 'utf8',
             },
         },

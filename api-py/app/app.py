@@ -52,7 +52,7 @@ def register_db(app: Flask) -> None:
         db.session.execute(text("PRAGMA foreign_keys=ON"))
         db.session.execute(text("PRAGMA journal_mode=WAL"))
 
-    rd = Redis(**app.config['REDIS'])
+    rd = Redis.from_url(app.config['REDIS_URL'], decode_responses=True)
     app.rd = rd
 
     app.fts = FullTextSearch(rd, 'fts:')
@@ -67,13 +67,16 @@ def register_blueprints(app: Flask) -> None:
 
 
 def register_file_uploads(app: Flask) -> None:
-    upload_folder = app.config['UPLOAD_FOLDER']
-    if not os.path.exists(upload_folder):
-        os.mkdir(upload_folder)
+    upload_path = app.config['UPLOAD_PATH']
+    upload_url = app.config['UPLOAD_URL']
+    if not os.path.exists(upload_path):
+        os.mkdir(upload_path)
 
-    @app.route('/uploads/<path:filename>')
+    @app.route(f'{upload_url}/<path:filename>')
     def uploaded_file(filename):
-        return send_from_directory(upload_folder, filename)
+        print('xxx', upload_path, filename)
+        abs_path = os.path.abspath(upload_path)
+        return send_from_directory(abs_path, filename)
 
 
 def configure_cors(app: Flask) -> None:
@@ -81,9 +84,10 @@ def configure_cors(app: Flask) -> None:
     def set_cors_headers(res: Response) -> Response:
         config = app.config
         headers = res.headers
-        headers['Access-Control-Allow-Origin'] = config['ACCESS_CONTROL_ALLOW_ORIGIN']
-        headers['Access-Control-Allow-Methods'] = config['ACCESS_CONTROL_ALLOW_METHODS']
-        headers['Access-Control-Allow-Headers'] = config['ACCESS_CONTROL_ALLOW_HEADERS']
+        headers['Access-Control-Allow-Origin'] = config['CORS_ALLOWED_ORIGINS']
+        headers['Access-Control-Allow-Methods'] = config['CORS_ALLOWED_METHODS']
+        headers['Access-Control-Allow-Headers'] = config['CORS_ALLOWED_HEADERS']
+        # TODO: allow credentials only when specific origins are set, and set max age
         return res
 
 
