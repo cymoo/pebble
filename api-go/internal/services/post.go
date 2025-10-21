@@ -380,7 +380,8 @@ func (s *PostService) Update(ctx context.Context, req models.UpdatePostRequest) 
 
 	// Get old parent_id if parent_id is being updated
 	var oldParentID models.NullInt64
-	if req.ParentID != nil {
+	// if req.ParentID != nil {
+	if req.ParentID.IsPresent() {
 		err := tx.GetContext(ctx, &oldParentID,
 			"SELECT parent_id FROM posts WHERE id = ?", req.ID)
 		if err == sql.ErrNoRows {
@@ -403,29 +404,57 @@ func (s *PostService) Update(ctx context.Context, req models.UpdatePostRequest) 
 		updates = append(updates, "shared = ?")
 		args = append(args, *req.Shared)
 	}
-	if req.ParentID != nil {
+	// if req.ParentID != nil {
+	// 	updates = append(updates, "parent_id = ?")
+	// 	if *req.ParentID == 0 {
+	// 		args = append(args, nil)
+	// 	} else {
+	// 		args = append(args, *req.ParentID)
+	// 	}
+	// }
+	// if req.Files != nil {
+	// 	if *req.Files == nil {
+	// 		updates = append(updates, "files = NULL")
+	// 	} else {
+	// 		filesBytes, _ := json.Marshal(*req.Files)
+	// 		updates = append(updates, "files = ?")
+	// 		args = append(args, string(filesBytes))
+	// 	}
+	// }
+	// if req.Color != nil {
+	// 	if *req.Color == "" {
+	// 		updates = append(updates, "color = NULL")
+	// 	} else {
+	// 		updates = append(updates, "color = ?")
+	// 		args = append(args, *req.Color)
+	// 	}
+	// }
+
+	if req.ParentID.IsPresent() {
 		updates = append(updates, "parent_id = ?")
-		if *req.ParentID == 0 {
+		if req.ParentID.IsNull() {
 			args = append(args, nil)
 		} else {
-			args = append(args, *req.ParentID)
+			args = append(args, req.ParentID.MustGet())
 		}
 	}
-	if req.Files != nil {
-		if *req.Files == nil {
+
+	if req.Files.IsPresent() {
+		if req.Files.IsNull() {
 			updates = append(updates, "files = NULL")
 		} else {
-			filesBytes, _ := json.Marshal(*req.Files)
+			filesBytes, _ := json.Marshal(req.Files.MustGet())
 			updates = append(updates, "files = ?")
 			args = append(args, string(filesBytes))
 		}
 	}
-	if req.Color != nil {
-		if *req.Color == "" {
+
+	if req.Color.IsPresent() {
+		if req.Color.IsNull() {
 			updates = append(updates, "color = NULL")
 		} else {
 			updates = append(updates, "color = ?")
-			args = append(args, *req.Color)
+			args = append(args, req.Color.MustGet())
 		}
 	}
 
@@ -439,14 +468,16 @@ func (s *PostService) Update(ctx context.Context, req models.UpdatePostRequest) 
 	}
 
 	// Update parent children counts
-	if req.ParentID != nil {
+	// if req.ParentID != nil {
+	if req.ParentID.IsPresent() {
 		if oldParentID.Valid {
 			if err := s.updateChildrenCount(ctx, tx, oldParentID.Int64, false); err != nil {
 				return err
 			}
 		}
-		if *req.ParentID != 0 {
-			if err := s.updateChildrenCount(ctx, tx, *req.ParentID, true); err != nil {
+		// if *req.ParentID != 0 {
+		if !req.ParentID.IsNull() {
+			if err := s.updateChildrenCount(ctx, tx, req.ParentID.MustGet(), true); err != nil {
 				return err
 			}
 		}

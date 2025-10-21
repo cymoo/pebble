@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/cymoo/pebble/pkg/env"
+	"github.com/cymoo/pebble/pkg/util/env"
 )
 
 type Config struct {

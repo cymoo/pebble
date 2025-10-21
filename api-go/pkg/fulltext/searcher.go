@@ -8,7 +8,7 @@ import (
 	"sort"
 	"strconv"
 
-	"github.com/cymoo/pebble/pkg/types"
+	t "github.com/cymoo/pebble/pkg/util/types"
 	"github.com/redis/go-redis/v9"
 )
 
@@ -135,12 +135,12 @@ func (f *FullTextSearch) Reindex(ctx context.Context, id int64, text string) err
 	}
 
 	// Calculate differences
-	oldTokenSet := types.NewSet[string]()
+	oldTokenSet := t.NewSet[string]()
 	for token := range oldFreq {
 		oldTokenSet.Add(token)
 	}
 
-	newTokenSet := types.NewSet(newTokens...)
+	newTokenSet := t.NewSet(newTokens...)
 
 	tokensToRemove := oldTokenSet.Difference(newTokenSet)
 	tokensToAdd := newTokenSet.Difference(oldTokenSet)

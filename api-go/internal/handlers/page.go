@@ -13,7 +13,7 @@ import (
 	"time"
 
 	"github.com/cymoo/pebble/internal/models"
-	"github.com/cymoo/pebble/pkg/env"
+	"github.com/cymoo/pebble/pkg/util/env"
 	"github.com/go-chi/chi"
 	"github.com/jmoiron/sqlx"
 )

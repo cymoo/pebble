@@ -5,14 +5,14 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/cymoo/pebble/pkg/types"
+	t "github.com/cymoo/pebble/pkg/util/types"
 	"github.com/go-ego/gse"
 )
 
 var (
 	punctuationRegex = regexp.MustCompile(`\p{P}`)
 	htmlTagRegex     = regexp.MustCompile(`<[^>]*>`)
-	stopWords        = types.NewSet(
+	stopWords        = t.NewSet(
 		"a", "an", "and", "are", "as", "at", "be", "by",
 		"can", "for", "from", "have", "if", "in", "is",
 		"it", "may", "not", "of", "on", "or", "tbd",

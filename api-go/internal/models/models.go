@@ -4,6 +4,8 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+
+	t "github.com/cymoo/pebble/pkg/util/types"
 )
 
 // NullString is a custom type that serializes to null or string
@@ -149,25 +151,29 @@ type SearchRequest struct {
 // CreatePostRequest represents the request to create a post
 type CreatePostRequest struct {
 	Content  string     `json:"content"`
-	Files    []FileInfo `json:"files,omitempty"`
-	Color    *string    `json:"color,omitempty"`
-	Shared   *bool      `json:"shared,omitempty"`
-	ParentID *int64     `json:"parent_id,omitempty"`
+	Files    []FileInfo `json:"files"`
+	Color    *string    `json:"color"`
+	Shared   *bool      `json:"shared"`
+	ParentID *int64     `json:"parent_id"`
 }
 
 // UpdatePostRequest represents the request to update a post
 type UpdatePostRequest struct {
-	ID       int64       `json:"id"`
-	Content  *string     `json:"content,omitempty"`
-	Shared   *bool       `json:"shared,omitempty"`
-	Files    *[]FileInfo `json:"files,omitempty"`
-	Color    *string     `json:"color,omitempty"`
-	ParentID *int64      `json:"parent_id,omitempty"`
+	ID      int64   `json:"id"`
+	Content *string `json:"content"`
+	Shared  *bool   `json:"shared"`
+
+	// Files    *[]FileInfo `json:"files,omitempty"`
+	// Color    *string     `json:"color,omitempty"`
+	// ParentID *int64      `json:"parent_id,omitempty"`
+	Files    t.Optional[[]FileInfo] `json:"files"`
+	Color    t.Optional[string]     `json:"color"`
+	ParentID t.Optional[int64]      `json:"parent_id"`
 }
 
 type DeletePostRequest struct {
 	ID   int64 `json:"id"`
-	Hard bool  `json:"hard,omitempty"`
+	Hard bool  `json:"hard"`
 }
 
 // FilterPostRequest represents filtering options for posts
