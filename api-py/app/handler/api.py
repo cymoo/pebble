@@ -14,18 +14,18 @@ from flask import (
     stream_with_context,
 )
 
-from .dto import *
-from .exception import bad_request
-from .model import Post, Tag, db, HASH_PATTERN
-from .util import (
+from ..dto import *
+from ..exception import bad_request
+from ..model import Post, Tag, HASH_PATTERN
+from ..extension import fts, db
+from ..util import (
     gen_thumbnail,
     add_suffix,
-    limit_request,
     gen_secure_filename,
     mark_tokens_in_html,
-    validate,
     parse_date_with_timezone,
 )
+from ..middleware import rate_limit, validate
 
 api = Blueprint('api', __name__)
 
@@ -42,7 +42,7 @@ def index():
 
 
 @api.post('/login')
-@limit_request(count=10, interval=60)
+@rate_limit(max_count=10, expires=60)
 @validate
 def login(payload: LoginRequest) -> NoContent:
     password = payload.password
@@ -67,7 +67,7 @@ def stick_tag(payload: StickTagRequest) -> NoContent:
 
 
 @api.post('/rename-tag')
-@limit_request(count=5, interval=60)
+@rate_limit(max_count=5, expires=60)
 @validate
 def rename_tag(payload: RenameTagRequest) -> NoContent:
     Tag.rename_or_merge(payload.name, payload.new_name)
@@ -75,7 +75,7 @@ def rename_tag(payload: RenameTagRequest) -> NoContent:
 
 
 @api.post('/delete-tag')
-@limit_request(count=1, interval=10)
+@rate_limit(max_count=1, expires=10)
 @validate
 def delete_tag(payload: Name) -> NoContent:
     tag = Tag.find_by_name(payload.name)
@@ -91,12 +91,12 @@ def delete_tag(payload: Name) -> NoContent:
 def search(payload: SearchRequest) -> PostPagination:
     query, partial, limit = payload.query, payload.partial, payload.limit
 
-    tokens, results = app.fts.search(query, partial, limit)  # noqa
+    tokens, results = fts.search(query, partial, limit)
 
     if not results:
         return PostPagination(posts=[], cursor=-1, size=0)
 
-    scores = {id: score for id, score in results}  # noqa
+    scores = {id: score for id, score in results}
     posts = Post.find_by_ids(scores.keys())
 
     posts_with_score = []
@@ -147,7 +147,7 @@ def create_post(payload: CreatePostRequest) -> CreationDto:
     )
     post.save()
 
-    executor.submit(app.fts.index, post.id, payload.content)
+    executor.submit(fts.index, post.id, payload.content)
 
     return CreationDto(
         id=post.id,
@@ -186,7 +186,7 @@ def update_post(payload: UpdatePostRequest) -> NoContent:
     post.save()
 
     if payload.content is not None and post.content != old_content:
-        executor.submit(app.fts.reindex, post.id, payload.content)
+        executor.submit(fts.reindex, post.id, payload.content)
 
     return NO_CONTENT
 
@@ -199,7 +199,7 @@ def delete_post(payload: DeletePostRequest) -> NoContent:
 
     if hard:
         post.clear()
-        executor.submit(app.fts.deindex, id)
+        executor.submit(fts.deindex, id)
     else:
         post.delete()
 
@@ -218,10 +218,9 @@ def restore_post(payload: Id) -> NoContent:
 @api.post('/clear-posts')
 def clear_posts() -> NoContent:
     ids = Post.clear_all()
-    fts = app.fts
 
-    for id in ids:  # noqa
-        executor.submit(fts.deindex, id)
+    for _id in ids:
+        executor.submit(fts.deindex, _id)
     return NO_CONTENT
 
 
@@ -312,11 +311,9 @@ def upload_file() -> FileInfo:
 
 
 @api.get('/_dangerously_rebuild_all_indexes')
-@limit_request(count=3, interval=60 * 60)
+@rate_limit(max_count=3, expires=60 * 60)
 def rebuild_indexes() -> Response:
     posts = Post.query.with_entities(Post.id, Post.content).all()
-
-    fts = app.fts
 
     def generate():
         yield 'Indexing...\n'

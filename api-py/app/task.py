@@ -9,6 +9,7 @@ huey = MiniHuey()
 
 @huey.task(crontab(minute='0', hour='3'))
 def clear_posts():
+    # It's not good to use `db.app` directly, but huey task context does not have Flask app context.
     with db.app.app_context():
         thirty_days_ago = datetime.now(UTC) - timedelta(days=30)
         deleted_count = Post.query.filter(

@@ -3,27 +3,17 @@ from datetime import datetime, timedelta
 from typing import Optional, Tuple, Self, Iterable, Literal
 
 from flask import abort
-from flask_sqlalchemy import SQLAlchemy
+
 from sqlalchemy.dialects.sqlite import insert
 
-from sqlalchemy import MetaData, func, or_, text
+from sqlalchemy import func, or_, text
 from sqlalchemy.orm import backref, subqueryload, Query
 
 from .util import deprecated, utc_now_ms, replace_prefix
-
-# https://stackoverflow.com/questions/45527323
-naming_convention = {
-    "ix": 'ix_%(column_0_label)s',
-    "uq": "uq_%(table_name)s_%(column_0_name)s",
-    "ck": "ck_%(table_name)s_%(column_0_name)s",
-    "fk": "fk_%(table_name)s_%(column_0_name)s_%(referred_table_name)s",
-    "pk": "pk_%(table_name)s",
-}
+from .extension import db
 
 
 HASH_PATTERN = re.compile(r'<span class="hash-tag">#(.+?)</span>')
-
-db = SQLAlchemy(metadata=MetaData(naming_convention=naming_convention))
 
 tag_post_assoc = db.Table(
     'tag_post_assoc',

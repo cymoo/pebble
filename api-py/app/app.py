@@ -8,14 +8,15 @@ from dataclasses import is_dataclass
 
 from flask import Flask, Response, send_from_directory, jsonify, request, make_response
 from flask_sqlalchemy import SQLAlchemy
-
-from .exception import register_error_handlers
-from .task import huey
-from .util import ORJSONProvider
+from flask.json.provider import JSONProvider
+from orjson import orjson
 
 
 def create_app(config) -> Flask:
     """Create Flask application instance"""
+
+    from .exception import register_error_handlers
+    from .task import huey
 
     app = Flask(
         'app',
@@ -29,7 +30,7 @@ def create_app(config) -> Flask:
 
     app.config.from_object(config)
 
-    register_db(app)
+    init_extension(app)
     register_blueprints(app)
     register_file_uploads(app)
     register_error_handlers(app)
@@ -41,18 +42,11 @@ def create_app(config) -> Flask:
     return app
 
 
-def init_extensions(app: Flask) -> None:
-    pass
-
-
-def register_db(app: Flask) -> None:
-    from redis import Redis
-    from .model import db
-    from .lib.search import FullTextSearch
+def init_extension(app: Flask) -> None:
+    from .extension import init_extension, db
     from sqlalchemy import text
 
-    db.init_app(app)
-    db.app = app
+    init_extension(app)
 
     # enable foreign key constraint and WAL mode for SQLite
     with app.app_context():
@@ -63,18 +57,13 @@ def register_db(app: Flask) -> None:
     if app.config['AUTO_MIGRATE']:
         run_migration(app, db)
 
-    rd = Redis.from_url(app.config['REDIS_URL'], decode_responses=True)
-    app.rd = rd
-
-    app.fts = FullTextSearch(rd, 'fts:')
-
 
 def register_blueprints(app: Flask) -> None:
-    from .api import api
-    from .view import view
+    from .handler.api import api
+    from .handler.page import page
 
     app.register_blueprint(api, url_prefix='/api')
-    app.register_blueprint(view, url_prefix='/shared')
+    app.register_blueprint(page, url_prefix='/shared')
 
 
 def register_file_uploads(app: Flask) -> None:
@@ -202,3 +191,18 @@ def run_migration(app: Flask, db: SQLAlchemy) -> None:
                 logger.error(f"Database migration failed: {e}")
                 logger.info("Creating database tables directly.")
                 db.create_all()
+
+
+class ORJSONProvider(JSONProvider):
+    """Custom JSON provider using orjson for Flask applications."""
+
+    def __init__(self, *args, **kwargs):
+        self.options = kwargs
+        super().__init__(*args, **kwargs)
+
+    def loads(self, s, **kwargs):
+        return orjson.loads(s)
+
+    def dumps(self, obj, **kwargs):
+        # Decode back to str, as orjson returns bytes
+        return orjson.dumps(obj, option=orjson.OPT_NON_STR_KEYS).decode('utf-8')

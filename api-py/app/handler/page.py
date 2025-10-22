@@ -5,13 +5,13 @@ from datetime import datetime
 import re
 import orjson as json
 
-from .config import config
-from .model import Post
+from ..config import config
+from ..model import Post
 
-view = Blueprint('view', __name__)
+page = Blueprint('page', __name__)
 
 
-@view.get('/')
+@page.get('/')
 def post_list():
     rows = (
         Post.query.filter(Post.shared)
@@ -28,7 +28,7 @@ def post_list():
     return render_template('post-list.html', posts=posts, about_url=config.ABOUT_URL)
 
 
-@view.get('/<int:id>')
+@page.get('/<int:id>')
 def post_item(id: int):
     post = Post.query.filter_by(id=id).first()
 

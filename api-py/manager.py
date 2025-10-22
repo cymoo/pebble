@@ -7,7 +7,7 @@ from flask_migrate import Migrate
 
 from app import create_app
 from app.config import config
-from app.model import db
+from app.extension import db
 
 app = create_app(config)
 user_cli = AppGroup('user', help='user operations')
