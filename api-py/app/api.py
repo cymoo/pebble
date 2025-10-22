@@ -22,9 +22,9 @@ from .util import (
     add_suffix,
     limit_request,
     gen_secure_filename,
-    highlight_html,
+    mark_tokens_in_html,
     validate,
-    str_to_datetime,
+    parse_date_with_timezone,
 )
 
 api = Blueprint('api', __name__)
@@ -102,7 +102,7 @@ def search(payload: SearchRequest) -> PostPagination:
     posts_with_score = []
     for post in posts:  # noqa
         post = PostDto.from_model(post)
-        post.content = highlight_html(tokens, post.content)
+        post.content = mark_tokens_in_html(tokens, post.content)
         post.score = scores[post.id]
         posts_with_score.append(post)
 
@@ -229,8 +229,10 @@ def clear_posts() -> NoContent:
 @validate(type='query')
 def get_daily_post_counts(payload: DateRange) -> list[int]:
     return Post.get_daily_counts(
-        start_date=str_to_datetime(payload.start_date, payload.offset),
-        end_date=str_to_datetime(payload.end_date, payload.offset, end_of_day=True),
+        start_date=parse_date_with_timezone(payload.start_date, payload.offset),
+        end_date=parse_date_with_timezone(
+            payload.end_date, payload.offset, at_end=True
+        ),
     )
 
 

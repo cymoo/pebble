@@ -9,7 +9,7 @@ from sqlalchemy.dialects.sqlite import insert
 from sqlalchemy import MetaData, func, or_, text
 from sqlalchemy.orm import backref, subqueryload, Query
 
-from .util import deprecated, ms_now, replace_from_start
+from .util import deprecated, utc_now_ms, replace_prefix
 
 # https://stackoverflow.com/questions/45527323
 naming_convention = {
@@ -21,11 +21,10 @@ naming_convention = {
 }
 
 
-db = SQLAlchemy(metadata=MetaData(naming_convention=naming_convention))
-
 HASH_PATTERN = re.compile(r'<span class="hash-tag">#(.+?)</span>')
 
-# https://stackoverflow.com/questions/25668092
+db = SQLAlchemy(metadata=MetaData(naming_convention=naming_convention))
+
 tag_post_assoc = db.Table(
     'tag_post_assoc',
     db.Column(
@@ -48,15 +47,15 @@ tag_post_assoc = db.Table(
 class Tag(db.Model):
     __tablename__ = 'tags'
     id = db.Column(db.Integer, primary_key=True, nullable=False)
-    name = db.Column(db.String(32), nullable=False, unique=True)
+    name = db.Column(db.Text, nullable=False, unique=True)
     sticky = db.Column(db.Boolean, nullable=False, default=False)
 
-    created_at = db.Column(db.Integer, nullable=False, default=ms_now)
+    created_at = db.Column(db.BigInteger, nullable=False, default=utc_now_ms)
     updated_at = db.Column(
-        db.Integer,
+        db.BigInteger,
         nullable=False,
-        default=ms_now,
-        onupdate=ms_now,
+        default=utc_now_ms,
+        onupdate=utc_now_ms,
     )
 
     posts = db.relationship(
@@ -112,7 +111,7 @@ class Tag(db.Model):
 
     @classmethod
     def insert_or_update(cls, name: str, sticky: bool) -> None:
-        now = ms_now()
+        now = utc_now_ms()
         stmt = (
             insert(Tag)
             .values(name=name, sticky=sticky, created_at=now, updated_at=now)
@@ -137,7 +136,7 @@ class Tag(db.Model):
         target_tag = Tag.find_by_name(new_name)
 
         for descendant in source_tag.descendants:
-            new_descendant_name = replace_from_start(descendant.name, name, new_name)
+            new_descendant_name = replace_prefix(descendant.name, name, new_name)
             new_descendant = Tag.find_by_name(new_descendant_name)
             if new_descendant:
                 descendant._merge(new_descendant)
@@ -189,7 +188,7 @@ class Tag(db.Model):
     def delete(self) -> None:
         """Soft delete all posts under this tag and its descendant tags."""
 
-        deleted_at = ms_now()
+        deleted_at = utc_now_ms()
         for tag in [self] + self.descendants:
             for post in tag.posts:  # noqa
                 post.deleted_at = deleted_at
@@ -222,17 +221,17 @@ class Post(db.Model):
 
     content = db.Column(db.Text, nullable=False)
     files = db.Column(db.Text)
-    color = db.Column(db.String(8), index=True)  # red, green, blue
+    color = db.Column(db.Text)  # red, green, blue
 
     shared = db.Column(db.Boolean, nullable=False, default=False)
 
-    deleted_at = db.Column(db.Integer)
-    created_at = db.Column(db.Integer, nullable=False, default=ms_now)
+    deleted_at = db.Column(db.BigInteger)
+    created_at = db.Column(db.BigInteger, nullable=False, default=utc_now_ms)
     updated_at = db.Column(
-        db.Integer,
+        db.BigInteger,
         nullable=False,
-        default=ms_now,
-        onupdate=ms_now,
+        default=utc_now_ms,
+        onupdate=utc_now_ms,
     )
 
     # https://stackoverflow.com/questions/51335298/concepts-of-backref-and-back-populate-in-sqlalchemy
@@ -442,7 +441,7 @@ class Post(db.Model):
         return self.deleted_at is not None
 
     def delete(self) -> None:
-        self.deleted_at = ms_now()
+        self.deleted_at = utc_now_ms()
 
         if self.parent_id:
             self.parent.children_count -= 1

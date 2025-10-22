@@ -7,7 +7,7 @@ def redis_client():
     from redis import Redis
     from app.config import TestConfig
 
-    client = Redis(**TestConfig.REDIS)
+    client = Redis.from_url(TestConfig.REDIS_URL, decode_responses=True)
     yield client
     client.flushdb()  # Clear database after test
 

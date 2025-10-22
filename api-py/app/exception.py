@@ -22,7 +22,7 @@ class ValidationError(APIError):
         super().__init__(400, 'Bad Request', message)
 
 
-def register_error_handlers(app: Flask):
+def register_error_handlers(app: Flask) -> None:
     @app.errorhandler(APIError)
     def handle_api_error(error: APIError):
         response = jsonify(error.to_dict())
@@ -39,9 +39,9 @@ def register_error_handlers(app: Flask):
 
     @app.errorhandler(Exception)
     def handle_generic_error(error):
+        app.logger.error(f'Unhandled exception: {str(error)}', exc_info=True)
         response = jsonify({'code': 500, 'error': 'Internal Server Error'})
         response.status_code = 500
-        app.logger.error(str(error), exc_info=error)
         return response
 
 

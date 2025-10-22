@@ -4,21 +4,26 @@ import random
 import re
 import string
 import warnings
+import pydantic
 from datetime import timedelta, datetime, timezone
 from functools import partial, wraps
 from ipaddress import ip_address
 from types import NoneType
 from typing import Callable, TypeAlias, Literal, get_type_hints, Optional
 from uuid import uuid4
-
-import pydantic
 from PIL import Image
 from dotenv import load_dotenv
 from flask import abort, request, current_app as app
+from flask.json.provider import JSONProvider
 from pydantic import BaseModel
+from orjson import orjson
 
 
 def deprecated(func):
+    """A decorator to mark functions as deprecated.
+    It will issue a warning when the function is called.
+    """
+
     def wrapper(*args, **kwargs):
         warnings.warn(
             f"{func.__name__} is deprecated",
@@ -30,19 +35,34 @@ def deprecated(func):
     return wrapper
 
 
-def load_env_files(flask_env: Optional[str] = None) -> None:
+class ORJSONProvider(JSONProvider):
+    """Custom JSON provider using orjson for Flask applications."""
+
+    def __init__(self, *args, **kwargs):
+        self.options = kwargs
+        super().__init__(*args, **kwargs)
+
+    def loads(self, s, **kwargs):
+        return orjson.loads(s)
+
+    def dumps(self, obj, **kwargs):
+        # Decode back to str, as orjson returns bytes
+        return orjson.dumps(obj, option=orjson.OPT_NON_STR_KEYS).decode('utf-8')
+
+
+def load_env_files(env: Literal['dev', 'prod', 'test'] | None = None) -> None:
     """
-    Load environment files based on FLASK_ENV with the following priority:
+    Load environment files based on env type with the following priority:
     1. .env (base configuration)
     2. .env.[environment] (environment-specific configuration)
     3. .env.local (local overrides)
 
     Args:
-        flask_env (str, optional): Explicitly specify the environment (e.g., 'dev', 'prod').
+        env (str, optional): Explicitly specify the environment (e.g., 'dev', 'prod', 'test').
             If not provided, uses the FLASK_ENV environment variable (defaults to 'development').
     """
     # 1. Determine environment (priority: argument > FLASK_ENV variable > default 'development')
-    env = (flask_env or os.getenv("FLASK_ENV", "development")).lower()
+    env = (env or os.getenv("FLASK_ENV", "development")).lower()
 
     # 2. Load base .env file if exists
     if os.path.exists(".env"):
@@ -89,37 +109,40 @@ class Missing:
 missing = Missing()
 
 
-def ms_now() -> int:
+def utc_now_ms() -> int:
     return int(datetime.now(timezone.utc).timestamp() * 1000)
 
 
-def str_to_datetime(datestr: str, offset: int, end_of_day=False) -> datetime:
-    """
-    Convert a date string to a `datetime` object with timezone information
-
+def parse_date_with_timezone(date_str: str, utc_offset: int, at_end=False) -> datetime:
+    """Parses a date string with a specified timezone offset.
     Args:
-        datestr: The date string in "yyyy-MM-dd" format
-        offset: Timezone offset in minutes
-        end_of_day: Whether to use the end time of the day (defaults to false, which means the start time of the day)
+        date_str (str): Date string in "YYYY-MM-DD" format.
+        utc_offset (int): Timezone offset in minutes from UTC.
+        at_end (bool): If True, set time to 23:59:59.999, else to 00:00:00.000.
+    Returns:
+        datetime: A timezone-aware datetime object.
+    Raises:
+        ValueError: If the date format is invalid or timezone offset is out of range.
     """
-    if abs(offset) > 1440:
+
+    if abs(utc_offset) > 1440:
         raise ValueError(
-            f'Timezone offset must be between -1440 and 1440 minutes: {offset}'
+            f'Timezone offset must be between -1440 and 1440 minutes: {utc_offset}'
         )
 
     # Parse the date string
-    local_datetime = datetime.strptime(datestr, "%Y-%m-%d")
+    local_datetime = datetime.strptime(date_str, "%Y-%m-%d")
 
     # Create time component
     local_datetime = local_datetime.replace(
-        hour=23 if end_of_day else 0,
-        minute=59 if end_of_day else 0,
-        second=59 if end_of_day else 0,
-        microsecond=999000 if end_of_day else 0,
+        hour=23 if at_end else 0,
+        minute=59 if at_end else 0,
+        second=59 if at_end else 0,
+        microsecond=999000 if at_end else 0,
     )
 
     # Create timezone offset
-    offset_hours, offset_minutes = divmod(offset, 60)
+    offset_hours, offset_minutes = divmod(utc_offset, 60)
     custom_timezone = timezone(timedelta(hours=offset_hours, minutes=offset_minutes))
 
     # Add timezone info for `datetime` object
@@ -205,6 +228,7 @@ def gen_secure_filename(filename: str, uuid_length=8) -> str:
 
 def add_suffix(filename: str, suffix: str) -> str:
     """
+    Add a suffix to a filename before the file extension.
     >>> add_suffix("foo.jpg", suffix=".thumb")
     'foo.thumb.jpg'
     """
@@ -218,7 +242,7 @@ def add_suffix(filename: str, suffix: str) -> str:
 
 
 def get_parent_path(path: str) -> str:
-    """
+    """Get the parent path of a given path string.
     >>> get_parent_path('a')
     ''
     >>> get_parent_path('a/b')
@@ -233,7 +257,13 @@ def get_parent_path(path: str) -> str:
         return path.rsplit('/', maxsplit=1)[0]
 
 
-def replace_from_start(s: str, from_str: str, to: str) -> str:
+def replace_prefix(s: str, from_str: str, to: str) -> str:
+    """Replace the prefix of a string if it matches a given substring.
+    >>> replace_prefix('foobar', 'foo', 'baz')
+    'bazbar'
+    >>> replace_prefix('foobar', 'bar', 'baz')
+    'foobar'
+    """
     if s.startswith(from_str):
         return to + s[len(from_str) :]
     else:
@@ -412,7 +442,7 @@ def format_validation_error(error: pydantic.ValidationError) -> str:
     return "; ".join(parts)
 
 
-def highlight_html(tokens: list[str], html: str) -> str:
+def mark_tokens_in_html(tokens: list[str], html: str) -> str:
     """
     Mark all occurrences of tokens in HTML text with <mark> tags,
     avoiding replacements in HTML tags and their attributes
