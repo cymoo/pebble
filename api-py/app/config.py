@@ -33,8 +33,8 @@ class BaseConfig:
     CORS_ALLOWED_METHODS = os.getenv('CORS_ALLOWED_METHODS', 'GET, POST, PUT, DELETE, OPTIONS')
     CORS_ALLOWED_HEADERS = os.getenv('CORS_ALLOWED_HEADERS', 'Content-Type, Authorization')
     # TODO: allow credentials only when specific origins are set
-    CORS_ALLOW_CREDENTIALS = (os.getenv('CORS_ALLOW_CREDENTIALS', 'true').lower() == 'true')
-    CORS_MAX_AGE = int(os.getenv('CORS_MAX_AGE', 86400))
+    CORS_ALLOW_CREDENTIALS = (os.getenv('CORS_ALLOW_CREDENTIALS', 'false').lower() == 'true')
+    CORS_MAX_AGE = int(os.getenv('CORS_MAX_AGE', 3600))
 
     # Uploads settings
     UPLOAD_PATH = os.getenv('UPLOAD_PATH', os.path.join(PY_ROOT, 'uploads'))

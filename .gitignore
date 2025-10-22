@@ -67,6 +67,7 @@ dump.rdb
 *~
 .DS_Store
 ._*
+diff.txt
 
 e2e/.auth/
 app-test.db

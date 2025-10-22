@@ -2,8 +2,124 @@ import inspect
 import pydantic
 from functools import wraps
 from typing import Callable, Literal, get_type_hints, Optional
-from flask import abort, request
 from pydantic import BaseModel
+from flask import Flask, Blueprint, request, make_response, Response, abort
+
+
+class CORS:
+    """CORS middleware that can be applied to Flask app or Blueprint"""
+
+    def __init__(
+        self,
+        allowed_origins: str = '*',
+        allowed_methods: str = 'GET, POST, PUT, DELETE, OPTIONS',
+        allowed_headers: str = 'Content-Type, Authorization',
+        allow_credentials: bool = False,
+        max_age: int = 3600,
+    ):
+        """
+        Initialize CORS middleware
+
+        Args:
+            allowed_origins: Comma-separated origins or '*' for all origins
+            allowed_methods: Allowed HTTP methods
+            allowed_headers: Allowed request headers
+            allow_credentials: Whether to allow credentials
+            max_age: Preflight cache duration in seconds
+        """
+        self.allowed_methods = allowed_methods
+        self.allowed_headers = allowed_headers
+        self.allow_credentials = allow_credentials
+        self.max_age = max_age
+
+        # Parse origins
+        self.origins_list = (
+            [o.strip() for o in allowed_origins.split(',')]
+            if allowed_origins != '*'
+            else ['*']
+        )
+
+        # Validate: cannot use credentials with wildcard origin
+        if self.allow_credentials and '*' in self.origins_list:
+            raise ValueError(
+                "CORS: allow_credentials cannot be True when allowed_origins is '*'. "
+                "This is a security restriction per CORS specification."
+            )
+
+    def is_origin_allowed(self, origin: str) -> bool:
+        """Check if the origin is allowed"""
+        if '*' in self.origins_list:
+            return True
+        return origin in self.origins_list
+
+    def set_cors_headers(self, response: Response, origin: str) -> Response:
+        """Set CORS headers to the response"""
+        # Set Access-Control-Allow-Origin
+        if '*' in self.origins_list:
+            response.headers['Access-Control-Allow-Origin'] = '*'
+        else:
+            response.headers['Access-Control-Allow-Origin'] = origin
+            # When allowing specific domains, add Vary header to support caching
+            vary = response.headers.get('Vary', '')
+            if vary:
+                if 'Origin' not in vary:
+                    response.headers['Vary'] = f"{vary}, Origin"
+            else:
+                response.headers['Vary'] = 'Origin'
+
+        # Set allowed methods
+        response.headers['Access-Control-Allow-Methods'] = self.allowed_methods
+
+        # Set allowed headers
+        response.headers['Access-Control-Allow-Headers'] = self.allowed_headers
+
+        # Set Access-Control-Allow-Credentials
+        if self.allow_credentials:
+            response.headers['Access-Control-Allow-Credentials'] = 'true'
+
+        # Set Access-Control-Max-Age
+        response.headers['Access-Control-Max-Age'] = str(self.max_age)
+
+        return response
+
+    def handle_preflight(self) -> Response | None:
+        """Handle CORS preflight requests"""
+        if request.method == 'OPTIONS':
+            origin = request.headers.get('Origin')
+
+            # No origin header, treat as same-origin request
+            if not origin:
+                return None
+
+            # Check if origin is allowed
+            if self.is_origin_allowed(origin):
+                response = make_response('', 204)
+                self.set_cors_headers(response, origin)
+                return response
+            else:
+                # Origin not allowed, return 403
+                return make_response('', 403)
+
+        return None
+
+    def add_cors_headers(self, response: Response) -> Response:
+        """Add CORS headers to all responses"""
+        origin = request.headers.get('Origin')
+
+        # If no Origin header, no need to handle CORS (same-origin request)
+        if not origin:
+            return response
+
+        # Check if origin is allowed
+        if self.is_origin_allowed(origin):
+            self.set_cors_headers(response, origin)
+
+        return response
+
+    def init_app(self, app: Flask | Blueprint) -> None:
+        """Register middleware with Flask app or Blueprint"""
+        app.before_request(self.handle_preflight)
+        app.after_request(self.add_cors_headers)
 
 
 def rate_limit(max_count: int, expires: int = 60) -> Callable:

@@ -6,8 +6,7 @@ Application factory
 import os
 from dataclasses import is_dataclass
 
-from flask import Flask, Response, send_from_directory, jsonify, request, make_response
-from flask_sqlalchemy import SQLAlchemy
+from flask import Flask, send_from_directory, jsonify
 from flask.json.provider import JSONProvider
 from orjson import orjson
 
@@ -32,9 +31,9 @@ def create_app(config) -> Flask:
 
     init_extension(app)
     register_blueprints(app)
+    register_cors_handlers(app)
     register_file_uploads(app)
     register_error_handlers(app)
-    register_cors_handlers(app)
 
     # Run periodic tasks
     huey.start()
@@ -43,10 +42,10 @@ def create_app(config) -> Flask:
 
 
 def init_extension(app: Flask) -> None:
-    from .extension import init_extension, db
+    from .extension import init_app, db, run_migration
     from sqlalchemy import text
 
-    init_extension(app)
+    init_app(app)
 
     # enable foreign key constraint and WAL mode for SQLite
     with app.app_context():
@@ -79,7 +78,7 @@ def register_file_uploads(app: Flask) -> None:
 
 
 def register_cors_handlers(app: Flask) -> None:
-    """Register CORS handling functions"""
+    from .middleware import CORS
 
     # Get CORS settings from config
     config = app.config
@@ -89,75 +88,19 @@ def register_cors_handlers(app: Flask) -> None:
     allow_credentials = config['CORS_ALLOW_CREDENTIALS']
     max_age = config['CORS_MAX_AGE']
 
-    # Handle allowed origins
-    origins_list = (
-        [o.strip() for o in allowed_origins.split(',')]
-        if allowed_origins != '*'
-        else ['*']
+    cors = CORS(
+        allowed_origins=allowed_origins,
+        allowed_methods=allowed_methods,
+        allowed_headers=allowed_headers,
+        allow_credentials=allow_credentials,
+        max_age=max_age,
     )
-
-    def is_origin_allowed(origin: str) -> bool:
-        """check if the origin is allowed"""
-        if '*' in origins_list:
-            return True
-        return origin in origins_list
-
-    def set_cors_headers(response: Response, origin: str) -> Response:
-        """set CORS headers to the response"""
-        # Set Access-Control-Allow-Origin
-        if '*' in origins_list:
-            response.headers['Access-Control-Allow-Origin'] = '*'
-        else:
-            response.headers['Access-Control-Allow-Origin'] = origin
-            # When allowing specific domains, add Vary header to support caching
-            response.headers['Vary'] = 'Origin'
-
-        # Set allowed methods
-        response.headers['Access-Control-Allow-Methods'] = allowed_methods
-
-        # Set allowed headers
-        response.headers['Access-Control-Allow-Headers'] = allowed_headers
-
-        # Set Access-Control-Allow-Credentials
-        if allow_credentials:
-            response.headers['Access-Control-Allow-Credentials'] = 'true'
-
-        # Set Access-Control-Max-Age
-        response.headers['Access-Control-Max-Age'] = max_age
-
-        return response
-
-    @app.before_request
-    def handle_preflight() -> Response | None:
-        "Handle CORS preflight requests"
-        if request.method == 'OPTIONS':
-            origin = request.headers.get('Origin')
-
-            if origin and is_origin_allowed(origin):
-                response = make_response('', 204)
-                set_cors_headers(response, origin)
-                return response
-            # If origin is not allowed, return 403
-            elif origin:
-                return make_response('', 403)
-
-    @app.after_request
-    def add_cors_headers(response) -> Response:
-        """Add CORS headers to all responses"""
-        origin = request.headers.get('Origin')
-
-        # If no Origin header, no need to handle CORS (same-origin request)
-        if not origin:
-            return response
-
-        # Check if origin is allowed
-        if is_origin_allowed(origin):
-            set_cors_headers(response, origin)
-
-        return response
+    # It's better to register CORS only for API blueprint, but for simplicity we register it for the whole app
+    cors.init_app(app)
 
 
 def make_response_of_dataclass(app):
+    """Override Flask's make_response to support dataclass directly"""
     original_make_response = app.make_response
 
     def new_make_response(rv):
@@ -166,31 +109,6 @@ def make_response_of_dataclass(app):
         return original_make_response(rv)
 
     app.make_response = new_make_response
-
-
-def run_migration(app: Flask, db: SQLAlchemy) -> None:
-    from flask_migrate import Migrate, upgrade
-
-    _ = Migrate(app, db)
-    logger = app.logger
-
-    with app.app_context():
-        if not os.path.exists('migrations'):
-            logger.info("Migrations folder not found")
-            logger.info("Run the following command to initialize migrations:")
-            logger.info("    flask db init")
-            logger.info("    flask db migrate -m 'Initial migration'")
-            logger.info("    flask db upgrade")
-            logger.info("Now creating the database tables directly.")
-            db.create_all()
-        else:
-            try:
-                upgrade()
-                logger.info("Database migrated to latest version")
-            except Exception as e:
-                logger.error(f"Database migration failed: {e}")
-                logger.info("Creating database tables directly.")
-                db.create_all()
 
 
 class ORJSONProvider(JSONProvider):

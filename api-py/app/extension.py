@@ -1,3 +1,4 @@
+import os
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import MetaData
@@ -19,7 +20,7 @@ rd: Redis = None  # type: ignore
 fts: FullTextSearch = None  # type: ignore
 
 
-def init_extension(app: Flask) -> None:
+def init_app(app: Flask) -> None:
     global db, rd, fts
 
     db.init_app(app)
@@ -28,3 +29,31 @@ def init_extension(app: Flask) -> None:
 
     rd = Redis.from_url(app.config['REDIS_URL'], decode_responses=True)
     fts = FullTextSearch(rd, 'fts:')
+
+
+def run_migration(app: Flask, db: SQLAlchemy) -> None:
+    """Run database migrations using Flask-Migrate.
+    If migrations folder does not exist or migration fails, create all tables directly.
+    """
+    from flask_migrate import Migrate, upgrade
+
+    _ = Migrate(app, db)
+    logger = app.logger
+
+    with app.app_context():
+        if not os.path.exists('migrations'):
+            logger.info("Migrations folder not found")
+            logger.info("Run the following command to initialize migrations:")
+            logger.info("    flask db init")
+            logger.info("    flask db migrate -m 'Initial migration'")
+            logger.info("    flask db upgrade")
+            logger.info("Now creating the database tables directly.")
+            db.create_all()
+        else:
+            try:
+                upgrade()
+                logger.info("Database migrated to latest version")
+            except Exception as e:
+                logger.error(f"Database migration failed: {e}")
+                logger.info("Creating database tables directly.")
+                db.create_all()
