@@ -5,7 +5,6 @@ import com.fasterxml.jackson.databind.JsonMappingException
 import com.fasterxml.jackson.databind.exc.InvalidFormatException
 import com.fasterxml.jackson.databind.exc.MismatchedInputException
 import com.fasterxml.jackson.databind.exc.UnrecognizedPropertyException
-// import com.fasterxml.jackson.databind.exc.MissingParameterException
 import jakarta.servlet.http.HttpServletRequest
 import jakarta.validation.ConstraintViolationException
 import net.cymoo.pebble.util.camelToSnake
@@ -156,17 +155,12 @@ class ExceptionHandler {
             // Handle Jackson's `InvalidFormatException` (type mismatch)
             is InvalidFormatException -> handleInvalidFormat(cause)
 
-            // Handle missing required parameters
-            // is MissingParameter -> handleMissingParameter(cause)
-
             // Handle bad JSON format
             is JsonParseException -> "Invalid JSON"
 
             // Handle unknown fields
             is UnrecognizedPropertyException -> handleUnrecognizedProperty(cause)
 
-            // TODO: Duplicate branch condition in 'when'
-            // Handle type mismatch (e.g., expecting an object instead of an array)
             is MismatchedInputException -> handleMismatchedInput(cause)
 
             // Other JSON mapping errors
@@ -307,6 +301,14 @@ private fun handleUnrecognizedProperty(ex: UnrecognizedPropertyException): Strin
 
 private fun handleMismatchedInput(ex: MismatchedInputException): String {
     val path = buildPath(ex.path).wrapWith("'")
+    val message = ex.message ?: ""
+
+    if (message.contains("missing", ignoreCase = true) ||
+        message.contains("required", ignoreCase = true)
+    ) {
+        return "$path is required"
+    }
+
     val targetType = ex.targetType
     return when {
         targetType.isArray || List::class.java.isAssignableFrom(targetType) ->
