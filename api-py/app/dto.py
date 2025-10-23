@@ -3,7 +3,7 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Optional, Self, Literal, TypeAlias, Annotated
 
-import orjson as json
+import orjson
 from pydantic import BaseModel, AfterValidator, Field
 
 from .model import Post
@@ -172,7 +172,7 @@ class PostDto:
             deleted_at=post.deleted_at,
             children_count=post.children_count,
             shared=post.shared,
-            files=json.loads(post.files) if post.files else [],
+            files=orjson.loads(post.files) if post.files else [],
             color=post.color,
             tags=[tag.name for tag in post.tags],
         )

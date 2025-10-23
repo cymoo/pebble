@@ -163,9 +163,6 @@ type UpdatePostRequest struct {
 	Content *string `json:"content"`
 	Shared  *bool   `json:"shared"`
 
-	// Files    *[]FileInfo `json:"files,omitempty"`
-	// Color    *string     `json:"color,omitempty"`
-	// ParentID *int64      `json:"parent_id,omitempty"`
 	Files    t.Optional[[]FileInfo] `json:"files"`
 	Color    t.Optional[string]     `json:"color"`
 	ParentID t.Optional[int64]      `json:"parent_id"`
