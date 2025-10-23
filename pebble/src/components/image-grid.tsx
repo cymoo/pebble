@@ -1,6 +1,7 @@
 import { UniqueIdentifier } from '@dnd-kit/core'
 import { Plus as PlusIcon, X as XIcon } from 'lucide-react'
 import PhotoSwipe from 'photoswipe'
+import toast from 'react-hot-toast'
 import PhotoSwipeLightbox from 'photoswipe/lightbox'
 import 'photoswipe/style.css'
 import {
@@ -26,6 +27,7 @@ import { URLWithStore } from '@/utils/url'
 import { Button } from './button'
 import { Sortable } from './sortable.tsx'
 import { Spinner } from './spinner'
+import { to } from '@react-spring/web'
 
 export interface Image {
   url: string
@@ -86,7 +88,7 @@ interface ImageGridProps extends Omit<ComponentProps<'div'>, 'onChange' | 'ref'>
   ref?: Ref<ImageGridHandle>
 }
 
-// TODO: add max retry count, or it will ddos itself
+// TODO: add max retry count, or it will ddos the server when upload keeps failing
 export const ImageGrid = memo(function ImageGrid({
   initialValue,
   onChange,
@@ -119,6 +121,10 @@ export const ImageGrid = memo(function ImageGrid({
     input.onchange = () => {
       for (const file of input.files ?? []) {
         if (!beforeUploadImage || beforeUploadImage(file)) {
+          if (!isImageFile(file.name)) {
+            toast(`Invalid image file: ${file.name}`)
+            continue
+          }
           const objURL = URLWithStore.createObjectURL(file)
           void upload(objURL)
         }
@@ -341,4 +347,11 @@ function usePhotoSwipe(ref: RefObject<HTMLElement>) {
 
 function isObjectUrl(url: string) {
   return url.startsWith('blob:')
+}
+
+// check if the file is an image based on its extension
+function isImageFile(fileName: string) {
+  const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp']
+  const lowerFileName = fileName.toLowerCase()
+  return imageExtensions.some((ext) => lowerFileName.endsWith(ext))
 }
