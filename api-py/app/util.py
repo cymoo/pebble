@@ -5,6 +5,9 @@ from datetime import timedelta, datetime, timezone
 from typing import Literal
 from uuid import uuid4
 from PIL import Image
+from flask import request
+from ipaddress import ip_address
+from typing import Optional
 from dotenv import load_dotenv
 
 
@@ -218,6 +221,67 @@ def mark_tokens_in_html(tokens: list[str], html: str) -> str:
         lambda m: m.group(0) if m.group(1) is None else f'<mark>{m.group(1)}</mark>',
         html,
     )
+
+
+def get_real_ip() -> Optional[str]:
+    """A simple method to obtain the real IP address:
+    Priority:
+    1. X-Forwarded-For
+    2. X-Real-IP
+    3. remote_addr
+    """
+
+    # try to get from X-Forwarded-For
+    forwarded_for = request.headers.get('X-Forwarded-For')
+    if forwarded_for:
+        return forwarded_for.split(',')[0].strip()
+
+    # try to get from X-Real-IP
+    real_ip = request.headers.get('X-Real-IP')
+    if real_ip:
+        return real_ip
+
+    # fallback to remote_addr
+    return request.remote_addr
+
+
+def get_real_and_safe_ip() -> Optional[str]:
+    """Securely obtain the client IP address.
+
+    Supports IPv4/IPv6 and handles multiple proxy layers.
+    Priority:
+    1. X-Forwarded-For
+    2. X-Real-IP
+    3. remote_addr
+    """
+
+    ip_candidates = []
+
+    # X-Forwarded-For may contain multiple IPs
+    forwarded_for = request.headers.get('X-Forwarded-For', '').split(',')
+    ip_candidates.extend([ip.strip() for ip in forwarded_for if ip.strip()])
+
+    # add X-Real-IP
+    real_ip = request.headers.get('X-Real-IP')
+    if real_ip:
+        ip_candidates.append(real_ip)
+
+    # add remote_addr
+    if request.remote_addr:
+        ip_candidates.append(request.remote_addr)
+
+    # validate and return the first valid IP
+    for candidate in ip_candidates:
+        try:
+            # validate IP
+            ip = ip_address(candidate)
+            # exclude private/reserved addresses
+            if not (ip.is_private or ip.is_reserved):
+                return str(ip)
+        except ValueError:
+            continue
+
+    return None
 
 
 if __name__ == '__main__':

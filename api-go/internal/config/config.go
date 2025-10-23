@@ -101,7 +101,7 @@ func Load() *Config {
 			AllowedOrigins:   env.GetSlice("CORS_ALLOWED_ORIGINS", []string{}),
 			AllowedMethods:   env.GetSlice("CORS_ALLOWED_METHODS", []string{}),
 			AllowedHeaders:   env.GetSlice("CORS_ALLOWED_HEADERS", []string{}),
-			AllowCredentials: env.GetBool("CORS_ALLOW_CREDENTIALS", true),
+			AllowCredentials: env.GetBool("CORS_ALLOW_CREDENTIALS", false),
 			MaxAge:           env.GetInt("CORS_MAX_AGE", 3600*24),
 		},
 	}

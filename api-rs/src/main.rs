@@ -40,8 +40,10 @@ async fn main() {
     // This integrates database migrations into the application binary
     // to ensure the database is properly migrated during startup.
     let db = &app_state.db;
-    debug!("Migrating database...");
-    db.migrate().await.expect("Cannot migrate database");
+    if config.db.auto_migrate {
+        debug!("Migrating database...");
+        db.migrate().await.expect("Cannot migrate database");
+    }
 
     let state_clone = app_state.clone();
     tokio::spawn(async move {

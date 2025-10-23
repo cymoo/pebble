@@ -1,4 +1,5 @@
 import os
+import orjson
 from concurrent.futures import ThreadPoolExecutor
 from mimetypes import guess_extension
 from os import path
@@ -138,9 +139,11 @@ def get_post(payload: Id) -> PostDto:
 @api.post('/create-post')
 @validate
 def create_post(payload: CreatePostRequest) -> CreationDto:
+    # orjson.dumps returns bytes, need to decode to str, or else blob will be stored in sqlite
+    files = orjson.dumps(payload.files).decode('utf-8') if payload.files else None
     post = Post(
         content=payload.content,
-        files=json.dumps(payload.files) if payload.files else None,
+        files=files,
         color=payload.color,
         shared=payload.shared or False,
         parent_id=payload.parent_id,
@@ -171,9 +174,11 @@ def update_post(payload: UpdatePostRequest) -> NoContent:
 
         if field == 'content':
             post.content = value
-            post.tags = [Tag.find_or_create(tag) for tag in HASH_PATTERN.findall(value)]
+            post.tags = [
+                Tag.find_or_create(tag) for tag in set(HASH_PATTERN.findall(value))
+            ]
         elif field == 'files':
-            post.files = json.dumps(value) if value else None
+            post.files = orjson.dumps(value).decode('utf-8') if value else None
         elif field == 'parent_id':
             if post.parent_id is not None and value is None:
                 post.parent.children_count -= 1

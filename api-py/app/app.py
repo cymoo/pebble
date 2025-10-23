@@ -4,6 +4,7 @@ Application factory
 """
 
 import os
+import logging
 from dataclasses import is_dataclass
 
 from flask import Flask, send_from_directory, jsonify
@@ -29,6 +30,7 @@ def create_app(config) -> Flask:
 
     app.config.from_object(config)
 
+    setup_logger(app)
     init_extension(app)
     register_blueprints(app)
     register_cors_handlers(app)
@@ -39,6 +41,29 @@ def create_app(config) -> Flask:
     huey.start()
 
     return app
+
+
+def setup_logger(app: Flask) -> None:
+    from .logger import config_logger
+
+    config = app.config
+    LOG_CONSOLE = config['LOG_CONSOLE']
+    LOG_FILE = config['LOG_FILE']
+    LOG_LEVEL = config['LOG_LEVEL']
+    LOG_REQUESTS = config['LOG_REQUESTS']
+    LOG_MAX_BYTES = config['LOG_MAX_BYTES']
+    LOG_MAX_BACKUPS = config['LOG_MAX_BACKUPS']
+
+    level = getattr(logging, LOG_LEVEL.upper(), logging.INFO)
+
+    config_logger(
+        level=level,
+        console_output=LOG_CONSOLE,
+        log_file=LOG_FILE,
+        include_request_context=LOG_REQUESTS,
+        max_bytes=LOG_MAX_BYTES,
+        max_backups=LOG_MAX_BACKUPS,
+    )
 
 
 def init_extension(app: Flask) -> None:

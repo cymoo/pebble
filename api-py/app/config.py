@@ -32,7 +32,6 @@ class BaseConfig:
     CORS_ALLOWED_ORIGINS = os.getenv('CORS_ALLOWED_ORIGINS', '*')
     CORS_ALLOWED_METHODS = os.getenv('CORS_ALLOWED_METHODS', 'GET, POST, PUT, DELETE, OPTIONS')
     CORS_ALLOWED_HEADERS = os.getenv('CORS_ALLOWED_HEADERS', 'Content-Type, Authorization')
-    # TODO: allow credentials only when specific origins are set
     CORS_ALLOW_CREDENTIALS = (os.getenv('CORS_ALLOW_CREDENTIALS', 'false').lower() == 'true')
     CORS_MAX_AGE = int(os.getenv('CORS_MAX_AGE', 3600))
 
@@ -50,6 +49,14 @@ class BaseConfig:
 
     # Redis settings
     REDIS_URL = os.getenv('REDIS_URL', 'redis://localhost:6379/0')
+
+    # Logging settings
+    LOG_CONSOLE = (os.getenv('LOG_CONSOLE', 'true').lower() == 'true')
+    LOG_FILE = os.getenv('LOG_FILE', '')
+    LOG_LEVEL = os.getenv('LOG_LEVEL', 'INFO')
+    LOG_REQUESTS = (os.getenv('LOG_REQUESTS', 'true').lower() == 'true')
+    LOG_MAX_BYTES = int(os.getenv('LOG_MAX_BYTES', 10485760))  # 10MB
+    LOG_MAX_BACKUPS = int(os.getenv('LOG_MAX_BACKUPS', 10))
 
     # Misc
     ABOUT_URL = os.getenv('ABOUT_URL')

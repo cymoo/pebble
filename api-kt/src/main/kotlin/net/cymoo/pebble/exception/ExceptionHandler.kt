@@ -155,16 +155,12 @@ class ExceptionHandler {
             // Handle Jackson's `InvalidFormatException` (type mismatch)
             is InvalidFormatException -> handleInvalidFormat(cause)
 
-            // Handle missing required parameters
-            is MismatchedInputException -> handleMissingParameter(cause)
-
             // Handle bad JSON format
             is JsonParseException -> "Invalid JSON"
 
             // Handle unknown fields
             is UnrecognizedPropertyException -> handleUnrecognizedProperty(cause)
 
-            // Handle type mismatch (e.g., expecting an object instead of an array)
             is MismatchedInputException -> handleMismatchedInput(cause)
 
             // Other JSON mapping errors
@@ -305,6 +301,14 @@ private fun handleUnrecognizedProperty(ex: UnrecognizedPropertyException): Strin
 
 private fun handleMismatchedInput(ex: MismatchedInputException): String {
     val path = buildPath(ex.path).wrapWith("'")
+    val message = ex.message ?: ""
+
+    if (message.contains("missing", ignoreCase = true) ||
+        message.contains("required", ignoreCase = true)
+    ) {
+        return "$path is required"
+    }
+
     val targetType = ex.targetType
     return when {
         targetType.isArray || List::class.java.isAssignableFrom(targetType) ->

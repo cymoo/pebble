@@ -3,6 +3,7 @@ import re
 from app import create_app
 from app.config import DevelopmentConfig
 from app.model import Post, db
+import sqlite3
 
 # https://github.com/brightmart/nlp_chinese_corpus
 dataset_path = '/Users/neo/Downloads/baike2018qa/baike_qa_valid.json'
@@ -61,6 +62,16 @@ def check_sqlite_config():
                 print(f"Error checking {name}: {e}")
 
 
+def refresh_wal_checkpoint(db_path):
+    conn = sqlite3.connect(db_path)
+    cursor = conn.cursor()
+    cursor.execute("PRAGMA wal_checkpoint(FULL);")
+    result = cursor.fetchone()
+    conn.close()
+    print(f"WAL checkpoint result: {result}")
+
+
 if __name__ == '__main__':
     # gen_sample_posts()
-    check_sqlite_config()
+    # check_sqlite_config()
+    refresh_wal_checkpoint('data/app-dev.db')
