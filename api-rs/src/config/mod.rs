@@ -13,8 +13,6 @@ pub struct AppConfig {
     // Basic app info
     pub app_name: String,
     pub app_version: String,
-    pub app_env: String,
-    pub debug : bool,
 
     // App settings
     pub posts_per_page: u32,
@@ -80,9 +78,6 @@ impl AppConfig {
     pub fn from_env() -> Self {
         load_dotenv();
 
-        let app_env = get_env_or("APP_ENV", "development".to_string()).unwrap();
-        let debug = app_env == "development" || app_env == "dev";
-
         let app_name = get_env_or("APP_NAME", "Pebble".to_string()).unwrap();
         let app_version = get_env_or("APP_VERSION", "1.0.0".to_string()).unwrap();
 
@@ -93,8 +88,6 @@ impl AppConfig {
         AppConfig {
             app_name,
             app_version,
-            app_env,
-            debug,
 
             posts_per_page,
             static_url,
@@ -189,7 +182,7 @@ impl CORSConfig {
         let allowed_origins = get_vec_from_env_or("CORS_ALLOWED_ORIGINS", vec![]).unwrap();
         let allowed_methods = get_vec_from_env_or("CORS_ALLOWED_METHODS", strs_to_strings(vec!["GET", "POST", "PUT", "DELETE", "OPTIONS"])).unwrap();
         let allowed_headers = get_vec_from_env_or("CORS_ALLOWED_HEADERS", vec!["Content-Type".to_string(), "Authorization".to_string()]).unwrap();
-        let allow_credentials = get_env_or("CORS_ALLOW_CREDENTIALS", true).unwrap();
+        let allow_credentials = get_env_or("CORS_ALLOW_CREDENTIALS", false).unwrap();
         let max_age = get_env_or("CORS_MAX_AGE", 86400).unwrap();
 
         CORSConfig {
@@ -203,13 +196,13 @@ impl CORSConfig {
 
     pub fn into_layer(self) -> CorsLayer {
         let mut cors = CorsLayer::new();
-        
+
         cors = if self.allowed_origins.contains(&"*".to_string()) {
             cors.allow_origin(Any)
         } else {
             cors.allow_origin(AllowOrigin::list(convert_vec( self.allowed_origins.clone())))
         };
-            
+
         cors = if self.allowed_methods.contains(&"*".to_string()) {
             cors.allow_methods(Any)
         } else {
@@ -248,7 +241,7 @@ fn strs_to_strings(vec: Vec<&str>) -> Vec<String> {
 }
 
 // Helper function to convert Vec<String> to Vec<T>
-fn convert_vec<T: FromStr>(strings: Vec<String>) -> Vec<T> 
+fn convert_vec<T: FromStr>(strings: Vec<String>) -> Vec<T>
 where
     <T as FromStr>::Err: Debug,
 {

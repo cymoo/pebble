@@ -36,9 +36,10 @@ def run_migration(app: Flask, db: SQLAlchemy) -> None:
     If migrations folder does not exist or migration fails, create all tables directly.
     """
     from flask_migrate import Migrate, upgrade
+    from .logger import logger
+    from concurrent.futures import ProcessPoolExecutor
 
     _ = Migrate(app, db)
-    logger = app.logger
 
     with app.app_context():
         if not os.path.exists('migrations'):
@@ -51,7 +52,13 @@ def run_migration(app: Flask, db: SQLAlchemy) -> None:
             db.create_all()
         else:
             try:
-                upgrade()
+                # NOTE: flask_migrate.upgrade breaks logging!!!
+                # So we run it in a separate process to avoid messing up the main process's logger.
+                # A bitter lesson learned: reduce dependencies as much as possible.
+                with ProcessPoolExecutor() as executor:
+                    future = executor.submit(upgrade)
+                    future.result(timeout=10)  # wait for max 10 seconds
+
                 logger.info("Database migrated to latest version")
             except Exception as e:
                 logger.error(f"Database migration failed: {e}")

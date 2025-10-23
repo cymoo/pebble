@@ -86,6 +86,7 @@ interface ImageGridProps extends Omit<ComponentProps<'div'>, 'onChange' | 'ref'>
   ref?: Ref<ImageGridHandle>
 }
 
+// TODO: add max retry count, or it will ddos itself
 export const ImageGrid = memo(function ImageGrid({
   initialValue,
   onChange,

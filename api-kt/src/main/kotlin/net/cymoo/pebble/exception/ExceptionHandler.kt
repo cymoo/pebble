@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.JsonMappingException
 import com.fasterxml.jackson.databind.exc.InvalidFormatException
 import com.fasterxml.jackson.databind.exc.MismatchedInputException
 import com.fasterxml.jackson.databind.exc.UnrecognizedPropertyException
+// import com.fasterxml.jackson.databind.exc.MissingParameterException
 import jakarta.servlet.http.HttpServletRequest
 import jakarta.validation.ConstraintViolationException
 import net.cymoo.pebble.util.camelToSnake
@@ -156,7 +157,7 @@ class ExceptionHandler {
             is InvalidFormatException -> handleInvalidFormat(cause)
 
             // Handle missing required parameters
-            is MismatchedInputException -> handleMissingParameter(cause)
+            // is MissingParameter -> handleMissingParameter(cause)
 
             // Handle bad JSON format
             is JsonParseException -> "Invalid JSON"
@@ -164,6 +165,7 @@ class ExceptionHandler {
             // Handle unknown fields
             is UnrecognizedPropertyException -> handleUnrecognizedProperty(cause)
 
+            // TODO: Duplicate branch condition in 'when'
             // Handle type mismatch (e.g., expecting an object instead of an array)
             is MismatchedInputException -> handleMismatchedInput(cause)
 

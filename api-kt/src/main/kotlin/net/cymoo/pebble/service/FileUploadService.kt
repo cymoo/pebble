@@ -61,6 +61,8 @@ class FileUploadService(private val uploadConfig: FileUploadConfig) {
         // Handle image orientation based on EXIF
         val metadata = ImageMetadataReader.readMetadata(file)
         val exifDirectory = metadata.getFirstDirectoryOfType(ExifIFD0Directory::class.java)
+        // TODO: upload PNG will fail:
+        // Tag 'Orientation' has not been set -- check using containsTag() first
         val orientation = exifDirectory?.getInt(ExifIFD0Directory.TAG_ORIENTATION)
 
         // Transpose image if needed

@@ -171,7 +171,9 @@ def update_post(payload: UpdatePostRequest) -> NoContent:
 
         if field == 'content':
             post.content = value
-            post.tags = [Tag.find_or_create(tag) for tag in HASH_PATTERN.findall(value)]
+            post.tags = [
+                Tag.find_or_create(tag) for tag in set(HASH_PATTERN.findall(value))
+            ]
         elif field == 'files':
             post.files = json.dumps(value) if value else None
         elif field == 'parent_id':
