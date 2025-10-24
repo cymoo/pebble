@@ -152,9 +152,9 @@ func LoadConfigFiles(env string) {
 
 	switch env {
 	case "development", "dev", "debug":
-		configFiles = append(configFiles, ".env.dev")
+		configFiles = append(configFiles, ".env.dev", ".env.development")
 	case "production", "prod", "release":
-		configFiles = append(configFiles, ".env.prod")
+		configFiles = append(configFiles, ".env.prod", ".env.production")
 	case "test":
 		configFiles = append(configFiles, ".env.test")
 	}
