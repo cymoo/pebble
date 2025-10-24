@@ -81,10 +81,17 @@ func (app *App) initialize() error {
 
 // initDatabase initializes the database connection and runs migrations if enabled
 func (app *App) initDatabase() error {
+	if app.config.DB.AutoMigrate {
+		log.Println("running database migrations...")
+		if err := runMigrations(app.config.DB.URL); err != nil {
+			return fmt.Errorf("failed to run migrations: %w", err)
+		}
+	}
+
 	db, err := sqlx.Connect("sqlite", app.config.DB.URL)
 	if err != nil {
 		log.Printf("database connection error: %v", app.config.DB.URL)
-		return err
+		return fmt.Errorf("failed to connect to database: %w", err)
 	}
 
 	_, err = db.Exec("PRAGMA foreign_keys = ON")
@@ -107,19 +114,12 @@ func (app *App) initDatabase() error {
 	db.SetConnMaxIdleTime(0)
 	db.SetConnMaxLifetime(0)
 
-	if app.config.DB.AutoMigrate {
-		log.Println("running database migrations...")
-		if err := runMigrations(app.config.DB.URL); err != nil {
-			return fmt.Errorf("failed to run migrations: %w", err)
-		}
-	}
-
 	// Test connection
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
 	if err := db.PingContext(ctx); err != nil {
-		return err
+        return fmt.Errorf("database ping failed: %w", err)
 	}
 
 	app.db = db
