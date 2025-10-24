@@ -6,7 +6,7 @@ require (
 	github.com/cymoo/mint v0.2.1
 	github.com/cymoo/mita v0.1.0
 	github.com/disintegration/imaging v1.6.2
-	github.com/go-chi/chi v1.5.5
+	github.com/go-chi/chi/v5 v5.2.3
 	github.com/go-ego/gse v0.80.3
 	github.com/golang-migrate/migrate/v4 v4.19.0
 	github.com/google/uuid v1.6.0
@@ -26,7 +26,6 @@ require (
 	github.com/hashicorp/errwrap v1.1.0 // indirect
 	github.com/hashicorp/go-multierror v1.1.1 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
-	github.com/mattn/go-sqlite3 v1.14.22 // indirect
 	github.com/ncruces/go-strftime v0.1.9 // indirect
 	github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec // indirect
 	github.com/robfig/cron/v3 v3.0.0 // indirect

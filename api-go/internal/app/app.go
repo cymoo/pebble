@@ -18,8 +18,8 @@ import (
 	"github.com/cymoo/pebble/internal/tasks"
 	"github.com/cymoo/pebble/pkg/fulltext"
 
-	"github.com/go-chi/chi"
-	"github.com/go-chi/chi/middleware"
+	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/chi/v5/middleware"
 
 	"github.com/golang-migrate/migrate/v4"
 	_ "github.com/golang-migrate/migrate/v4/database/sqlite"
