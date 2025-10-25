@@ -119,7 +119,7 @@ func (app *App) initDatabase() error {
 	defer cancel()
 
 	if err := db.PingContext(ctx); err != nil {
-        return fmt.Errorf("database ping failed: %w", err)
+		return fmt.Errorf("database ping failed: %w", err)
 	}
 
 	app.db = db
@@ -189,7 +189,7 @@ func (app *App) setupRoutes() {
 		r.Use(middleware.Logger)
 	}
 
-    appEnv := app.config.AppEnv
+	appEnv := app.config.AppEnv
 	r.Use(PanicRecovery(appEnv == "development" || appEnv == "dev"))
 	r.Use(CORS(app.config.HTTP.CORS))
 
@@ -259,7 +259,7 @@ func (app *App) Run() error {
 	app.tm.Start()
 
 	go func() {
-        log.Printf("server starting on %s", app.server.Addr)
+		log.Printf("server starting on %s", app.server.Addr)
 		if err := app.server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			log.Fatalf("server failed to start: %v", err)
 		}
