@@ -57,7 +57,7 @@ func (g *GseTokenizer) init(dictPaths ...string) {
 
 // Cut tokenizes text into words using search mode
 func (g *GseTokenizer) Cut(text string) []string {
-	return g.seg.CutAll(text)
+	return g.seg.Cut(text, true)
 }
 
 // Analyze performs full text analysis with preprocessing

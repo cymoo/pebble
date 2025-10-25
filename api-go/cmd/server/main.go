@@ -9,7 +9,7 @@ import (
 
 func main() {
 	cfg := config.Load()
-    cfg.ValidateConfig()
+	cfg.ValidateConfig()
 	application := app.New(cfg)
 
 	if err := application.Run(); err != nil {

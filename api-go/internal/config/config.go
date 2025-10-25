@@ -166,9 +166,9 @@ func (c *Config) ValidateConfig() {
 		errs = append(errs, "AppEnv cannot be empty")
 	}
 
-    if c.AppEnv != "development" && c.AppEnv != "dev" && c.AppEnv != "production" && c.AppEnv != "prod" && c.AppEnv != "test" {
-        errs = append(errs, fmt.Sprintf("AppEnv must be one of 'development', 'dev', 'production', 'prod', or 'test', got '%s'", c.AppEnv))
-    }
+	if c.AppEnv != "development" && c.AppEnv != "dev" && c.AppEnv != "production" && c.AppEnv != "prod" && c.AppEnv != "test" {
+		errs = append(errs, fmt.Sprintf("AppEnv must be one of 'development', 'dev', 'production', 'prod', or 'test', got '%s'", c.AppEnv))
+	}
 
 	// Validate application settings
 	if c.PostsPerPage <= 0 {
