@@ -57,8 +57,7 @@ func (g *GseTokenizer) init(dictPaths ...string) {
 
 // Cut tokenizes text into words using search mode
 func (g *GseTokenizer) Cut(text string) []string {
-	// Use CutAll=false for precise mode, which is similar to jieba's CutForSearch
-	return g.seg.Cut(text, false)
+	return g.seg.CutAll(text)
 }
 
 // Analyze performs full text analysis with preprocessing
