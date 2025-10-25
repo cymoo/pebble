@@ -10,7 +10,7 @@ import (
 	"github.com/cymoo/pebble/internal/handlers"
 	"github.com/cymoo/pebble/internal/models"
 	"github.com/cymoo/pebble/internal/services"
-	"github.com/go-chi/chi"
+	"github.com/go-chi/chi/v5"
 )
 
 // NewApiRouter creates and returns a router for API endpoints

@@ -14,7 +14,7 @@ import (
 
 	"github.com/cymoo/pebble/internal/models"
 	"github.com/cymoo/pebble/pkg/util/env"
-	"github.com/go-chi/chi"
+	"github.com/go-chi/chi/v5"
 	"github.com/jmoiron/sqlx"
 )
 

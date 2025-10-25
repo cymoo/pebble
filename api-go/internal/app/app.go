@@ -18,8 +18,8 @@ import (
 	"github.com/cymoo/pebble/internal/tasks"
 	"github.com/cymoo/pebble/pkg/fulltext"
 
-	"github.com/go-chi/chi"
-	"github.com/go-chi/chi/middleware"
+	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/chi/v5/middleware"
 
 	"github.com/golang-migrate/migrate/v4"
 	_ "github.com/golang-migrate/migrate/v4/database/sqlite"
@@ -81,10 +81,17 @@ func (app *App) initialize() error {
 
 // initDatabase initializes the database connection and runs migrations if enabled
 func (app *App) initDatabase() error {
+	if app.config.DB.AutoMigrate {
+		log.Println("running database migrations...")
+		if err := runMigrations(app.config.DB.URL); err != nil {
+			return fmt.Errorf("failed to run migrations: %w", err)
+		}
+	}
+
 	db, err := sqlx.Connect("sqlite", app.config.DB.URL)
 	if err != nil {
 		log.Printf("database connection error: %v", app.config.DB.URL)
-		return err
+		return fmt.Errorf("failed to connect to database: %w", err)
 	}
 
 	_, err = db.Exec("PRAGMA foreign_keys = ON")
@@ -107,19 +114,12 @@ func (app *App) initDatabase() error {
 	db.SetConnMaxIdleTime(0)
 	db.SetConnMaxLifetime(0)
 
-	if app.config.DB.AutoMigrate {
-		log.Println("running database migrations...")
-		if err := runMigrations(app.config.DB.URL); err != nil {
-			return fmt.Errorf("failed to run migrations: %w", err)
-		}
-	}
-
 	// Test connection
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
 	if err := db.PingContext(ctx); err != nil {
-		return err
+        return fmt.Errorf("database ping failed: %w", err)
 	}
 
 	app.db = db
@@ -188,7 +188,9 @@ func (app *App) setupRoutes() {
 	if app.config.Log.LogRequests {
 		r.Use(middleware.Logger)
 	}
-	r.Use(PanicRecovery(app.config.Debug))
+
+    appEnv := app.config.AppEnv
+	r.Use(PanicRecovery(appEnv == "development" || appEnv == "dev"))
 	r.Use(CORS(app.config.HTTP.CORS))
 
 	// Serve uploaded files
@@ -253,12 +255,11 @@ func (app *App) checkHealth(w http.ResponseWriter, r *http.Request) {
 
 // Run starts the HTTP server and listens for shutdown signals
 func (app *App) Run() error {
-
 	// Start background tasks
 	app.tm.Start()
 
 	go func() {
-		log.Printf("server starting on %s", app.server.Addr)
+        log.Printf("server starting on %s", app.server.Addr)
 		if err := app.server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			log.Fatalf("server failed to start: %v", err)
 		}

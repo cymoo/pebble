@@ -3,6 +3,9 @@ package config
 import (
 	"encoding/json"
 	"fmt"
+	"net"
+	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -14,7 +17,6 @@ type Config struct {
 	AppName    string
 	AppVersion string
 	AppEnv     string
-	Debug      bool
 
 	// Application settings
 	PostsPerPage int
@@ -75,11 +77,9 @@ type HTTPConfig struct {
 // Load loads the configuration from environment variables and config files
 func Load() *Config {
 	config := &Config{}
-	envType := env.GetString("APP_ENV", "development")
-	config.AppEnv = envType
-	config.Debug = envType == "development" || envType == "dev"
 
-	env.LoadConfigFiles(envType)
+	config.AppEnv = env.GetString("APP_ENV", "prod")
+	env.LoadConfigFiles(config.AppEnv)
 
 	config.AppName = env.GetString("APP_NAME", "Pebble")
 	config.AppVersion = env.GetString("APP_VERSION", "1.0.0")
@@ -149,6 +149,132 @@ func (c *Config) ToJSON(hideSensitive bool) (string, error) {
 	}
 
 	return string(data), nil
+}
+
+// ValidateConfig validates the configuration and panics if any validation fails
+func (c *Config) ValidateConfig() {
+	var errs []string
+
+	// Validate basic app info
+	if c.AppName == "" {
+		errs = append(errs, "AppName cannot be empty")
+	}
+	if c.AppVersion == "" {
+		errs = append(errs, "AppVersion cannot be empty")
+	}
+	if c.AppEnv == "" {
+		errs = append(errs, "AppEnv cannot be empty")
+	}
+
+    if c.AppEnv != "development" && c.AppEnv != "dev" && c.AppEnv != "production" && c.AppEnv != "prod" && c.AppEnv != "test" {
+        errs = append(errs, fmt.Sprintf("AppEnv must be one of 'development', 'dev', 'production', 'prod', or 'test', got '%s'", c.AppEnv))
+    }
+
+	// Validate application settings
+	if c.PostsPerPage <= 0 {
+		errs = append(errs, "PostsPerPage must be greater than 0")
+	}
+	if c.PostsPerPage > 1000 {
+		errs = append(errs, "PostsPerPage cannot exceed 1000")
+	}
+	if c.StaticURL == "" {
+		errs = append(errs, "StaticURL cannot be empty")
+	}
+
+	// Validate HTTP config
+	if c.HTTP.IP == "" {
+		errs = append(errs, "HTTP.IP cannot be empty")
+	} else if ip := net.ParseIP(c.HTTP.IP); ip == nil {
+		errs = append(errs, fmt.Sprintf("HTTP.IP '%s' is not a valid IP address", c.HTTP.IP))
+	}
+
+	if c.HTTP.Port <= 0 || c.HTTP.Port > 65535 {
+		errs = append(errs, fmt.Sprintf("HTTP.Port must be between 1 and 65535, got %d", c.HTTP.Port))
+	}
+
+	if c.HTTP.MaxBodySize <= 0 {
+		errs = append(errs, "HTTP.MaxBodySize must be greater than 0")
+	}
+	if c.HTTP.ReadTimeout <= 0 {
+		errs = append(errs, "HTTP.ReadTimeout must be greater than 0")
+	}
+	if c.HTTP.WriteTimeout <= 0 {
+		errs = append(errs, "HTTP.WriteTimeout must be greater than 0")
+	}
+	if c.HTTP.IdleTimeout <= 0 {
+		errs = append(errs, "HTTP.IdleTimeout must be greater than 0")
+	}
+
+	// Validate CORS config
+	if c.HTTP.CORS.MaxAge < 0 {
+		errs = append(errs, "CORS.MaxAge cannot be negative")
+	}
+
+	// Validate Upload config
+	if c.Upload.BaseURL == "" {
+		errs = append(errs, "Upload.BaseURL cannot be empty")
+	}
+	if c.Upload.BasePath == "" {
+		errs = append(errs, "Upload.BasePath cannot be empty")
+	} else {
+		// Ensure upload directory exists or can be created
+		if err := os.MkdirAll(c.Upload.BasePath, 0755); err != nil {
+			errs = append(errs, fmt.Sprintf("failed to create upload directory '%s': %v", c.Upload.BasePath, err))
+		} else {
+			// Check if directory is writable
+			testFile := filepath.Join(c.Upload.BasePath, ".write_test")
+			if err := os.WriteFile(testFile, []byte("test"), 0644); err != nil {
+				errs = append(errs, fmt.Sprintf("upload directory '%s' is not writable: %v", c.Upload.BasePath, err))
+			} else {
+				os.Remove(testFile)
+			}
+		}
+	}
+
+	if len(c.Upload.ImageFormats) == 0 {
+		errs = append(errs, "Upload.ImageFormats cannot be empty")
+	} else {
+		validFormats := map[string]bool{"jpg": true, "jpeg": true, "png": true, "webp": true, "gif": true}
+		for _, format := range c.Upload.ImageFormats {
+			if !validFormats[strings.ToLower(format)] {
+				errs = append(errs, fmt.Sprintf("invalid image format: %s", format))
+			}
+		}
+	}
+
+	if c.Upload.ThumbWidth == 0 {
+		errs = append(errs, "Upload.ThumbWidth must be greater than 0")
+	}
+	if c.Upload.ThumbWidth > 4096 {
+		errs = append(errs, "Upload.ThumbWidth cannot exceed 4096")
+	}
+
+	// Validate DB config
+	if c.DB.URL == "" {
+		errs = append(errs, "DB.URL cannot be empty")
+	}
+	if c.DB.PoolSize <= 0 {
+		errs = append(errs, "DB.PoolSize must be greater than 0")
+	}
+	if c.DB.PoolSize > 1000 {
+		errs = append(errs, "DB.PoolSize cannot exceed 1000")
+	}
+
+	// Validate Redis config
+	if c.Redis.URL == "" {
+		errs = append(errs, "Redis.URL cannot be empty")
+	}
+	if c.Redis.DB < 0 {
+		errs = append(errs, "Redis.DB cannot be negative")
+	}
+	if c.Redis.DB > 15 {
+		errs = append(errs, "Redis.DB cannot exceed 15")
+	}
+
+	// If there are validation errors, panic with all of them
+	if len(errs) > 0 {
+		panic(fmt.Sprintf("configuration validation failed:\n  - %s", strings.Join(errs, "\n  - ")))
+	}
 }
 
 // maskSensitive masks sensitive information in URLs
