@@ -3,7 +3,8 @@ import sys
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
 from flask import has_request_context, request
-from .util import get_real_and_safe_ip
+from ipaddress import ip_address
+from typing import Optional
 
 NA = '-'
 
@@ -19,7 +20,7 @@ class RequestFormatter(logging.Formatter):
         if has_request_context():
             record.url = request.base_url or NA
 
-            record.remote_addr = get_real_and_safe_ip() or NA
+            record.remote_addr = get_real_ip() or NA
             record.method = request.method or NA
 
             # Optional: include more request info if needed
@@ -94,6 +95,43 @@ def config_logger(
     # Prevent log messages from being propagated to the root logger
     logger.propagate = False
 
-    logger.info(f'Logger configured with level: {logging.getLevelName(level)}')
-
     return logger
+
+
+def get_real_ip() -> Optional[str]:
+    """Securely obtain the client IP address.
+
+    Supports IPv4/IPv6 and handles multiple proxy layers.
+    Priority:
+    1. X-Forwarded-For
+    2. X-Real-IP
+    3. remote_addr
+    """
+
+    ip_candidates = []
+
+    # X-Forwarded-For may contain multiple IPs
+    forwarded_for = request.headers.get('X-Forwarded-For', '').split(',')
+    ip_candidates.extend([ip.strip() for ip in forwarded_for if ip.strip()])
+
+    # add X-Real-IP
+    real_ip = request.headers.get('X-Real-IP')
+    if real_ip:
+        ip_candidates.append(real_ip)
+
+    # add remote_addr
+    if request.remote_addr:
+        ip_candidates.append(request.remote_addr)
+
+    # validate and return the first valid IP
+    for candidate in ip_candidates:
+        try:
+            # validate IP
+            ip = ip_address(candidate)
+            # exclude private/reserved addresses
+            if not (ip.is_private or ip.is_reserved):
+                return str(ip)
+        except ValueError:
+            continue
+
+    return None

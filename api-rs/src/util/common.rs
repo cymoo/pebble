@@ -1,11 +1,7 @@
 use anyhow::{anyhow, Context, Result};
 use chrono::{DateTime, FixedOffset, NaiveDate, NaiveTime, TimeZone};
 use dotenvy::dotenv;
-use regex::Regex;
-use std::borrow::Cow;
-use std::collections::HashMap;
 use std::env;
-use std::hash::Hash;
 use std::path::Path;
 use std::str::FromStr;
 use std::sync::OnceLock;
@@ -167,17 +163,7 @@ pub fn parse_size(size_str: &str) -> Option<u64> {
     }
 }
 
-pub fn count_frequencies<T>(items: &[T]) -> HashMap<T, usize>
-where
-    T: Eq + Hash + Clone,
-{
-    let mut frequencies = HashMap::new();
-    for item in items {
-        *frequencies.entry(item.clone()).or_insert(0) += 1;
-    }
-    frequencies
-}
-
+/// Replaces the starting substring `from` in `s` with `to` if `s` starts with `from`.
 pub fn replace_from_start(s: &str, from: &str, to: &str) -> String {
     if s.starts_with(from) {
         let remainder = &s[from.len()..];
@@ -185,69 +171,6 @@ pub fn replace_from_start(s: &str, from: &str, to: &str) -> String {
     } else {
         s.to_string()
     }
-}
-
-/// Check if a character is Chinese
-fn is_chinese_character(c: char) -> bool {
-    ('\u{4e00}'..='\u{9fff}').contains(&c)
-}
-
-/// Convert a token into a regex pattern, handling word boundaries for Latin text
-fn token_to_pattern(token: &str) -> String {
-    let escaped = regex::escape(token);
-    if token.chars().any(is_chinese_character) {
-        escaped
-    } else if token.chars().all(|c| c.is_ascii_alphanumeric() || c.is_ascii_whitespace()) {
-        // Only add word boundaries for pure alphanumeric tokens
-        format!(r"\b{}\b", escaped)
-    } else {
-        // For tokens with special characters, use the escaped version without word boundaries
-        escaped
-    }
-}
-
-/// Mark all occurrences of tokens in HTML text with <mark> tags,
-/// avoiding replacements in HTML tags and their attributes.
-///
-/// # Arguments
-/// * `html` - The HTML text to process
-/// * `tokens` - List of tokens to be marked
-///
-/// # Returns
-/// * `Ok(String)` - HTML text with tokens marked only in text content
-/// * `Err(HighlightError)` - If regex compilation fails
-pub fn highlight(html: &str, tokens: &[String]) -> String {
-    if tokens.is_empty() {
-        return html.to_string();
-    }
-
-    // Sort tokens by length in descending order
-    let mut sorted_tokens = tokens.to_vec();
-    sorted_tokens.sort_by(|a, b| b.len().cmp(&a.len()));
-
-    // Create the regex pattern
-    let patterns: Vec<String> = sorted_tokens
-        .iter()
-        .map(|token| token_to_pattern(token))
-        .collect();
-
-    // Combine patterns with HTML tag pattern
-    let pattern = format!(r"(<[^>]*>)|({})", patterns.join("|"));
-    let re = Regex::new(&pattern).expect(&format!("Failed to compile regex from: {}", pattern));
-
-    // Process the text
-    let result = re.replace_all(html, |caps: &regex::Captures| {
-        if caps.get(1).is_some() {
-            // HTML tag matched - return unchanged
-            // Convert to owned string to avoid lifetime issues
-            Cow::Owned(caps[1].to_string())
-        } else {
-            // Token matched - wrap with mark tags
-            Cow::Owned(format!("<mark>{}</mark>", &caps[0]))
-        }
-    });
-
-    result.into_owned()
 }
 
 /// Convert a date string to a DateTime object with timezone information

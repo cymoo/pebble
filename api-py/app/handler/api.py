@@ -23,7 +23,6 @@ from ..util import (
     gen_thumbnail,
     add_suffix,
     gen_secure_filename,
-    mark_tokens_in_html,
     parse_date_with_timezone,
 )
 from ..middleware import rate_limit, validate
@@ -353,3 +352,38 @@ def check_permission() -> None:
 
     if not is_valid_password(token):
         abort(401, "invalid authorization token")
+
+
+# Helper function
+
+
+def mark_tokens_in_html(tokens: list[str], html: str) -> str:
+    """
+    Mark all occurrences of tokens in HTML text with <mark> tags,
+    avoiding replacements in HTML tags and their attributes
+
+    Args:
+        tokens: List of tokens to be marked
+        html: Original HTML text
+
+    Returns:
+        HTML text with tokens marked only in text content
+    """
+    if not tokens:
+        return html
+
+    # Add word boundaries for English tokens
+    patterns = []
+    for token in sorted(tokens, key=len, reverse=True):
+        if any('\u4e00' <= char <= '\u9fff' for char in token):  # Chinese
+            patterns.append(re.escape(token))
+        else:  # English
+            patterns.append(fr'\b{re.escape(token)}\b')
+
+    # Single regex to match tokens but ignore HTML tags
+    pattern = f'(?:<[^>]*>)|({"|".join(patterns)})'
+    return re.sub(
+        pattern,
+        lambda m: m.group(0) if m.group(1) is None else f'<mark>{m.group(1)}</mark>',
+        html,
+    )

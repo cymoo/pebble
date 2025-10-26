@@ -29,6 +29,7 @@ def create_app(config) -> Flask:
     app.json = ORJSONProvider(app)
 
     app.config.from_object(config)
+    app.cfg = config
 
     setup_logger(app)
     init_extension(app)

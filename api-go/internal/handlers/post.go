@@ -77,7 +77,7 @@ func (h *PostHandler) SearchPosts(r *http.Request, query m.Query[models.SearchRe
 		score, exists := idToScore[posts[i].ID]
 		if exists {
 			// Highlight all occurrences of tokens in the content
-			posts[i].Content = highlight(posts[i].Content, tokens)
+			posts[i].Content = markTokensInHtml(posts[i].Content, tokens)
 			posts[i].Score = &score
 		}
 	}
@@ -323,9 +323,9 @@ func isChineseCharacter(c rune) bool {
 	return c >= '\u4e00' && c <= '\u9fff'
 }
 
-// Highlight highlights all occurrences of the given tokens in the HTML string
+// markTokensInHtml marks all occurrences of the given tokens in the HTML string
 // by wrapping them with <mark> tags, while preserving existing HTML tags.
-func highlight(html string, tokens []string) string {
+func markTokensInHtml(html string, tokens []string) string {
 	if len(tokens) == 0 {
 		return html
 	}
