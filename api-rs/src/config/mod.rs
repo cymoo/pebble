@@ -4,6 +4,9 @@ use std::time::Duration;
 use std::env;
 use std::str::FromStr;
 use std::fmt::Debug;
+use std::net::IpAddr;
+use std::path::Path;
+use std::fs;
 
 pub mod db;
 pub mod rd;
@@ -147,7 +150,7 @@ impl DBConfig {
     pub fn from_env() -> Self {
         load_dotenv();
 
-        let url = get_env_or("DATABASE_URL", "app.db".to_string()).unwrap();
+        let url = get_env_or("DATABASE_URL", "sqlite://app.db".to_string()).unwrap();
         let pool_size = get_env_or("DATABASE_POOL_SIZE", 5).unwrap();
         let auto_migrate = get_env_or("DATABASE_AUTO_MIGRATE", true).unwrap();
 
@@ -231,6 +234,110 @@ impl LogConfig {
 
         LogConfig {
             log_requests,
+        }
+    }
+}
+
+impl AppConfig {
+    /// Validates the configuration and panics if any validation fails
+    pub fn validate_config(&self) {
+        let mut errors = Vec::new();
+
+        // Validate basic app info
+        if self.app_name.is_empty() {
+            errors.push("app_name cannot be empty".to_string());
+        }
+        if self.app_version.is_empty() {
+            errors.push("app_version cannot be empty".to_string());
+        }
+
+        // Validate application settings
+        if self.posts_per_page <= 0 {
+            errors.push("posts_per_page must be greater than 0".to_string());
+        }
+        if self.posts_per_page > 1000 {
+            errors.push("posts_per_page cannot exceed 1000".to_string());
+        }
+        if self.static_url.is_empty() {
+            errors.push("static_url cannot be empty".to_string());
+        }
+        if self.static_path.is_empty() {
+            errors.push("static_path cannot be empty".to_string());
+        }
+
+        // Validate HTTP config
+        if self.http.ip.is_empty() {
+            errors.push("http.ip cannot be empty".to_string());
+        } else if self.http.ip.parse::<IpAddr>().is_err() {
+            errors.push(format!("http.ip '{}' is not a valid IP address", self.http.ip));
+        }
+
+        if self.http.max_body_size <= 0 {
+            errors.push("http.max_body_size must be greater than 0".to_string());
+        }
+
+        // Validate Upload config
+        if self.upload.base_url.is_empty() {
+            errors.push("upload.base_url cannot be empty".to_string());
+        }
+        if self.upload.base_path.is_empty() {
+            errors.push("upload.base_path cannot be empty".to_string());
+        } else {
+            let path = Path::new(&self.upload.base_path);
+            // Try to create directory if it doesn't exist
+            if let Err(e) = fs::create_dir_all(path) {
+                errors.push(format!("Failed to create upload directory '{}': {}", self.upload.base_path, e));
+            } else {
+                // Check if directory is writable
+                let test_file = path.join(".write_test");
+                if let Err(e) = fs::write(&test_file, b"test") {
+                    errors.push(format!("Upload directory '{}' is not writable: {}", self.upload.base_path, e));
+                } else {
+                    let _ = fs::remove_file(test_file);
+                }
+            }
+        }
+
+        if self.upload.image_formats.is_empty() {
+            errors.push("upload.image_formats cannot be empty".to_string());
+        } else {
+            let valid_formats = vec!["jpg", "jpeg", "png", "webp", "gif"];
+            for format in &self.upload.image_formats {
+                if !valid_formats.contains(&format.to_lowercase().as_str()) {
+                    errors.push(format!("Invalid image format: {}", format));
+                }
+            }
+        }
+
+        if self.upload.thumb_width == 0 {
+            errors.push("upload.thumb_width must be greater than 0".to_string());
+        }
+        if self.upload.thumb_width > 4096 {
+            errors.push("upload.thumb_width cannot exceed 4096".to_string());
+        }
+
+        // Validate DB config
+        if self.db.url.is_empty() {
+            errors.push("db.url cannot be empty".to_string());
+        }
+        if self.db.pool_size <= 0 {
+            errors.push("db.pool_size must be greater than 0".to_string());
+        }
+        if self.db.pool_size > 1000 {
+            errors.push("db.pool_size cannot exceed 1000".to_string());
+        }
+
+        // Validate Redis config
+        if self.redis.url.is_empty() {
+            errors.push("redis.url cannot be empty".to_string());
+        }
+        if self.redis.db > 15 {
+            errors.push("redis.db cannot exceed 15".to_string());
+        }
+
+        // If there are validation errors, panic with all of them
+        if !errors.is_empty() {
+            panic!("Configuration validation failed:\n  - {}", errors.join("\n  - "));
         }
     }
 }

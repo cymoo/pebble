@@ -35,6 +35,7 @@ async fn main() {
     let app_state = AppState::new().await;
 
     let config = &app_state.config;
+    config.validate_config();
     debug!("Config:\n {:#?}", config);
 
     // This integrates database migrations into the application binary
