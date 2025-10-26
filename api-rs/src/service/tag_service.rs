@@ -1,7 +1,6 @@
 use crate::errors::{bad_request, ApiResult};
 use crate::model::post::PostRow;
 use crate::model::tag::{Tag, TagWithPostCount};
-use crate::util::common::replace_from_start;
 use chrono::Utc;
 use sqlx::{query, query_as, Sqlite, SqlitePool, Transaction};
 use std::cmp::Reverse;
@@ -366,5 +365,16 @@ impl Tag {
         .await?;
 
         Ok(())
+    }
+}
+
+
+/// Replaces the starting substring `from` in `s` with `to` if `s` starts with `from`.
+pub fn replace_from_start(s: &str, from: &str, to: &str) -> String {
+    if s.starts_with(from) {
+        let remainder = &s[from.len()..];
+        format!("{}{}", to, remainder)
+    } else {
+        s.to_string()
     }
 }

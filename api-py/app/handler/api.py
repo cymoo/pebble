@@ -1,8 +1,9 @@
 import os
-import orjson
 from concurrent.futures import ThreadPoolExecutor
 from mimetypes import guess_extension
 from os import path
+from datetime import timedelta, datetime, timezone
+from uuid import uuid4
 
 from PIL import Image, ImageOps
 from flask import (
@@ -19,12 +20,6 @@ from ..dto import *
 from ..exception import bad_request
 from ..model import Post, Tag, HASH_PATTERN
 from ..extension import fts, db
-from ..util import (
-    gen_thumbnail,
-    add_suffix,
-    gen_secure_filename,
-    parse_date_with_timezone,
-)
 from ..middleware import rate_limit, validate
 
 api = Blueprint('api', __name__)
@@ -234,7 +229,7 @@ def get_daily_post_counts(payload: DateRange) -> list[int]:
     return Post.get_daily_counts(
         start_date=parse_date_with_timezone(payload.start_date, payload.offset),
         end_date=parse_date_with_timezone(
-            payload.end_date, payload.offset, at_end=True
+            payload.end_date, payload.offset, end_of_day=True
         ),
     )
 
@@ -354,7 +349,7 @@ def check_permission() -> None:
         abort(401, "invalid authorization token")
 
 
-# Helper function
+# Helper functions
 
 
 def mark_tokens_in_html(tokens: list[str], html: str) -> str:
@@ -387,3 +382,93 @@ def mark_tokens_in_html(tokens: list[str], html: str) -> str:
         lambda m: m.group(0) if m.group(1) is None else f'<mark>{m.group(1)}</mark>',
         html,
     )
+
+
+def parse_date_with_timezone(
+    date_str: str, utc_offset: int, end_of_day=False
+) -> datetime:
+    """Parses a date string with a specified timezone offset.
+    Args:
+        date_str (str): Date string in "YYYY-MM-DD" format.
+        utc_offset (int): Timezone offset in minutes from UTC.
+        end_of_day (bool): If True, set time to 23:59:59.999, else to 00:00:00.000.
+    Returns:
+        datetime: A timezone-aware datetime object.
+    Raises:
+        ValueError: If the date format is invalid or timezone offset is out of range.
+    """
+
+    if abs(utc_offset) > 1440:
+        raise ValueError(
+            f'Timezone offset must be between -1440 and 1440 minutes: {utc_offset}'
+        )
+
+    # Parse the date string
+    local_datetime = datetime.strptime(date_str, "%Y-%m-%d")
+
+    # Create time component
+    local_datetime = local_datetime.replace(
+        hour=23 if end_of_day else 0,
+        minute=59 if end_of_day else 0,
+        second=59 if end_of_day else 0,
+        microsecond=999000 if end_of_day else 0,
+    )
+
+    # Create timezone offset
+    offset_hours, offset_minutes = divmod(utc_offset, 60)
+    custom_timezone = timezone(timedelta(hours=offset_hours, minutes=offset_minutes))
+
+    # Add timezone info for `datetime` object
+    return local_datetime.replace(tzinfo=custom_timezone)
+
+
+def gen_thumbnail(img: Image.Image, width: int) -> Image.Image:
+    """Generates a thumbnail image with the specified width while maintaining the aspect ratio."""
+
+    w_percent = width / img.width
+    height = int(img.height * w_percent)
+    return img.resize((width, height), Image.Resampling.LANCZOS)  # noqa
+
+
+# not 汉字, digit, alphabet, -, _, .
+INVALID_CHAR_PATTERN = re.compile(r'[^\w\-.\u4e00-\u9fa5]+')
+
+
+def gen_secure_filename(filename: str, uuid_length=8) -> str:
+    """Generates a secure, sanitized filename by replacing illegal characters with underscores
+    and appending a unique suffix to avoid naming conflicts.
+
+    It ensures the filename contains only valid characters (Chinese characters,
+    digits, alphabets, hyphens, underscores, and periods) and appends an uuid to make it secure for storage.
+
+    >>> gen_secure_filename("foo$&.jpg").startswith("foo_")
+    True
+    >>> '$&' not in gen_secure_filename("foo$&.jpg")
+    True
+    >>> gen_secure_filename("中文.jpg").startswith("中文")
+    True
+    """
+
+    if not filename:
+        raise ValueError('filename cannot be empty')
+
+    if 8 > uuid_length > 32:
+        raise ValueError('uuid_length must be between 8 and 32')
+
+    filename = INVALID_CHAR_PATTERN.sub('_', filename)
+    return add_suffix(filename, suffix='.' + uuid4().hex[0:uuid_length])
+
+
+def add_suffix(filename: str, suffix: str) -> str:
+    """
+    Add a suffix to a filename before the file extension.
+    >>> add_suffix("foo.jpg", suffix=".thumb")
+    'foo.thumb.jpg'
+    """
+
+    parts = filename.rsplit('.', maxsplit=1)
+    if len(parts) == 1:
+        basename, ext = parts[0], ''
+    else:
+        basename, ext = parts[0], '.' + parts[1]
+    return f'{basename}{suffix}{ext}'

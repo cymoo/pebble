@@ -2,14 +2,11 @@ use crate::config::rd::RedisPool;
 use crate::errors::{not_found, ApiError, ApiResult};
 use crate::middleware::check_access::check_access;
 use crate::middleware::limit_request::limit_request;
-use crate::model::post::{
-    CreatePostRequest, CreateResponse, DateRange, DeletePostRequest, FileInfo, FilterPostRequest,
-    Id, LoginRequest, Name, Post, PostPagination, PostStats, SearchRequest, UpdatePostRequest,
-};
-use crate::model::tag::{RenameTagRequest, StickyTagRequest, Tag, TagWithPostCount};
+use crate::model::post::*;
+use crate::model::tag::*;
 use crate::service::auth_service::AuthService;
 use crate::service::upload_service::FileUploadService;
-use crate::util::common::{to_datetime, Pipe};
+use crate::util::fp::Pipe;
 use crate::util::extractor::{Json, Query, ValidatedJson, ValidatedQuery};
 use crate::AppState;
 use axum::extract::{Multipart, State};
@@ -18,9 +15,12 @@ use axum::response::Html;
 use axum::routing::{get, post};
 use axum::{middleware, Router};
 use std::collections::HashMap;
+use chrono::{DateTime, FixedOffset, NaiveDate, NaiveTime, TimeZone};
 use regex::Regex;
 use std::borrow::Cow;
+use anyhow::Result;
 use tracing::error;
+
 
 pub fn create_routes(rd_pool: RedisPool) -> Router<AppState> {
     Router::new()
@@ -260,8 +260,8 @@ async fn get_daily_post_counts(
     Json(
         Post::get_daily_counts(
             &state.db,
-            to_datetime(&query.start_date, query.offset, false)?,
-            to_datetime(&query.end_date, query.offset, true)?,
+            parse_date_with_timezone(&query.start_date, query.offset, false)?,
+            parse_date_with_timezone(&query.end_date, query.offset, true)?,
         )
         .await?,
     )
@@ -324,6 +324,51 @@ async fn rebuild_all_indexes(State(state): State<AppState>) -> ApiResult<&'stati
 }
 
 // Helper functions
+
+/// Convert a date string to a DateTime object with timezone information
+///
+/// # Arguments
+///
+/// * `date_str` - The date string in "yyyy-MM-dd" format
+/// * `utc_offset` - Timezone offset in minutes
+/// * `end_of_day` - Whether to use the end time of the day (defaults to false, which means the start time of the day)
+///
+/// # Errors
+///
+/// Returns an error if:
+/// * The timezone offset is out of range (-1440 to 1440 minutes)
+/// * The date string cannot be parsed
+/// * The time components cannot be combined
+pub fn parse_date_with_timezone(
+    date_str: &str,
+    utc_offset: i32,
+    end_of_day: bool,
+) -> Result<DateTime<FixedOffset>> {
+    // Validate timezone offset
+    if utc_offset.abs() > 1440 {
+        return Err(anyhow::anyhow!(
+            "Timezone offset must be between -1440 and 1440 minutes: {utc_offset}"
+        ));
+    }
+
+    // Parse the date string and create time component
+    let local_datetime = NaiveDate::parse_from_str(date_str, "%Y-%m-%d")?.and_time(
+        if end_of_day {
+            NaiveTime::from_hms_milli_opt(23, 59, 59, 999)
+        } else {
+            NaiveTime::from_hms_opt(0, 0, 0)
+        }
+            .expect("Invalid time components"),
+    );
+
+    // Create timezone offset and convert local time
+    FixedOffset::east_opt(utc_offset * 60)
+        .ok_or_else(|| anyhow::anyhow!("Invalid timezone offset: {utc_offset}"))?
+        .from_local_datetime(&local_datetime)
+        .earliest()
+        .ok_or_else(|| anyhow::anyhow!("Invalid datetime conversion"))
+}
+
 
 /// Check if a character is Chinese
 fn is_chinese_character(c: char) -> bool {
@@ -391,6 +436,7 @@ pub fn mark_tokens_in_html(html: &str, tokens: &[String]) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use chrono::Timelike;
 
     #[test]
     fn test_empty_tokens() {
@@ -474,5 +520,36 @@ mod tests {
             result,
             "This is a <mark>test</mark> <mark>with overlapping</mark> tokens."
         );
+    }
+
+    #[test]
+    fn test_start_of_day() {
+        let dt = parse_date_with_timezone("2024-01-21", 480, false).unwrap();
+        assert_eq!(dt.hour(), 0);
+        assert_eq!(dt.minute(), 0);
+        assert_eq!(dt.second(), 0);
+        assert_eq!(dt.nanosecond(), 0);
+        assert_eq!(dt.offset().local_minus_utc(), 480 * 60);
+    }
+
+    #[test]
+    fn test_end_of_day() {
+        let dt = parse_date_with_timezone("2024-01-21", 480, true).unwrap();
+        assert_eq!(dt.hour(), 23);
+        assert_eq!(dt.minute(), 59);
+        assert_eq!(dt.second(), 59);
+        assert_eq!(dt.nanosecond(), 999_000_000);
+        assert_eq!(dt.offset().local_minus_utc(), 480 * 60);
+    }
+
+    #[test]
+    fn test_invalid_offset() {
+        assert!(parse_date_with_timezone("2024-01-21", 1441, false).is_err());
+        assert!(parse_date_with_timezone("2024-01-21", -1441, false).is_err());
+    }
+
+    #[test]
+    fn test_invalid_date() {
+        assert!(parse_date_with_timezone("invalid-date", 480, false).is_err());
     }
 }

@@ -1,11 +1,10 @@
 from typing import Tuple
 
-from flask import Blueprint, render_template
+from flask import Blueprint, render_template, current_app
 from datetime import datetime
 import re
 import orjson as json
 
-from ..config import config
 from ..model import Post
 
 page = Blueprint('page', __name__)
@@ -23,9 +22,17 @@ def post_list():
     for row in rows:
         title, description = extract_header_and_description_from_html(row.content)
         created_at = datetime.fromtimestamp(row.created_at // 1000).strftime('%Y-%m-%d')
-        # fmt: off
-        posts.append({'id': row.id, 'title': title, 'description': description, 'created_at': created_at})
-    return render_template('post-list.html', posts=posts, about_url=config.ABOUT_URL)
+        posts.append(
+            {
+                'id': row.id,
+                'title': title,
+                'description': description,
+                'created_at': created_at,
+            }
+        )
+    return render_template(
+        'post-list.html', posts=posts, about_url=current_app.config['ABOUT_URL']
+    )
 
 
 @page.get('/<int:id>')
@@ -45,7 +52,10 @@ def post_item(id: int):
         return render_template('404.html')
 
     return render_template(
-        'post-item.html', title=title, post=post, about_url=config.ABOUT_URL
+        'post-item.html',
+        title=title,
+        post=post,
+        about_url=current_app.config['ABOUT_URL'],
     )
 
 

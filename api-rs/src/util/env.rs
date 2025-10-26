@@ -1,49 +1,9 @@
 use anyhow::{anyhow, Context, Result};
-use chrono::{DateTime, FixedOffset, NaiveDate, NaiveTime, TimeZone};
 use dotenvy::dotenv;
 use std::env;
 use std::path::Path;
 use std::str::FromStr;
 use std::sync::OnceLock;
-
-/// The Pipe trait provides a method to pipe a value through a transformation.
-///
-/// This trait allows for a more functional programming style by enabling
-/// method chaining and easy value transformation.
-///
-/// # Examples
-///
-/// ```rust
-/// use pebble::util::common::Pipe;
-/// let result = 5.pipe(|x| x * 2);  // result is 10
-/// let string = "hello".pipe(|s| s.to_uppercase());  // string is "HELLO"
-/// ```
-pub trait Pipe {
-    /// Transforms the current value by applying the given function.
-    ///
-    /// # Arguments
-    ///
-    /// * `f` - A closure that takes the current value and returns a transformed value
-    ///
-    /// # Returns
-    ///
-    /// The result of applying the transformation function to the current value
-    fn pipe<F, R>(self, f: F) -> R
-    where
-        F: FnOnce(Self) -> R,
-        Self: Sized;
-}
-
-impl<T> Pipe for T {
-    fn pipe<F, R>(self, f: F) -> R
-    where
-        F: FnOnce(Self) -> R,
-        Self: Sized,
-    {
-        // Apply the transformation function to the current value
-        f(self)
-    }
-}
 
 // A static variable to ensure that environment variables are loaded only once.
 static LOAD_ENV: OnceLock<()> = OnceLock::new();
@@ -163,60 +123,6 @@ pub fn parse_size(size_str: &str) -> Option<u64> {
     }
 }
 
-/// Replaces the starting substring `from` in `s` with `to` if `s` starts with `from`.
-pub fn replace_from_start(s: &str, from: &str, to: &str) -> String {
-    if s.starts_with(from) {
-        let remainder = &s[from.len()..];
-        format!("{}{}", to, remainder)
-    } else {
-        s.to_string()
-    }
-}
-
-/// Convert a date string to a DateTime object with timezone information
-///
-/// # Arguments
-///
-/// * `date_str` - The date string in "yyyy-MM-dd" format
-/// * `offset` - Timezone offset in minutes
-/// * `end_of_day` - Whether to use the end time of the day (defaults to false, which means the start time of the day)
-///
-/// # Errors
-///
-/// Returns an error if:
-/// * The timezone offset is out of range (-1440 to 1440 minutes)
-/// * The date string cannot be parsed
-/// * The time components cannot be combined
-pub fn to_datetime(
-    date_str: &str,
-    offset: i32,
-    end_of_day: bool,
-) -> Result<DateTime<FixedOffset>> {
-    // Validate timezone offset
-    if offset.abs() > 1440 {
-        return Err(anyhow::anyhow!(
-            "Timezone offset must be between -1440 and 1440 minutes: {offset}"
-        ));
-    }
-
-    // Parse the date string and create time component
-    let local_datetime = NaiveDate::parse_from_str(date_str, "%Y-%m-%d")?.and_time(
-        if end_of_day {
-            NaiveTime::from_hms_milli_opt(23, 59, 59, 999)
-        } else {
-            NaiveTime::from_hms_opt(0, 0, 0)
-        }
-            .expect("Invalid time components"),
-    );
-
-    // Create timezone offset and convert local time
-    FixedOffset::east_opt(offset * 60)
-        .ok_or_else(|| anyhow::anyhow!("Invalid timezone offset: {offset}"))?
-        .from_local_datetime(&local_datetime)
-        .earliest()
-        .ok_or_else(|| anyhow::anyhow!("Invalid datetime conversion"))
-}
-
 /// Measures and logs the execution time of a code block.
 ///
 /// Supports both synchronous and asynchronous code. Logs the elapsed time using `info!`.
@@ -255,43 +161,6 @@ macro_rules! timeit {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use chrono::Timelike;
-
-    #[cfg(test)]
-    mod replace_tests {
-        use crate::util::common::replace_from_start;
-
-        #[test]
-        fn test_basic_replacement() {
-            assert_eq!(replace_from_start("foobar", "foo", "new"), "newbar");
-            assert_eq!(replace_from_start("apple banana", "apple", "fruit"), "fruit banana");
-        }
-
-        #[test]
-        fn test_no_replacement() {
-            assert_eq!(replace_from_start("foobar", "bar", "new"), "foobar");
-            assert_eq!(replace_from_start("test", "longer", "x"), "test");
-        }
-
-        #[test]
-        fn test_empty_from() {
-            assert_eq!(replace_from_start("foobar", "", "prefix"), "prefixfoobar");
-            assert_eq!(replace_from_start("", "", "x"), "x");
-        }
-
-        #[test]
-        fn test_empty_string() {
-            assert_eq!(replace_from_start("", "abc", "x"), "");
-            assert_eq!(replace_from_start("", "", ""), "");
-        }
-
-        #[test]
-        fn test_unicode() {
-            assert_eq!(replace_from_start("你好啊世界", "你好啊", "美好的"), "美好的世界");
-            assert_eq!(replace_from_start("🦀🍰", "🦀", "🐻"), "🐻🍰");
-            assert_eq!(replace_from_start("こんにちは", "こん", "おは"), "おはにちは");
-        }
-    }
 
     #[test]
     fn test_parse_size() {
@@ -305,34 +174,4 @@ mod tests {
         assert_eq!(parse_size("abc"), None);
     }
 
-    #[test]
-    fn test_start_of_day() {
-        let dt = to_datetime("2024-01-21", 480, false).unwrap();
-        assert_eq!(dt.hour(), 0);
-        assert_eq!(dt.minute(), 0);
-        assert_eq!(dt.second(), 0);
-        assert_eq!(dt.nanosecond(), 0);
-        assert_eq!(dt.offset().local_minus_utc(), 480 * 60);
-    }
-
-    #[test]
-    fn test_end_of_day() {
-        let dt = to_datetime("2024-01-21", 480, true).unwrap();
-        assert_eq!(dt.hour(), 23);
-        assert_eq!(dt.minute(), 59);
-        assert_eq!(dt.second(), 59);
-        assert_eq!(dt.nanosecond(), 999_000_000);
-        assert_eq!(dt.offset().local_minus_utc(), 480 * 60);
-    }
-
-    #[test]
-    fn test_invalid_offset() {
-        assert!(to_datetime("2024-01-21", 1441, false).is_err());
-        assert!(to_datetime("2024-01-21", -1441, false).is_err());
-    }
-
-    #[test]
-    fn test_invalid_date() {
-        assert!(to_datetime("invalid-date", 480, false).is_err());
-    }
 }

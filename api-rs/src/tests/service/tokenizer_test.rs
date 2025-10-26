@@ -3,7 +3,6 @@ mod tests {
     use jieba_rs::Jieba;
     use pebble::service::search_service::Tokenizer;
 
-    // 测试辅助函数
     fn init_tokenizer() -> Jieba {
         Jieba::new()
     }
@@ -65,19 +64,19 @@ mod tests {
         let text = "<div>Hello, 世界! The quick brown fox.</div>";
         let result = tokenizer.analyze(text);
 
-        // HTML标签应被移除
+        // HTML tags should be removed
         assert!(!result.contains(&String::from("<div>")));
         assert!(!result.contains(&String::from("</div>")));
 
-        // 标点符号应被移除
+        // Punctuation should be removed
         assert!(!result.contains(&String::from(",")));
         assert!(!result.contains(&String::from("!")));
         assert!(!result.contains(&String::from(".")));
 
-        // 停用词应被移除
+        // Stop words should be removed
         assert!(!result.contains(&String::from("the")));
 
-        // 应保留有效词汇
+        // Should contain the meaningful words
         assert!(result.contains(&String::from("hello")));
         assert!(result.contains(&String::from("世界")));
         assert!(result.contains(&String::from("quick")));

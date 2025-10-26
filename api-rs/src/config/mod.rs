@@ -1,4 +1,4 @@
-use crate::util::common::{get_env_or, get_size_from_env_or, get_vec_from_env_or, load_dotenv};
+use crate::util::env::{get_env_or, get_size_from_env_or, get_vec_from_env_or, load_dotenv};
 use tower_http::cors::{CorsLayer, AllowHeaders, AllowOrigin, AllowMethods, Any};
 use std::time::Duration;
 use std::env;
@@ -88,7 +88,7 @@ impl AppConfig {
         let static_url = get_env_or("STATIC_URL", "/static".to_string()).unwrap();
         let static_path = get_env_or("STATIC_PATH", "./static".to_string()).unwrap();
 
-        AppConfig {
+        let cfg = AppConfig {
             app_name,
             app_version,
 
@@ -101,7 +101,9 @@ impl AppConfig {
             db: DBConfig::from_env(),
             redis: RedisConfig::from_env(),
             log: LogConfig::from_env(),
-        }
+        };
+        cfg.validate();
+        cfg
     }
 }
 
@@ -240,7 +242,7 @@ impl LogConfig {
 
 impl AppConfig {
     /// Validates the configuration and panics if any validation fails
-    pub fn validate_config(&self) {
+    pub fn validate(&self) {
         let mut errors = Vec::new();
 
         // Validate basic app info

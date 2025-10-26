@@ -1,4 +1,4 @@
-from app.util import mark_tokens_in_html
+from app.handler.api import mark_tokens_in_html
 
 
 def test_mark_tokens():

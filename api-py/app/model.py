@@ -1,5 +1,5 @@
 import re
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional, Tuple, Self, Iterable, Literal
 
 from flask import abort
@@ -7,13 +7,17 @@ from flask import abort
 from sqlalchemy.dialects.sqlite import insert
 
 from sqlalchemy import func, or_, text
-from sqlalchemy.orm import backref, subqueryload, Query
+from sqlalchemy.orm import backref, subqueryload
 
-from .util import deprecated, utc_now_ms, replace_prefix
 from .extension import db
 
 
 HASH_PATTERN = re.compile(r'<span class="hash-tag">#(.+?)</span>')
+
+
+def utc_now_ms() -> int:
+    return int(datetime.now(timezone.utc).timestamp() * 1000)
+
 
 tag_post_assoc = db.Table(
     'tag_post_assoc',
@@ -405,27 +409,6 @@ class Post(db.Model):
             .scalar()
         )
 
-    @staticmethod
-    @deprecated
-    def query_with_children_count() -> Query:
-        # If the model does not have a `children_count` field,
-        # we can dynamically calculate it using the following subquery,
-        # but the performance may significantly decrease.
-        subquery = (
-            db.session.query(
-                Post.parent_id, db.func.count(Post.id).label('children_count')
-            )
-            .filter(Post.deleted_at.is_(None))
-            .group_by(Post.parent_id)
-            .subquery()
-        )
-        query = (
-            db.session.query(Post, subquery.c.children_count)
-            .outerjoin(subquery, Post.id == subquery.c.parent_id)
-            .options(subqueryload(Post.tags))  # noqa
-        )
-        return query
-
     @property
     def deleted(self) -> bool:
         return self.deleted_at is not None
@@ -456,3 +439,19 @@ class Post(db.Model):
         db.session.add(self)
         db.session.commit()
         return self
+
+
+# Helper functions
+
+
+def replace_prefix(s: str, from_str: str, to: str) -> str:
+    """Replace the prefix of a string if it matches a given substring.
+    >>> replace_prefix('foobar', 'foo', 'baz')
+    'bazbar'
+    >>> replace_prefix('foobar', 'bar', 'baz')
+    'foobar'
+    """
+    if s.startswith(from_str):
+        return to + s[len(from_str) :]
+    else:
+        return s

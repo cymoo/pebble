@@ -1,5 +1,5 @@
 use crate::model::post::{FileInfo, PostRow};
-use crate::util::common::get_env_or;
+use crate::util::env::get_env_or;
 use crate::util::extractor::Path;
 use crate::AppState;
 use axum::extract::State;

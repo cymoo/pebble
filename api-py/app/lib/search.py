@@ -95,7 +95,8 @@ class FullTextSearch:
         """
 
         if self.is_indexed(id):
-            return self.reindex(id, text)
+            self.reindex(id, text)
+            return
 
         tokens = analyze(text)
         if not tokens:
@@ -117,7 +118,8 @@ class FullTextSearch:
         """
 
         if not self.is_indexed(id):
-            return self.index(id, text)
+            self.index(id, text)
+            return
 
         new_tokens = analyze(text)
         if not new_tokens:

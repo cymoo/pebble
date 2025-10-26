@@ -50,7 +50,7 @@ def config_logger(
         log_file: Path to log file. If None, file logging is disabled.
         include_request_context: Whether to include Flask request context in logs
         max_bytes: Maximum size of log file before rotation
-        backup_count: Number of backup log files to keep
+        max_backups: Number of backup log files to keep
     Returns:
         Configured logger instance
     """
@@ -63,7 +63,8 @@ def config_logger(
     # Formatter based on whether to include request context
     if include_request_context:
         formatter = RequestFormatter(
-            fmt='[%(asctime)s] %(levelname)s %(remote_addr)s %(method)s %(url)s - %(module)s.%(funcName)s:%(lineno)d - %(message)s',
+            fmt='[%(asctime)s] %(levelname)s %(remote_addr)s %(method)s %(url)s - %(module)s.%(funcName)s:%(lineno)d '
+            '- %(message)s',
             datefmt='%Y-%m-%d %H:%M:%S',
         )
     else:

@@ -1,7 +1,7 @@
 import json
 import re
 from app import create_app
-from app.config import DevelopmentConfig
+from app.config import Config
 from app.model import Post, db
 import sqlite3
 
@@ -33,7 +33,7 @@ def parse_dataset(filepath):
 
 
 def gen_sample_posts():
-    app = create_app(DevelopmentConfig)
+    app = create_app(Config.from_env())
 
     with app.app_context():
         for content in parse_dataset(dataset_path):
@@ -45,7 +45,7 @@ def gen_sample_posts():
 def check_sqlite_config():
     from sqlalchemy import text
 
-    app = create_app(DevelopmentConfig)
+    app = create_app(Config.from_env())
     with app.app_context():
         configs = {
             "foreign_keys": "PRAGMA foreign_keys",

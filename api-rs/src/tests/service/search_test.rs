@@ -16,22 +16,22 @@ mod tests {
         let search = setup_search().await;
         search.clear_all_indexes().await.unwrap();
 
-        // 测试基本索引
+        // Basic indexing test
         search.index(1, "hello world").await.unwrap();
         search.index(2, "hello rust").await.unwrap();
         search.index(3, "world of rust programming").await.unwrap();
 
-        // 测试简单搜索
+        // Simple search test
         let (tokens, results) = search.search("hello", false, 10).await.unwrap();
         assert_eq!(tokens, vec!["hello"]);
         assert_eq!(results.len(), 2);
         assert!(results.iter().any(|(id, _)| *id == 1));
         assert!(results.iter().any(|(id, _)| *id == 2));
 
-        // 验证评分机制
+        // Verify ranking mechanism
         let (_, results) = search.search("world", false, 10).await.unwrap();
         assert_eq!(results.len(), 2);
-        assert_eq!(results[0].0, 1); // "hello world" 应该排在前面因为文档更短
+        assert_eq!(results[0].0, 1); // "hello world" should rank first due to shorter document length
 
         search.clear_all_indexes().await.unwrap();
     }
@@ -41,22 +41,21 @@ mod tests {
         let search = setup_search().await;
         search.clear_all_indexes().await.unwrap();
 
-        // 测试索引存在性检查
+        // Non-indexed document check
         assert!(!search.indexed(1).await.unwrap());
 
-        // 测试文档计数
         assert_eq!(search.get_doc_count().await.unwrap(), 0);
 
-        // 测试索引
+        // Indexing a document
         search.index(1, "hello world").await.unwrap();
         assert!(search.indexed(1).await.unwrap());
         assert_eq!(search.get_doc_count().await.unwrap(), 1);
 
-        // 测试重新索引
+        // Reindexing the document
         search.reindex(1, "hello rust").await.unwrap();
         assert_eq!(search.get_doc_count().await.unwrap(), 1);
 
-        // 测试删除索引
+        // Deindexing the document
         search.deindex(1).await.unwrap();
         assert!(!search.indexed(1).await.unwrap());
         assert_eq!(search.get_doc_count().await.unwrap(), 0);
@@ -69,20 +68,20 @@ mod tests {
         let search = setup_search().await;
         search.clear_all_indexes().await.unwrap();
 
-        // 测试更新文档时的索引一致性
+        // Test index consistency when updating a document
         search.index(1, "initial content").await.unwrap();
         let initial_count = search.get_doc_count().await.unwrap();
 
-        // 重新索引同一文档
+        // Reindex the same document
         search.index(1, "updated content").await.unwrap();
         let updated_count = search.get_doc_count().await.unwrap();
         assert_eq!(initial_count, updated_count, "文档计数在更新后应保持不变");
 
-        // 验证旧内容不可搜索
+        // Check that old content is not searchable
         let (_, results) = search.search("initial", false, 10).await.unwrap();
         assert_eq!(results.len(), 0, "旧内容不应该可被搜索到");
 
-        // 验证新内容可搜索
+        // Check that new content is searchable
         let (_, results) = search.search("updated", false, 10).await.unwrap();
         assert_eq!(results.len(), 1, "新内容应该可被搜索到");
 
@@ -94,24 +93,24 @@ mod tests {
         let partial_search = setup_search().await;
         partial_search.clear_all_indexes().await.unwrap();
 
-        // 准备测试数据
+        // Prepare test data
         partial_search.index(1, "Rust Programming").await.unwrap();
         partial_search.index(2, "Python Programming").await.unwrap();
         partial_search.index(3, "Go Language").await.unwrap();
 
-        // 测试部分匹配搜索
+        // Test partial match search
         let (_, results) = partial_search
             .search("Rust Python", true, 10)
             .await
             .unwrap();
-        assert_eq!(results.len(), 2); // 应该匹配包含 "rust" 或 "python" 的文档
+        assert_eq!(results.len(), 2); // Should match documents containing "rust" or "python"
 
-        // 测试完整词组匹配
+        // Test full phrase match
         let (_, results) = partial_search
             .search("programming", true, 10)
             .await
             .unwrap();
-        assert_eq!(results.len(), 2); // 应该匹配所有包含 "programming" 的文档
+        assert_eq!(results.len(), 2); // Should match all documents containing "programming"
 
         partial_search.clear_all_indexes().await.unwrap();
     }
@@ -121,29 +120,29 @@ mod tests {
         let search = setup_search().await;
         search.clear_all_indexes().await.unwrap();
 
-        // 空文档测试
+        // Empty document
         search.index(1, "").await.unwrap();
         assert!(!search.indexed(1).await.unwrap());
 
-        // 只有空格的文档
+        // Document with only spaces
         search.index(2, "   ").await.unwrap();
         assert!(!search.indexed(2).await.unwrap());
 
-        // 只有标点符号的文档
+        // Document with only punctuation
         search.index(3, ".,!?;:").await.unwrap();
         assert!(!search.indexed(3).await.unwrap());
 
-        // 只有停用词的文档
+        // Document with only stop words
         search.index(4, "the and or").await.unwrap();
         assert!(!search.indexed(4).await.unwrap());
 
-        // 超长文档
+        // Very long document
         let long_text = "rust ".repeat(1000);
         search.index(5, &long_text).await.unwrap();
         let (_, results) = search.search("rust", false, 10).await.unwrap();
         assert_eq!(results.len(), 1);
 
-        // HTML内容
+        // HTML content
         search
             .index(6, "<p>Hello World</p><div>Rust</div>")
             .await
@@ -151,7 +150,7 @@ mod tests {
         let (_, results) = search.search("hello world rust", false, 10).await.unwrap();
         assert_eq!(results.len(), 1);
 
-        // 特殊字符
+        // Special characters
         search
             .index(7, "rust#programming$language@test")
             .await
@@ -162,7 +161,7 @@ mod tests {
             .unwrap();
         assert_eq!(results.len(), 1);
 
-        // Unicode字符
+        // Unicode characters
         search
             .index(8, "rust😀programming🚀language")
             .await
@@ -181,16 +180,16 @@ mod tests {
         let search = setup_search().await;
         search.clear_all_indexes().await.unwrap();
 
-        // 中文文档
+        // Chinese documents
         search.index(1, "rust编程语言教程").await.unwrap();
         search.index(2, "python开发指南").await.unwrap();
 
-        // 中文搜索
+        // Search with Chinese characters
         let (_, results) = search.search("编程", false, 10).await.unwrap();
         assert_eq!(results.len(), 1);
         assert_eq!(results[0].0, 1);
 
-        // 混合语言文档
+        // Search with mixed Chinese and English
         search
             .index(3, "学习 rust 和 python programming")
             .await
@@ -198,7 +197,7 @@ mod tests {
         let (_, results) = search.search("rust python", false, 10).await.unwrap();
         assert_eq!(results.len(), 1);
 
-        // 中文标点符号
+        // Chinese punctuation
         search
             .index(4, "rust（编程）语言，开发。教程！")
             .await
@@ -214,7 +213,7 @@ mod tests {
         let partial_search = setup_search().await;
         partial_search.clear_all_indexes().await.unwrap();
 
-        // 准备具有不同特征的文档
+        // Prepare documents with varying characteristics
         partial_search.index(1, "rust programming").await.unwrap();
         partial_search
             .index(2, "rust programming guide")
@@ -225,19 +224,18 @@ mod tests {
             .await
             .unwrap();
         partial_search.index(4, "rust").await.unwrap();
-        partial_search.index(5, "rust rust rust").await.unwrap(); // 测试词频影响
+        partial_search.index(5, "rust rust rust").await.unwrap(); // Test term frequency impact
 
         let (_, results) = partial_search
             .search("rust programming", true, 10)
             .await
             .unwrap();
 
-        // 验证评分
+        // Verify the ranking
         assert_eq!(results.len(), 5);
-        // 最匹配的文档应该排在前面
-        assert_eq!(results[0].0, 1); // 简短且包含所有搜索词
-                                     // 重复词的文档不应该排在最前面
-        assert_ne!(results[0].0, 5);
+        // The most relevant document should rank first
+        assert_eq!(results[0].0, 1); // Concise and contains all search terms
+        assert_ne!(results[0].0, 5); // Document with repeated terms should not rank first
 
         partial_search.clear_all_indexes().await.unwrap();
     }
@@ -247,21 +245,21 @@ mod tests {
         let search = setup_search().await;
         search.clear_all_indexes().await.unwrap();
 
-        // 测试删除不存在的文档
+        // Attempt to deindex a non-existent document
         let result = search.deindex(999).await;
         assert!(result.is_err());
         assert!(result.unwrap_err().to_string().contains("not found"));
 
-        // 测试重新索引不存在的文档（应该回退到普通索引）
+        // Test reindexing a non-existent document (should fallback to normal indexing)
         search.reindex(1, "test document").await.unwrap();
         assert!(search.indexed(1).await.unwrap());
 
-        // 测试重复删除
+        // Test repeated deletion
         search.deindex(1).await.unwrap();
         let result = search.deindex(1).await;
         assert!(result.is_err());
 
-        // 测试在清理后搜索
+        // Test searching after clearing indexes
         search.clear_all_indexes().await.unwrap();
         let (_, results) = search.search("test", false, 10).await.unwrap();
         assert_eq!(results.len(), 0);
@@ -275,16 +273,16 @@ mod tests {
             FullTextSearch::new(Arc::new(rd), tokenizer, "test_limited:".to_string());
         limited_search.clear_all_indexes().await.unwrap();
 
-        // 索引5个相同相关度的文档
+        // Index 5 documents with the same relevance
         for i in 1..=5 {
             limited_search.index(i, "test document").await.unwrap();
         }
 
-        // 验证结果数量限制
+        // Verify result count limit
         let (_, results) = limited_search.search("test", false, 3).await.unwrap();
         assert_eq!(results.len(), 3, "结果数量应该被限制在3个");
 
-        // 验证不同相关度的情况
+        // Index additional documents to create varying relevance
         limited_search.index(6, "test").await.unwrap();
         limited_search.index(7, "test test test").await.unwrap();
         let (_, results) = limited_search.search("test", false, 3).await.unwrap();

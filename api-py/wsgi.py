@@ -1,5 +1,6 @@
 from app import create_app
-from app.config import config
+from app.config import Config
 
-flask_app = create_app(config)
+cfg = Config.from_env()
+flask_app = create_app(cfg)
 app = flask_app.wsgi_app
