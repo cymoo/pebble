@@ -129,6 +129,8 @@ func Load() *Config {
 		LogRequests: env.GetBool("LOG_REQUESTS", true),
 	}
 
+	config.validate()
+
 	return config
 }
 
@@ -152,7 +154,7 @@ func (c *Config) ToJSON(hideSensitive bool) (string, error) {
 }
 
 // ValidateConfig validates the configuration and panics if any validation fails
-func (c *Config) ValidateConfig() {
+func (c *Config) validate() {
 	var errs []string
 
 	// Validate basic app info

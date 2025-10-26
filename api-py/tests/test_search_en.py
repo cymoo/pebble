@@ -1,13 +1,16 @@
+import os
+
 import pytest
 
 
-@pytest.fixture
+@pytest.fixture(scope='function')
 def redis_client():
     """Create a test Redis client"""
     from redis import Redis
-    from app.config import TestConfig
 
-    client = Redis.from_url(TestConfig.REDIS_URL, decode_responses=True)
+    redis_url = os.environ.get("REDIS_URL_TEST", "redis://localhost:6379/15")
+
+    client = Redis.from_url(redis_url, decode_responses=True)
     yield client
     client.flushdb()
 
@@ -202,4 +205,4 @@ def test_special_characters(search_engine):
 def test_invalid_input(search_engine):
     """Test handling of invalid input"""
     with pytest.raises(Exception):
-        search_engine.index(None, None)
+        search_engine.index(None, None)  # noqa

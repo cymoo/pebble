@@ -1,11 +1,11 @@
 use crate::config::rd::RD;
-use crate::util::common::count_frequencies;
 use anyhow::{Context, Result};
 use jieba_rs::Jieba;
 use lazy_static::lazy_static;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
+use std::hash::Hash;
 use std::sync::Arc;
 
 lazy_static! {
@@ -322,6 +322,17 @@ impl FullTextSearch {
 
         Ok(())
     }
+}
+
+pub fn count_frequencies<T>(items: &[T]) -> HashMap<T, usize>
+where
+    T: Eq + Hash + Clone,
+{
+    let mut frequencies = HashMap::new();
+    for item in items {
+        *frequencies.entry(item.clone()).or_insert(0) += 1;
+    }
+    frequencies
 }
 
 #[cfg(test)]

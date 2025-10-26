@@ -31,7 +31,7 @@ def init_app(app: Flask) -> None:
     fts = FullTextSearch(rd, 'fts:')
 
 
-def run_migration(app: Flask, db: SQLAlchemy) -> None:
+def run_migration(app: Flask, sa: SQLAlchemy) -> None:
     """Run database migrations using Flask-Migrate.
     If migrations folder does not exist or migration fails, create all tables directly.
     """
@@ -39,7 +39,7 @@ def run_migration(app: Flask, db: SQLAlchemy) -> None:
     from .logger import logger
     from concurrent.futures import ProcessPoolExecutor
 
-    _ = Migrate(app, db)
+    _ = Migrate(app, sa)
 
     with app.app_context():
         if not os.path.exists('migrations'):
@@ -49,7 +49,7 @@ def run_migration(app: Flask, db: SQLAlchemy) -> None:
             logger.info("    flask db migrate -m 'Initial migration'")
             logger.info("    flask db upgrade")
             logger.info("Now creating the database tables directly.")
-            db.create_all()
+            sa.create_all()
         else:
             try:
                 # NOTE: flask_migrate.upgrade breaks logging!!!
@@ -63,4 +63,4 @@ def run_migration(app: Flask, db: SQLAlchemy) -> None:
             except Exception as e:
                 logger.error(f"Database migration failed: {e}")
                 logger.info("Creating database tables directly.")
-                db.create_all()
+                sa.create_all()

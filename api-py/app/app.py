@@ -24,11 +24,15 @@ def create_app(config) -> Flask:
         template_folder='../templates',
     )
 
+    print('*****')
+    print('FLASK_ENV', config.FLASK_ENV)
+
     make_response_of_dataclass(app)
 
     app.json = ORJSONProvider(app)
 
     app.config.from_object(config)
+    app.cfg = config
 
     setup_logger(app)
     init_extension(app)
@@ -78,7 +82,7 @@ def init_extension(app: Flask) -> None:
         db.session.execute(text("PRAGMA journal_mode=WAL"))
 
     # Run migrations if enabled
-    if app.config['AUTO_MIGRATE']:
+    if app.config['DATABASE_AUTO_MIGRATE']:
         run_migration(app, db)
 
 

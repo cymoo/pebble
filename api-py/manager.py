@@ -6,10 +6,10 @@ from flask.cli import AppGroup, with_appcontext
 from flask_migrate import Migrate
 
 from app import create_app
-from app.config import config
+from app.config import Config
 from app.extension import db
 
-app = create_app(config)
+app = create_app(Config.from_env())
 user_cli = AppGroup('user', help='user operations')
 
 
@@ -54,6 +54,4 @@ migrate = Migrate(app, db, render_as_batch=True)
 
 
 if __name__ == '__main__':
-    ip = app.config['HTTP_IP']
-    port = app.config['HTTP_PORT']
-    app.run(host=ip, port=port)
+    app.run(port=8000)

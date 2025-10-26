@@ -7,10 +7,32 @@ import orjson
 from pydantic import BaseModel, AfterValidator, Field
 
 from .model import Post
-from .util import missing
 
 NoContent: TypeAlias = tuple[Literal[''], Literal[204]]
 NO_CONTENT = '', 204
+
+
+class Missing:
+    """A Singleton which indicates a value does not exist.
+
+    >>> Missing() == Missing()
+    True
+    """
+
+    _instance = None
+
+    def __new__(cls, *args, **kw):
+        if cls._instance is None:
+            cls._instance = super().__new__(cls, *args, **kw)
+        return cls._instance
+
+    def __str__(self):
+        return '<Missing>'
+
+    __repr__ = __str__
+
+
+missing = Missing()
 
 
 def check_hashtag(value: str) -> str:

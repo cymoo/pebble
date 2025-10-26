@@ -133,7 +133,7 @@ def rate_limit(max_count: int, expires: int = 60) -> Callable:
         It requires a Redis instance to store the request counts. It's not ideal to have this dependency in middleware,
         but it's a simple and effective way to implement rate limiting in a distributed environment.
     Usage:
-        @app.route('/some-endpoint')
+        @app.route("/some-endpoint")
         @rate_limit(max_count=5, expires=60)
         def some_view_function():
             ...
@@ -160,7 +160,7 @@ def rate_limit(max_count: int, expires: int = 60) -> Callable:
 def validate(
     view_func: Optional[Callable] = None,
     *,
-    type: Literal['json', 'query', 'form'] = 'json',
+    type: Literal['json', 'query', 'form'] = 'json',  # noqa
 ):
     """Decorator to validate request data using Pydantic models.
     The first parameter of the decorated view function must be annotated
@@ -178,7 +178,7 @@ def validate(
         TypeError: If the first parameter is not annotated with a Pydantic model.
         ValidationError: If the request data fails validation.
     Usage:
-        @app.post('/some-endpoint')
+        @app.post("/some-endpoint")
         @validate
         def some_view_function(payload: SomePydanticModel):
             ...

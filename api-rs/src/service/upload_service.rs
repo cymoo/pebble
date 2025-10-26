@@ -1,7 +1,6 @@
 use crate::config::UploadConfig;
 use crate::errors::{ApiError, ApiResult};
 use crate::model::post::FileInfo;
-use crate::util::file::generate_secure_filename;
 use anyhow::{anyhow, Context, Result};
 use axum::extract::multipart::{Field, MultipartError};
 use exif::{In, Reader, Tag};
@@ -12,6 +11,8 @@ use std::borrow::Cow;
 use std::io;
 use std::io::Cursor;
 use std::path::{Path, PathBuf};
+use regex::Regex;
+use uuid::Uuid;
 use tokio::fs;
 use tokio::fs::File;
 use tokio::io::BufWriter;
@@ -171,5 +172,106 @@ impl FileUploadService {
 
     fn get_filename(filepath: &Path) -> Cow<'_, str> {
         filepath.file_name().unwrap().to_string_lossy()
+    }
+}
+
+// Helper functions
+
+/// Generates a secure filename by sanitizing the input filename and appending a UUID.
+///
+/// # Arguments
+/// * `filename` - The original filename to be sanitized.
+/// * `uuid_length` - The length of the UUID to be appended (must be between 8 and 32).
+///
+/// # Returns
+/// A `String` representing the secure filename in the format: `basename.uuid` or `basename.uuid.extension`.
+///
+/// # Panics
+/// - Panics if the `filename` is empty.
+/// - Panics if the `uuid_length` is not between 8 and 32.
+pub fn generate_secure_filename(filename: &str, uuid_length: usize) -> String {
+    if filename.is_empty() {
+        panic!("filename is empty");
+    }
+
+    if uuid_length < 8 || uuid_length > 32 {
+        panic!("uuid length must be between 8 and 32");
+    }
+
+    let invalid_chars_regex = Regex::new(r"[^\w\-.\u4e00-\u9fa5]+").unwrap();
+    let sanitized_name = invalid_chars_regex.replace_all(&filename.trim(), "_");
+
+    let (base, ext) = split_filename(&*sanitized_name);
+
+    let uuid = Uuid::new_v4().to_string()
+        .chars()
+        .take(uuid_length)
+        .collect::<String>();
+
+    if ext.is_empty() {
+        format!("{}.{}", base, uuid)
+    } else {
+        format!("{}.{}.{}", base, uuid, ext)
+    }
+}
+
+/// Splits a filename into its base name and extension.
+///
+/// # Arguments
+/// * `filename` - The filename to be split.
+///
+/// # Returns
+/// A tuple `(base_name, extension)` where:
+/// - `base_name` is the part of the filename before the last dot.
+/// - `extension` is the part of the filename after the last dot, converted to lowercase.
+///   If the filename has no extension, `extension` will be an empty string.
+///
+/// # Panics
+/// - Panics if the `filename` is empty.
+pub fn split_filename(filename: &str) -> (String, String) {
+    if filename.is_empty() {
+        panic!("filename is empty");
+    }
+
+    if filename.starts_with('.') {
+        let remaining = &filename[1..];
+        match remaining.rfind('.') {
+            Some(i) => (
+                format!(".{}", &remaining[..i]),
+                remaining[i + 1..].to_string().to_lowercase(),
+            ),
+            None => (filename.to_string(), String::new()),
+        }
+    } else {
+        match filename.rfind('.') {
+            Some(i) => (
+                filename[..i].to_string(),
+                filename[i + 1..].to_string().to_lowercase(),
+            ),
+            None => (filename.to_string(), String::new()),
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_split_filename() {
+        let filenames = vec![
+            ("foo/bar.jpg", "foo/bar", "jpg"),
+            ("foo.jpg", "foo", "jpg"),
+            ("foo.JPG", "foo", "jpg"),
+            (".foo.jpg", ".foo", "jpg"),
+            (".Foo.JPG", ".Foo", "jpg"),
+            (".foo", ".foo", ""),
+            (".foo.tar.gz", ".foo.tar", "gz"),
+            ("foo", "foo", ""),
+        ];
+
+        filenames.into_iter().for_each(|(input, name, ext)| {
+            assert_eq!(split_filename(input), (name.to_string(), ext.to_string()));
+        });
     }
 }

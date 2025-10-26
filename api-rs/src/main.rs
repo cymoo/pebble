@@ -7,7 +7,7 @@
 mod tests;
 
 use pebble::service::task_service::start_jobs;
-use pebble::util::common::load_dotenv;
+use pebble::util::env::load_dotenv;
 use pebble::{create_app, AppState};
 use std::env;
 use tokio::net::TcpListener;

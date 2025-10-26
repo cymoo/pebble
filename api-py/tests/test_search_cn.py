@@ -1,15 +1,17 @@
+import os
 import pytest
 
 
 @pytest.fixture(scope='function')
 def redis_client():
-    """Create an independent test Redis client"""
+    """Create a test Redis client"""
     from redis import Redis
-    from app.config import TestConfig
 
-    client = Redis.from_url(TestConfig.REDIS_URL, decode_responses=True)
+    redis_url = os.environ.get("REDIS_URL_TEST", "redis://localhost:6379/15")
+
+    client = Redis.from_url(redis_url, decode_responses=True)
     yield client
-    client.flushdb()  # Clear database after test
+    client.flushdb()
 
 
 @pytest.fixture
