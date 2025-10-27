@@ -1,6 +1,6 @@
 spring:
   profiles:
-    active: ${SPRING_PROFILES_ACTIVE:dev}  # switch via maven config
+    active: ${SPRING_PROFILES_ACTIVE:prod}  # switch via maven config
   main:
     banner-mode: off
   application:

@@ -4,7 +4,7 @@ import io.github.cdimascio.dotenv.Dotenv
 import net.cymoo.pebble.logger
 import java.io.File
 
-object EnvLoader {
+object Env {
     fun load(requiredVars: List<String> = emptyList()) {
         // 1. Read system variable or default profile
         val activeProfile = System.getenv("SPRING_PROFILES_ACTIVE")
@@ -47,6 +47,10 @@ object EnvLoader {
         requiredVars.forEach { checkRequired(it) }
     }
 
+    fun get(key: String): String? {
+        return System.getenv(key) ?: System.getProperty(key)
+    }
+
     private fun resolveEnvFile(fileName: String): File {
         // Try project root first, then current directory
         val projectRoot = System.getProperty("user.dir")
@@ -65,7 +69,6 @@ object EnvLoader {
             dotenv.entries().forEach { entry ->
                 accumulator[entry.key] = entry.value  // Later files override
             }
-
             logger.info("Loaded environment file: ${file.name} (${dotenv.entries().size} entries)")
         } catch (e: Exception) {
             logger.warn("Failed to load ${file.name}: ${e.message}")

@@ -1,6 +1,6 @@
 package net.cymoo.pebble
 
-import net.cymoo.pebble.util.EnvLoader
+import net.cymoo.pebble.util.Env
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import org.springframework.boot.autoconfigure.SpringBootApplication
@@ -21,11 +21,12 @@ import kotlin.system.exitProcess
 class SpringApplication
 
 fun main(args: Array<String>) {
-    if (System.getenv("PEBBLE_PASSWORD") == null) {
+    Env.load()
+
+    if (Env.get("PEBBLE_PASSWORD").isNullOrBlank()) {
         System.err.println("Error: PEBBLE_PASSWORD environment variable is missing.")
         exitProcess(1)
     }
-    EnvLoader.load()
     runApplication<SpringApplication>(*args)
 }
 
