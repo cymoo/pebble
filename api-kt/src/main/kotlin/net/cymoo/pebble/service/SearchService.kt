@@ -123,8 +123,7 @@ class SearchService(
     }
 
     fun clearAllIndexes() {
-        redisService.deleteByPrefix("${keyPrefix}doc:")
-        redisService.deleteByPrefix("${keyPrefix}token:")
+        redisService.deleteByPrefix(keyPrefix)
     }
 
     fun search(query: String, partial: Boolean = true, limit: Int = 0): SearchResult {
@@ -200,7 +199,7 @@ class SearchService(
         }
     }
 
-    private fun docCountKey() = "${keyPrefix}doc:count"
-    private fun docTokensKey(id: Int) = "${keyPrefix}doc:$id:tokens"
-    private fun tokenDocsKey(token: String) = "${keyPrefix}token:$token:docs"
+    private fun docCountKey() = "${keyPrefix}count"
+    private fun docTokensKey(id: Int) = "${keyPrefix}$id:tokens"
+    private fun tokenDocsKey(token: String) = "${keyPrefix}$token:docs"
 }

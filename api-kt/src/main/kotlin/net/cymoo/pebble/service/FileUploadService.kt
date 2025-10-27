@@ -14,6 +14,7 @@ import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.Paths
 import java.nio.file.StandardCopyOption
+import java.util.*
 import javax.imageio.ImageIO
 
 @Service
@@ -29,7 +30,7 @@ class FileUploadService(private val uploadConfig: FileUploadConfig) {
         }
 
         val filename =
-            net.cymoo.pebble.util.generateSecureFilename(file.originalFilename!!)
+            generateSecureFilename(file.originalFilename!!)
         val filepath = Paths.get(uploadConfig.uploadDir, filename)
 
         Files.copy(file.inputStream, filepath, StandardCopyOption.REPLACE_EXISTING)
@@ -111,4 +112,61 @@ class FileUploadService(private val uploadConfig: FileUploadConfig) {
     }
 }
 
+// Helper functions
 
+val INVALID_CHARS_REGEX = Regex("[^\\w\\-.\\u4e00-\\u9fa5]+")
+
+/**
+ * Generates a secure filename with UUID suffix of specified length
+ *
+ * @param filename Original filename
+ * @param uuidLength Length of UUID suffix (8-32 characters)
+ * @return Secured filename with UUID suffix
+ * @throws IllegalArgumentException if filename is blank or uuid length is invalid
+ */
+fun generateSecureFilename(filename: String, uuidLength: Int = 8): String {
+    require(filename.isNotBlank()) { "Filename cannot be blank" }
+    require(uuidLength in 8..32) {
+        "UUID length must be between 8 and 32"
+    }
+
+    val sanitizedName = filename.trim().replace(INVALID_CHARS_REGEX, "_")
+
+    val (baseName, extension) = splitFileName(sanitizedName)
+    val uuid = UUID.randomUUID().toString()
+        .replace("-", "")
+        .take(uuidLength)
+
+    return buildString {
+        append(baseName)
+        append('.')
+        append(uuid)
+        if (extension.isNotEmpty()) {
+            append('.')
+            append(extension)
+        }
+    }
+}
+
+/**
+ * Splits a filename into base name and extension
+ * Handles special cases like hidden files and multiple extensions
+ */
+fun splitFileName(fileName: String): Pair<String, String> {
+    // Handle hidden file starting with `.`
+    if (fileName.startsWith(".")) {
+        val remaining = fileName.substring(1)
+        val lastDotIndex = remaining.lastIndexOf('.')
+        return if (lastDotIndex < 0) {
+            ".$remaining" to ""
+        } else {
+            ".${remaining.take(lastDotIndex)}" to remaining.substring(lastDotIndex + 1)
+        }
+    }
+
+    val lastDotIndex = fileName.lastIndexOf('.')
+    return when {
+        lastDotIndex <= 0 -> fileName to ""
+        else -> fileName.take(lastDotIndex) to fileName.substring(lastDotIndex + 1)
+    }
+}

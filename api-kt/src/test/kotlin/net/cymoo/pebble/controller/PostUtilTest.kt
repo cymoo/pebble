@@ -1,4 +1,4 @@
-package net.cymoo.pebble.util
+package net.cymoo.pebble.controller
 
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Disabled
@@ -10,7 +10,7 @@ class HighlightTokensTest {
     fun `test basic text marking`() {
         assertEquals(
             "<mark>hello</mark> world",
-            "hello world".highlight(listOf("hello"))
+            "hello world".markTokensInHtml(listOf("hello"))
         )
     }
 
@@ -18,7 +18,7 @@ class HighlightTokensTest {
     fun `test multiple tokens`() {
         assertEquals(
             "<mark>hello</mark> <mark>world</mark>",
-            "hello world".highlight(listOf("hello", "world"))
+            "hello world".markTokensInHtml(listOf("hello", "world"))
         )
     }
 
@@ -26,7 +26,7 @@ class HighlightTokensTest {
     fun `test Chinese text`() {
         assertEquals(
             "<mark>你好</mark>世界",
-            "你好世界".highlight(listOf("你好"))
+            "你好世界".markTokensInHtml(listOf("你好"))
         )
     }
 
@@ -34,7 +34,7 @@ class HighlightTokensTest {
     fun `test inside HTML tags`() {
         assertEquals(
             """<a href="token"><mark>token</mark></a>""",
-            """<a href="token">token</a>""".highlight(listOf("token"))
+            """<a href="token">token</a>""".markTokensInHtml(listOf("token"))
         )
     }
 
@@ -42,7 +42,7 @@ class HighlightTokensTest {
     fun `test multiple attributes`() {
         assertEquals(
             """<div class="test" data-test="test"><mark>test</mark></div>""",
-            """<div class="test" data-test="test">test</div>""".highlight(listOf("test"))
+            """<div class="test" data-test="test">test</div>""".markTokensInHtml(listOf("test"))
         )
     }
 
@@ -51,7 +51,7 @@ class HighlightTokensTest {
     fun `test text with angle brackets`() {
         assertEquals(
             "<p>some <mark>token</mark> >~< <mark>token</mark></p>",
-            "<p>some token >~< token</p>".highlight(listOf("token"))
+            "<p>some token >~< token</p>".markTokensInHtml(listOf("token"))
         )
     }
 
@@ -59,7 +59,7 @@ class HighlightTokensTest {
     fun `test empty token list`() {
         assertEquals(
             "<p>test</p>",
-            "<p>test</p>".highlight(emptyList())
+            "<p>test</p>".markTokensInHtml(emptyList())
         )
     }
 
@@ -67,7 +67,7 @@ class HighlightTokensTest {
     fun `test overlapping tokens`() {
         assertEquals(
             "<mark>hello world</mark>",
-            "hello world".highlight(listOf("hello world", "world"))
+            "hello world".markTokensInHtml(listOf("hello world", "world"))
         )
     }
 
@@ -75,7 +75,7 @@ class HighlightTokensTest {
     fun `test special characters`() {
         assertEquals(
             """<a href="test.com"><mark>test.com</mark> <mark>test</mark></a>""",
-            """<a href="test.com">test.com test</a>""".highlight(listOf("test.com", "test"))
+            """<a href="test.com">test.com test</a>""".markTokensInHtml(listOf("test.com", "test"))
         )
     }
 
@@ -83,7 +83,7 @@ class HighlightTokensTest {
     fun `test mixed content`() {
         assertEquals(
             "<div><mark>hello</mark> <mark>世界</mark>, <mark>你好</mark> <mark>world</mark>!</div>",
-            "<div>hello 世界, 你好 world!</div>".highlight(
+            "<div>hello 世界, 你好 world!</div>".markTokensInHtml(
                 listOf("hello", "你好", "world", "世界")
             )
         )
@@ -93,7 +93,7 @@ class HighlightTokensTest {
     fun `test English work boundary`() {
         assertEquals(
             "This is <mark>foo</mark> and foolish",
-            "This is foo and foolish".highlight(listOf("foo"))
+            "This is foo and foolish".markTokensInHtml(listOf("foo"))
         )
     }
 
@@ -101,7 +101,7 @@ class HighlightTokensTest {
     fun `test English word boundary and mixed content`() {
         assertEquals(
             "This is <mark>foo</mark> and foolish, <mark>你好</mark> world",
-            "This is foo and foolish, 你好 world".highlight(listOf("foo", "你好"))
+            "This is foo and foolish, 你好 world".markTokensInHtml(listOf("foo", "你好"))
         )
     }
 }

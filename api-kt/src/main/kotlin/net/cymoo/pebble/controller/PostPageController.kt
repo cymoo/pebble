@@ -30,7 +30,7 @@ class PostSharedController(
         }
 
         model.addAttribute("posts", posts)
-        model.addAttribute("aboutUrl", env.getProperty("app.misc.about-url"))
+        model.addAttribute("aboutUrl", env.getProperty("app.about-url"))
         return "post-list.html"
     }
 
@@ -45,7 +45,7 @@ class PostSharedController(
         model.addAttribute("post", post)
         model.addAttribute("title", title)
         model.addAttribute("images", images)
-        model.addAttribute("aboutUrl", env.getProperty("app.misc.about-url"))
+        model.addAttribute("aboutUrl", env.getProperty("app.about-url"))
         return "post-item.html"
     }
 }

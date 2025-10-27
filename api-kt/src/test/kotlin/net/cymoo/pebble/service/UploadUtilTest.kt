@@ -1,4 +1,4 @@
-package net.cymoo.pebble.util
+package net.cymoo.pebble.service
 
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Disabled

@@ -296,28 +296,22 @@ impl FullTextSearch {
     }
 
     fn doc_count_key(&self) -> String {
-        format!("{}doc:count", self.key_prefix)
+        format!("{}count", self.key_prefix)
     }
 
     fn doc_tokens_key(&self, id: i64) -> String {
-        format!("{}doc:{}:tokens", self.key_prefix, id)
+        format!("{}{}:tokens", self.key_prefix, id)
     }
 
     fn token_docs_key(&self, token: &str) -> String {
-        format!("{}token:{}:docs", self.key_prefix, token)
+        format!("{}{}:docs", self.key_prefix, token)
     }
 
     pub async fn clear_all_indexes(&self) -> Result<()> {
-        let prefixes = [
-            format!("{}doc:", self.key_prefix),
-            format!("{}token:", self.key_prefix),
-        ];
 
-        for prefix in prefixes.iter() {
-            let keys: Vec<String> = self.rd.keys(format!("{}*", prefix)).await?;
-            if !keys.is_empty() {
-                self.rd.del(&keys).await?;
-            }
+        let keys: Vec<String> = self.rd.keys(format!("{}*", self.key_prefix)).await?;
+        if !keys.is_empty() {
+            self.rd.del(&keys).await?;
         }
 
         Ok(())

@@ -6,13 +6,16 @@ import net.cymoo.pebble.exception.AuthenticationException
 import net.cymoo.pebble.exception.NotFoundException
 import net.cymoo.pebble.model.*
 import net.cymoo.pebble.service.*
-import net.cymoo.pebble.util.highlight
-import net.cymoo.pebble.util.toDateTime
 import org.springframework.http.HttpStatus
 import org.springframework.validation.annotation.Validated
 import org.springframework.web.bind.annotation.*
 import org.springframework.web.multipart.MultipartFile
 import org.springframework.web.servlet.view.RedirectView
+import java.time.LocalDate
+import java.time.ZoneOffset
+import java.time.ZonedDateTime
+import java.time.format.DateTimeFormatter
+import kotlin.math.abs
 
 
 @RestController
@@ -136,7 +139,7 @@ class PostApiController(
         val posts = postService.findByIds(idToScore.keys.toList()).map {
             it.copy(
                 score = idToScore[it.id],
-                content = it.content.highlight(tokens)
+                content = it.content.markTokensInHtml(tokens)
             )
         }
 
@@ -176,8 +179,8 @@ class PostApiController(
     fun getDailyPostCounts(@Validated @ModelAttribute dateRange: DateRange): List<Int> {
         val (startDate, endDate, offset) = dateRange
         return postService.getDailyCounts(
-            startDate = startDate.toDateTime(offset),
-            endDate = endDate.toDateTime(offset, endOfDay = true)
+            startDate = startDate.toZonedDateTime(offset),
+            endDate = endDate.toZonedDateTime(offset, endOfDay = true)
         )
     }
 
@@ -207,3 +210,70 @@ class PostApiController(
         return mapOf("msg" to "ok")
     }
 }
+
+// Helper functions
+
+/** Check if a character is Chinese */
+fun Char.isChineseCharacter(): Boolean {
+    return this in '\u4e00'..'\u9fff'
+}
+
+/**
+ * Mark all occurrences of tokens in HTML text with <mark> tags,
+ * avoiding replacements in HTML tags and their attributes
+ *
+ * @param tokens List of tokens to be marked
+ * @return HTML text with tokens marked only in text content
+ */
+fun String.markTokensInHtml(tokens: List<String>): String {
+    if (tokens.isEmpty()) return this
+
+    // Add word boundaries for English tokens
+    val patterns = tokens
+        .sortedByDescending { it.length }
+        .map { token ->
+            if (token.any { it.isChineseCharacter() }) {
+                // Chinese token
+                Regex.escape(token)
+            } else {
+                // English token with word boundaries
+                "\\b${Regex.escape(token)}\\b"
+            }
+        }
+
+    // Create pattern that matches either HTML tags or tokens
+    val pattern = Regex("<[^>]*>|(${patterns.joinToString("|")})")
+
+    return pattern.replace(this) { matchResult ->
+        // If group1 is null, it means we matched an HTML tag (group0)
+        // Otherwise, we matched a token and should wrap it with mark tags
+        matchResult.groups[1]?.let { "<mark>${it.value}</mark>" } ?: matchResult.value
+    }
+}
+
+/**
+ * Convert a date string to a ZonedDateTime object with timezone information
+ *
+ * @param utcOffset  Timezone offset in minutes
+ * @param endOfDay Whether to use the end time of the day (defaults to false, which means the start time of the day)
+ * @return A ZonedDateTime object
+ * @throws IllegalArgumentException if the timezone offset is out of range
+ */
+fun String.toZonedDateTime(utcOffset: Int, endOfDay: Boolean = false): ZonedDateTime {
+    require(abs(utcOffset) <= 1440) {
+        "Timezone offset must be between -1440 and 1440 minutes: $utcOffset"
+    }
+
+    val localDate = LocalDate.parse(this, DateTimeFormatter.ofPattern("yyyy-MM-dd"))
+
+    val localDateTime = if (endOfDay) {
+        localDate.atTime(23, 59, 59, 999_000_000)
+    } else {
+        localDate.atStartOfDay()
+    }
+
+    val zoneOffset = ZoneOffset.ofTotalSeconds(utcOffset * 60)
+
+    return localDateTime.atZone(zoneOffset)
+}
+

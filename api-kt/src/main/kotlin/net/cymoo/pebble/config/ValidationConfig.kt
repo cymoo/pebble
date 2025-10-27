@@ -2,6 +2,7 @@ package net.cymoo.pebble.config
 
 import jakarta.validation.Validation
 import jakarta.validation.Validator
+import net.cymoo.pebble.util.maybe.MaybeMissingValueExtractor
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 
@@ -11,7 +12,7 @@ class ValidationConfig {
     fun validator(): Validator {
         return Validation.byDefaultProvider()
             .configure()
-            .addValueExtractor(net.cymoo.pebble.util.maybe.MaybeMissingValueExtractor())
+            .addValueExtractor(MaybeMissingValueExtractor())
             .buildValidatorFactory()
             .validator
     }

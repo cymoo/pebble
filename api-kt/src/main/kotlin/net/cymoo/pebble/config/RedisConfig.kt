@@ -15,46 +15,43 @@ typealias RedisPool = GenericObjectPool<StatefulRedisConnection<String, String>>
 
 @ConfigurationProperties("spring.data.redis")
 data class RedisConfig(
-    val host: String,
-    val port: Int,
-    val database: Int,
-    val timeout: Long,
-    val maxTotal: Int,
-    val maxIdle: Int,
+    val url: String = "redis://localhost:6379/0",
+    val timeout: Long = 3,
+    val maxTotal: Int = 20,
+    val maxIdle: Int = 5,
 ) {
-    private lateinit var redisClient: RedisClient
-    private lateinit var redisPool: RedisPool
+    private lateinit var client: RedisClient
+    private lateinit var pool: RedisPool
 
     @Bean
     fun redisClient(): RedisClient {
-        val uri =
-            RedisURI.Builder.redis(host, port)
-                .withDatabase(database)
-                .withTimeout(Duration.ofSeconds(timeout))
-                .build()
-        return RedisClient.create(uri).also { redisClient = it }
+        val uri = RedisURI.create(url)
+        uri.timeout = Duration.ofSeconds(timeout)
+        return RedisClient.create(uri).also { client = it }
     }
 
     @Bean
     fun redisPool(redisClient: RedisClient): RedisPool {
         val poolConfig = GenericObjectPoolConfig<StatefulRedisConnection<String, String>>().apply {
-            maxTotal = maxTotal
-            maxIdle = maxIdle
-            // Validate connection before returning it to the connection pool to avoid putting a stale connection back into the pool.
-            // This has a minor performance overhead.
+            maxTotal = this@RedisConfig.maxTotal
+            maxIdle = this@RedisConfig.maxIdle
             testOnReturn = true
-            // Periodically check if idle connections are valid, automatically remove invalid idle connections to prevent long-idle connections from becoming stale.
             testWhileIdle = true
-            // https://github.com/redis/jedis/issues/2781#issuecomment-1032632503
             jmxEnabled = false
         }
-        return ConnectionPoolSupport.createGenericObjectPool({ redisClient.connect() }, poolConfig)
-            .also { redisPool = it }
+        return ConnectionPoolSupport.createGenericObjectPool(
+            { redisClient.connect() },
+            poolConfig
+        ).also { pool = it }
     }
 
     @PreDestroy
     fun destroy() {
-        redisPool.close()
-        redisClient.shutdown()
+        if (::pool.isInitialized) {
+            pool.close()
+        }
+        if (::client.isInitialized) {
+            client.shutdown()
+        }
     }
 }
