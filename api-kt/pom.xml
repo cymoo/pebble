@@ -214,6 +214,7 @@
           </execution>
         </executions>
         <configuration>
+          <logging>WARN</logging>
           <jdbc>
             <driver>org.sqlite.JDBC</driver>
             <url>jdbc:sqlite:../data/app-dev.db</url>
