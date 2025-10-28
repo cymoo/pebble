@@ -9,7 +9,7 @@ object Env {
         // 1. Read system variable or default profile
         val activeProfile = System.getenv("SPRING_PROFILES_ACTIVE")
             ?: System.getProperty("spring.profiles.active")
-            ?: "dev"
+            ?: "prod"
 
         // Set to system property if not already set
         if (System.getProperty("spring.profiles.active") == null) {

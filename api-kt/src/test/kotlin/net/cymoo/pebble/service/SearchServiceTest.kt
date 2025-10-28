@@ -10,8 +10,10 @@ import org.springframework.test.context.ActiveProfiles
 @ActiveProfiles("test")
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class SearchServiceTest(
-    @Autowired private var searchService: SearchService
 ) {
+    @Autowired
+    private lateinit var searchService: SearchService
+
     @AfterEach
     fun setup() {
         searchService.clearAllIndexes()
