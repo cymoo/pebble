@@ -1,8 +1,8 @@
 #[cfg(test)]
 mod tests {
     use jieba_rs::Jieba;
-    use pebble::config::rd::RD;
-    use pebble::service::search_service::FullTextSearch;
+    use mote::config::rd::RD;
+    use mote::service::search_service::FullTextSearch;
     use std::sync::Arc;
 
     async fn setup_search() -> FullTextSearch {

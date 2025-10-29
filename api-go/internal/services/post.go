@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/cymoo/pebble/internal/models"
+	"github.com/cymoo/mote/internal/models"
 	"github.com/jmoiron/sqlx"
 )
 
@@ -81,7 +81,7 @@ func (s *PostService) FindByIDs(ctx context.Context, ids []int64) ([]models.Post
 		AND deleted_at IS NULL
 	`
 
-	var posts []models.Post
+	posts := []models.Post{}
 	err := s.db.SelectContext(ctx, &posts, query, string(idsJSON))
 	if err != nil {
 		return nil, err

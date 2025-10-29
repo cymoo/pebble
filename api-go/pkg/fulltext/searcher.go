@@ -8,7 +8,7 @@ import (
 	"sort"
 	"strconv"
 
-	t "github.com/cymoo/pebble/pkg/util/types"
+	t "github.com/cymoo/mote/pkg/util/types"
 	"github.com/redis/go-redis/v9"
 )
 
@@ -375,22 +375,14 @@ func (f *FullTextSearch) rank(ctx context.Context, tokens []string, ids map[int6
 
 // ClearIndex removes all indexes with the configured prefix
 func (f *FullTextSearch) ClearIndex(ctx context.Context) error {
-	prefixes := []string{
-		f.keyPrefix + "doc:",
-		f.keyPrefix + "token:",
+	keys, err := f.client.Keys(ctx, f.keyPrefix+"*").Result()
+	if err != nil {
+		return err
 	}
 
-	// Scan and delete keys
-	for _, prefix := range prefixes {
-		keys, err := f.client.Keys(ctx, prefix+"*").Result()
-		if err != nil {
+	if len(keys) > 0 {
+		if err := f.client.Del(ctx, keys...).Err(); err != nil {
 			return err
-		}
-
-		if len(keys) > 0 {
-			if err := f.client.Del(ctx, keys...).Err(); err != nil {
-				return err
-			}
 		}
 	}
 
@@ -399,15 +391,15 @@ func (f *FullTextSearch) ClearIndex(ctx context.Context) error {
 
 // Key generation helpers
 func (f *FullTextSearch) docCountKey() string {
-	return f.keyPrefix + "doc:count"
+	return f.keyPrefix + "count"
 }
 
 func (f *FullTextSearch) docTokensKey(id int64) string {
-	return fmt.Sprintf("%sdoc:%d:tokens", f.keyPrefix, id)
+	return fmt.Sprintf("%s%d:tokens", f.keyPrefix, id)
 }
 
 func (f *FullTextSearch) tokenDocsKey(token string) string {
-	return fmt.Sprintf("%stoken:%s:docs", f.keyPrefix, token)
+	return fmt.Sprintf("%s%s:docs", f.keyPrefix, token)
 }
 
 // Helper functions

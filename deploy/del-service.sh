@@ -9,11 +9,11 @@ if (( EUID != 0 )); then
 fi
 
 # Configuration parameters
-SERVICE_NAME="pebble.service"
+SERVICE_NAME="mote.service"
 SERVICE_FILE="/etc/systemd/system/${SERVICE_NAME}"
 DIRECTORIES=(
-    "/etc/pebble"
-    "/var/www/pebble/releases"
+    "/etc/mote"
+    "/var/www/mote/releases"
 )
 
 # Service management functions
@@ -54,6 +54,6 @@ stop_service_if_active
 disable_service_if_enabled
 remove_service_file
 clean_directories
-rm -f /var/www/pebble/current
+rm -f /var/www/mote/current
 
 echo "Cleanup completed successfully."

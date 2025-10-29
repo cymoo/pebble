@@ -5,11 +5,11 @@ import (
 	"time"
 
 	m "github.com/cymoo/mint"
-	"github.com/cymoo/pebble/assets"
-	e "github.com/cymoo/pebble/internal/errors"
-	"github.com/cymoo/pebble/internal/handlers"
-	"github.com/cymoo/pebble/internal/models"
-	"github.com/cymoo/pebble/internal/services"
+	"github.com/cymoo/mote/assets"
+	e "github.com/cymoo/mote/internal/errors"
+	"github.com/cymoo/mote/internal/handlers"
+	"github.com/cymoo/mote/internal/models"
+	"github.com/cymoo/mote/internal/services"
 	"github.com/go-chi/chi/v5"
 )
 

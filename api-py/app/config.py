@@ -19,11 +19,11 @@ class Config:
     MAX_CONTENT_LENGTH: int = 10 * 1024 * 1024  # 10 MB
 
     # Basic app info
-    APP_NAME: str = 'Pebble'
+    APP_NAME: str = 'mote'
     APP_VERSION: str = '1.0.0'
 
     # Application settings
-    POSTS_PER_PAGE: int = 30
+    POSTS_PER_PAGE: int = 20
     ABOUT_URL: str | None = None
 
     # Database

@@ -6,6 +6,8 @@
   <!-- Define the storage location for log files -->
   <property name="LOG_HOME" value="./logs"/>
 
+  <statusListener class="ch.qos.logback.core.status.NopStatusListener"/>
+
   <!-- Console output -->
   <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
     <encoder>
@@ -65,7 +67,7 @@
     <root level="INFO">
       <appender-ref ref="CONSOLE"/>
     </root>
-    <logger name="com.example.your.package" level="DEBUG"/>
+    <logger name="site.daydream.mote" level="DEBUG"/>
   </springProfile>
 
   <!-- Production environment -->
@@ -75,7 +77,7 @@
       <appender-ref ref="ASYNC"/>
       <appender-ref ref="ERROR_FILE"/>
     </root>
-    <logger name="com.example.your-package" level="INFO"/>
+    <logger name="site.daydream.mote" level="INFO"/>
     <!-- Set log level for third-party libraries -->
     <logger name="org.springframework" level="WARN"/>
     <logger name="org.hibernate" level="WARN"/>

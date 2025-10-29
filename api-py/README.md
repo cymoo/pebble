@@ -25,16 +25,16 @@ redis-server
 - Run in development
 
 ```bash
-PEBBLE_PASSWORD=xxx flask run
+MOTE_PASSWORD=xxx flask run
 ```
 
 - Run in production
 
 ```bash
-PEBBLE_PASSWORD=xxx gunicorn -k gevent -b :8000 wsgi:app
+MOTE_PASSWORD=xxx gunicorn -k gevent -b :8000 wsgi:app
 ```
 
-NOTE: The `PEBBLE_PASSWORD` variable is used for login. Ensure it is complex and securely stored in production.
+NOTE: The `MOTE_PASSWORD` variable is used for login. Ensure it is complex and securely stored in production.
 
 ### Database Migration
 

@@ -20,7 +20,7 @@ Before running the application, ensure that the Redis service is up.
 2. Start the Application
 
 ```bash
-PEBBLE_PASSWORD=xxx ./mvnw spring-boot:run
+MOTE_PASSWORD=xxx ./mvnw spring-boot:run
 ```
 
 ### Run in production
@@ -34,10 +34,10 @@ PEBBLE_PASSWORD=xxx ./mvnw spring-boot:run
 2. Run the JAR
 
 ```bash
-PEBBLE_PASSWORD=xxx SPRING_PROFILES_ACTIVE=prod java -jar target/pebble-1.0.0.jar
+MOTE_PASSWORD=xxx SPRING_PROFILES_ACTIVE=prod java -jar target/mote-1.0.0.jar
 ```
 
-The `PEBBLE_PASSWORD` variable is used for login. Ensure it is complex and securely stored in production.
+The `MOTE_PASSWORD` variable is used for login. Ensure it is complex and securely stored in production.
 
 ### Database Migration
 

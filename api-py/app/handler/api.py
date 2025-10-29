@@ -28,7 +28,7 @@ executor = ThreadPoolExecutor()
 
 
 def is_valid_password(password: str) -> bool:
-    return password == os.getenv('PEBBLE_PASSWORD')
+    return password == os.getenv('MOTE_PASSWORD')
 
 
 @api.get('/')

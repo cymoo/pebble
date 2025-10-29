@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/cymoo/pebble/pkg/util/env"
+	"github.com/cymoo/mote/pkg/util/env"
 )
 
 type Config struct {
@@ -81,10 +81,10 @@ func Load() *Config {
 	config.AppEnv = env.GetString("APP_ENV", "prod")
 	env.LoadConfigFiles(config.AppEnv)
 
-	config.AppName = env.GetString("APP_NAME", "Pebble")
+	config.AppName = env.GetString("APP_NAME", "mote")
 	config.AppVersion = env.GetString("APP_VERSION", "1.0.0")
 
-	config.PostsPerPage = env.GetInt("POSTS_PER_PAGE", 30)
+	config.PostsPerPage = env.GetInt("POSTS_PER_PAGE", 20)
 
 	config.StaticURL = env.GetString("STATIC_URL", "/static")
 	// If StaticPath is not set, then static files will be served from embedded FS

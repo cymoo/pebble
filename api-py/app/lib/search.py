@@ -161,10 +161,9 @@ class FullTextSearch:
         Removes all keys related to document indexing.
         """
         db = self.db
-        for prefix in [f"{self.key_prefix}doc:", f"{self.key_prefix}token:"]:
-            keys = db.keys(prefix + '*')
-            if keys:
-                db.delete(*keys)
+        keys = db.keys(self.key_prefix + '*')
+        if keys:
+            db.delete(*keys)
 
     def _update_inverted_index(self, id: int, old_tokens: set[str], new_tokens: set[str]) -> None:
         tokens_to_del = old_tokens - new_tokens
@@ -263,10 +262,10 @@ class FullTextSearch:
         return results
 
     def _doc_count_key(self) -> str:
-        return f"{self.key_prefix}doc:count"
+        return f"{self.key_prefix}count"
 
     def _doc_tokens_key(self, id: int) -> str:
-        return f"{self.key_prefix}doc:{id}:tokens"
+        return f"{self.key_prefix}{id}:tokens"
 
     def _token_docs_key(self, token: str) -> str:
-        return f"{self.key_prefix}token:{token}:docs"
+        return f"{self.key_prefix}{token}:docs"

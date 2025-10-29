@@ -15,8 +15,8 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/cymoo/pebble/internal/config"
-	"github.com/cymoo/pebble/internal/models"
+	"github.com/cymoo/mote/internal/config"
+	"github.com/cymoo/mote/internal/models"
 	"github.com/disintegration/imaging"
 	"github.com/google/uuid"
 	"github.com/rwcarlsen/goexif/exif"

@@ -6,9 +6,9 @@
 #[cfg(test)]
 mod tests;
 
-use pebble::service::task_service::start_jobs;
-use pebble::util::env::load_dotenv;
-use pebble::{create_app, AppState};
+use mote::service::task_service::start_jobs;
+use mote::util::env::load_dotenv;
+use mote::{create_app, AppState};
 use std::env;
 use tokio::net::TcpListener;
 use tracing::debug;
@@ -20,8 +20,8 @@ use tracing_subscriber::{fmt, EnvFilter};
 async fn main() {
     load_dotenv();
 
-    if env::var("PEBBLE_PASSWORD").is_err() {
-        panic!("Environment variable 'PEBBLE_PASSWORD' is not set!");
+    if env::var("MOTE_PASSWORD").is_err() {
+        panic!("Environment variable 'MOTE_PASSWORD' is not set!");
     }
 
     tracing_subscriber::registry()

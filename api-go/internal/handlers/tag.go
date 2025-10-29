@@ -7,9 +7,9 @@ import (
 	"strings"
 
 	m "github.com/cymoo/mint"
-	e "github.com/cymoo/pebble/internal/errors"
-	"github.com/cymoo/pebble/internal/models"
-	"github.com/cymoo/pebble/internal/services"
+	e "github.com/cymoo/mote/internal/errors"
+	"github.com/cymoo/mote/internal/models"
+	"github.com/cymoo/mote/internal/services"
 )
 
 type TagHandler struct {

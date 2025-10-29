@@ -12,11 +12,11 @@ import (
 	"unicode"
 
 	m "github.com/cymoo/mint"
-	e "github.com/cymoo/pebble/internal/errors"
-	"github.com/cymoo/pebble/internal/models"
-	"github.com/cymoo/pebble/internal/services"
+	e "github.com/cymoo/mote/internal/errors"
+	"github.com/cymoo/mote/internal/models"
+	"github.com/cymoo/mote/internal/services"
 
-	"github.com/cymoo/pebble/pkg/fulltext"
+	"github.com/cymoo/mote/pkg/fulltext"
 )
 
 type PostHandler struct {
@@ -48,6 +48,7 @@ func (h *PostHandler) SearchPosts(r *http.Request, query m.Query[models.SearchRe
 		return nil, e.InternalError()
 	}
 
+	log.Printf("results: %#v", results)
 	if len(results) == 0 {
 		return &models.PostPagination{
 			Posts:  []models.Post{},

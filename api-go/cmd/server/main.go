@@ -3,8 +3,8 @@ package main
 import (
 	"log"
 
-	"github.com/cymoo/pebble/internal/app"
-	"github.com/cymoo/pebble/internal/config"
+	"github.com/cymoo/mote/internal/app"
+	"github.com/cymoo/mote/internal/config"
 )
 
 func main() {

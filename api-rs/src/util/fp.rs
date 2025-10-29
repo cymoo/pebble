@@ -7,7 +7,7 @@
 /// # Examples
 ///
 /// ```rust
-/// use pebble::util::common::Pipe;
+/// use mote::util::fp::Pipe;
 /// let result = 5.pipe(|x| x * 2);  // result is 10
 /// let string = "hello".pipe(|s| s.to_uppercase());  // string is "HELLO"
 /// ```

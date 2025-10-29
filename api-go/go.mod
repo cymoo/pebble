@@ -1,4 +1,4 @@
-module github.com/cymoo/pebble
+module github.com/cymoo/mote
 
 go 1.25.0
 

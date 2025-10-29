@@ -56,11 +56,9 @@ pub async fn create_app(state: AppState) -> Router {
             .not_found_service(handle_404.into_service()),
     );
 
-    let max_body_size = config.http.max_body_size;
-
     // The order of the layers is important.
     // https://docs.rs/axum/latest/axum/middleware/index.html#ordering
-    Router::new()
+    let mut app = Router::new()
         .nest("/api", post_api::create_routes(state.rd.pool.clone()))
         .nest("/shared", post_page::create_routes())
         .merge(static_route)
@@ -70,15 +68,18 @@ pub async fn create_app(state: AppState) -> Router {
         .layer(
             ServiceBuilder::new()
                 .layer(CatchPanicLayer::custom(handle_panic))
-                .layer(TraceLayer::new_for_http())
                 // NOTE: Middleware added with Router::layer will run after routing
                 // https://stackoverflow.com/questions/75355826/route-paths-with-or-without-of-trailing-slashes-in-rust-axum
                 // https://www.matsimitsu.com/blog/2023-07-30-trailing-slashes-for-axum-routes
                 // .layer(NormalizePathLayer::trim_trailing_slash())
-                .layer(DefaultBodyLimit::max(max_body_size as usize))
+                .layer(DefaultBodyLimit::max(config.http.max_body_size as usize))
                 .layer(config.http.cors.clone().into_layer()),
-        )
-        .with_state(state)
+        );
+
+    if config.log.log_requests {
+        app = app.layer(TraceLayer::new_for_http());
+    }
+    app.with_state(state)
 }
 
 // Application state initialization

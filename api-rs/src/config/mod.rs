@@ -1,7 +1,6 @@
 use crate::util::env::{get_env_or, get_size_from_env_or, get_vec_from_env_or, load_dotenv};
 use tower_http::cors::{CorsLayer, AllowHeaders, AllowOrigin, AllowMethods, Any};
 use std::time::Duration;
-use std::env;
 use std::str::FromStr;
 use std::fmt::Debug;
 use std::net::IpAddr;
@@ -59,8 +58,6 @@ pub struct DBConfig {
 #[derive(Debug, Clone)]
 pub struct RedisConfig {
     pub url: String,
-    pub password: Option<String>,
-    pub db: u32
 }
 
 #[derive(Debug, Clone)]
@@ -81,10 +78,10 @@ impl AppConfig {
     pub fn from_env() -> Self {
         load_dotenv();
 
-        let app_name = get_env_or("APP_NAME", "Pebble".to_string()).unwrap();
+        let app_name = get_env_or("APP_NAME", "mote".to_string()).unwrap();
         let app_version = get_env_or("APP_VERSION", "1.0.0".to_string()).unwrap();
 
-        let posts_per_page = get_env_or("POSTS_PER_PAGE", 30).unwrap();
+        let posts_per_page = get_env_or("POSTS_PER_PAGE", 20).unwrap();
         let static_url = get_env_or("STATIC_URL", "/static".to_string()).unwrap();
         let static_path = get_env_or("STATIC_PATH", "./static".to_string()).unwrap();
 
@@ -109,8 +106,6 @@ impl AppConfig {
 
 impl HTTPConfig {
     pub fn from_env() -> Self {
-        load_dotenv();
-
         let ip = get_env_or("HTTP_IP", "127.0.0.1".to_string()).unwrap();
         let port = get_env_or("HTTP_PORT", 8000).unwrap();
         let max_body_size = get_size_from_env_or("HTTP_MAX_BODY_SIZE", 10 * 1024 * 1024).unwrap();
@@ -132,8 +127,6 @@ impl HTTPConfig {
 
 impl UploadConfig {
     pub fn from_env() -> Self {
-        load_dotenv();
-
         let base_path = get_env_or("UPLOAD_PATH", "./uploads".to_string()).unwrap();
         let base_url = get_env_or("UPLOAD_URL", "/uploads".to_string()).unwrap();
         let thumb_width = get_env_or("UPLOAD_THUMB_WIDTH", 128).unwrap();
@@ -150,8 +143,6 @@ impl UploadConfig {
 
 impl DBConfig {
     pub fn from_env() -> Self {
-        load_dotenv();
-
         let url = get_env_or("DATABASE_URL", "sqlite://app.db".to_string()).unwrap();
         let pool_size = get_env_or("DATABASE_POOL_SIZE", 5).unwrap();
         let auto_migrate = get_env_or("DATABASE_AUTO_MIGRATE", true).unwrap();
@@ -166,24 +157,16 @@ impl DBConfig {
 
 impl RedisConfig {
     pub fn from_env() -> Self {
-        load_dotenv();
-
-        let url = get_env_or("REDIS_URL", "redis://localhost:6379".to_string()).unwrap();
-        let password = env::var("REDIS_PASSWORD").ok();
-        let db = get_env_or("REDIS_DB", 0).unwrap();
+        let url = get_env_or("REDIS_URL", "redis://localhost:6379/0".to_string()).unwrap();
 
         RedisConfig {
             url,
-            password,
-            db,
         }
     }
 }
 
 impl CORSConfig {
     pub fn from_env() -> Self {
-        load_dotenv();
-
         let allowed_origins = get_vec_from_env_or("CORS_ALLOWED_ORIGINS", vec![]).unwrap();
         let allowed_methods = get_vec_from_env_or("CORS_ALLOWED_METHODS", strs_to_strings(vec!["GET", "POST", "PUT", "DELETE", "OPTIONS"])).unwrap();
         let allowed_headers = get_vec_from_env_or("CORS_ALLOWED_HEADERS", vec!["Content-Type".to_string(), "Authorization".to_string()]).unwrap();
@@ -230,9 +213,7 @@ impl CORSConfig {
 
 impl LogConfig {
     pub fn from_env() -> Self {
-        load_dotenv();
-
-        let log_requests = get_env_or("LOG_REQUESTS", false).unwrap();
+        let log_requests = get_env_or("LOG_REQUESTS", true).unwrap();
 
         LogConfig {
             log_requests,
@@ -332,9 +313,6 @@ impl AppConfig {
         // Validate Redis config
         if self.redis.url.is_empty() {
             errors.push("redis.url cannot be empty".to_string());
-        }
-        if self.redis.db > 15 {
-            errors.push("redis.db cannot exceed 15".to_string());
         }
 
         // If there are validation errors, panic with all of them
