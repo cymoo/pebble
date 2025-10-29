@@ -24,9 +24,6 @@ def create_app(config) -> Flask:
         template_folder='../templates',
     )
 
-    print('*****')
-    print('FLASK_ENV', config.FLASK_ENV)
-
     make_response_of_dataclass(app)
 
     app.json = ORJSONProvider(app)
