@@ -1,11 +1,11 @@
 use crate::util::env::{get_env_or, get_size_from_env_or, get_vec_from_env_or, load_dotenv};
-use tower_http::cors::{CorsLayer, AllowHeaders, AllowOrigin, AllowMethods, Any};
-use std::time::Duration;
-use std::str::FromStr;
 use std::fmt::Debug;
+use std::fs;
 use std::net::IpAddr;
 use std::path::Path;
-use std::fs;
+use std::str::FromStr;
+use std::time::Duration;
+use tower_http::cors::{AllowHeaders, AllowMethods, AllowOrigin, Any, CorsLayer};
 
 pub mod db;
 pub mod rd;
@@ -130,7 +130,11 @@ impl UploadConfig {
         let base_path = get_env_or("UPLOAD_PATH", "./uploads".to_string()).unwrap();
         let base_url = get_env_or("UPLOAD_URL", "/uploads".to_string()).unwrap();
         let thumb_width = get_env_or("UPLOAD_THUMB_WIDTH", 128).unwrap();
-        let image_formats = get_vec_from_env_or("UPLOAD_IMAGE_FORMATS", strs_to_strings(vec!["jpeg", "jpg", "png", "webp", "gif"])).unwrap();
+        let image_formats = get_vec_from_env_or(
+            "UPLOAD_IMAGE_FORMATS",
+            strs_to_strings(vec!["jpeg", "jpg", "png", "webp", "gif"]),
+        )
+        .unwrap();
 
         UploadConfig {
             base_path,
@@ -159,17 +163,23 @@ impl RedisConfig {
     pub fn from_env() -> Self {
         let url = get_env_or("REDIS_URL", "redis://localhost:6379/0".to_string()).unwrap();
 
-        RedisConfig {
-            url,
-        }
+        RedisConfig { url }
     }
 }
 
 impl CORSConfig {
     pub fn from_env() -> Self {
         let allowed_origins = get_vec_from_env_or("CORS_ALLOWED_ORIGINS", vec![]).unwrap();
-        let allowed_methods = get_vec_from_env_or("CORS_ALLOWED_METHODS", strs_to_strings(vec!["GET", "POST", "PUT", "DELETE", "OPTIONS"])).unwrap();
-        let allowed_headers = get_vec_from_env_or("CORS_ALLOWED_HEADERS", vec!["Content-Type".to_string(), "Authorization".to_string()]).unwrap();
+        let allowed_methods = get_vec_from_env_or(
+            "CORS_ALLOWED_METHODS",
+            strs_to_strings(vec!["GET", "POST", "PUT", "DELETE", "OPTIONS"]),
+        )
+        .unwrap();
+        let allowed_headers = get_vec_from_env_or(
+            "CORS_ALLOWED_HEADERS",
+            vec!["Content-Type".to_string(), "Authorization".to_string()],
+        )
+        .unwrap();
         let allow_credentials = get_env_or("CORS_ALLOW_CREDENTIALS", false).unwrap();
         let max_age = get_env_or("CORS_MAX_AGE", 86400).unwrap();
 
@@ -188,19 +198,23 @@ impl CORSConfig {
         cors = if self.allowed_origins.contains(&"*".to_string()) {
             cors.allow_origin(Any)
         } else {
-            cors.allow_origin(AllowOrigin::list(convert_vec( self.allowed_origins.clone())))
+            cors.allow_origin(AllowOrigin::list(convert_vec(self.allowed_origins.clone())))
         };
 
         cors = if self.allowed_methods.contains(&"*".to_string()) {
             cors.allow_methods(Any)
         } else {
-            cors.allow_methods(AllowMethods::list(convert_vec( self.allowed_methods.clone())))
+            cors.allow_methods(AllowMethods::list(convert_vec(
+                self.allowed_methods.clone(),
+            )))
         };
 
         cors = if self.allowed_headers.contains(&"*".to_string()) {
             cors.allow_headers(Any)
         } else {
-            cors.allow_headers(AllowHeaders::list(convert_vec( self.allowed_headers.clone())))
+            cors.allow_headers(AllowHeaders::list(convert_vec(
+                self.allowed_headers.clone(),
+            )))
         };
 
         cors = cors
@@ -215,9 +229,7 @@ impl LogConfig {
     pub fn from_env() -> Self {
         let log_requests = get_env_or("LOG_REQUESTS", true).unwrap();
 
-        LogConfig {
-            log_requests,
-        }
+        LogConfig { log_requests }
     }
 }
 
@@ -235,7 +247,7 @@ impl AppConfig {
         }
 
         // Validate application settings
-        if self.posts_per_page <= 0 {
+        if self.posts_per_page == 0 {
             errors.push("posts_per_page must be greater than 0".to_string());
         }
         if self.posts_per_page > 1000 {
@@ -252,10 +264,13 @@ impl AppConfig {
         if self.http.ip.is_empty() {
             errors.push("http.ip cannot be empty".to_string());
         } else if self.http.ip.parse::<IpAddr>().is_err() {
-            errors.push(format!("http.ip '{}' is not a valid IP address", self.http.ip));
+            errors.push(format!(
+                "http.ip '{}' is not a valid IP address",
+                self.http.ip
+            ));
         }
 
-        if self.http.max_body_size <= 0 {
+        if self.http.max_body_size == 0 {
             errors.push("http.max_body_size must be greater than 0".to_string());
         }
 
@@ -269,12 +284,18 @@ impl AppConfig {
             let path = Path::new(&self.upload.base_path);
             // Try to create directory if it doesn't exist
             if let Err(e) = fs::create_dir_all(path) {
-                errors.push(format!("Failed to create upload directory '{}': {}", self.upload.base_path, e));
+                errors.push(format!(
+                    "Failed to create upload directory '{}': {}",
+                    self.upload.base_path, e
+                ));
             } else {
                 // Check if directory is writable
                 let test_file = path.join(".write_test");
                 if let Err(e) = fs::write(&test_file, b"test") {
-                    errors.push(format!("Upload directory '{}' is not writable: {}", self.upload.base_path, e));
+                    errors.push(format!(
+                        "Upload directory '{}' is not writable: {}",
+                        self.upload.base_path, e
+                    ));
                 } else {
                     let _ = fs::remove_file(test_file);
                 }
@@ -284,7 +305,7 @@ impl AppConfig {
         if self.upload.image_formats.is_empty() {
             errors.push("upload.image_formats cannot be empty".to_string());
         } else {
-            let valid_formats = vec!["jpg", "jpeg", "png", "webp", "gif"];
+            let valid_formats = ["jpg", "jpeg", "png", "webp", "gif"];
             for format in &self.upload.image_formats {
                 if !valid_formats.contains(&format.to_lowercase().as_str()) {
                     errors.push(format!("Invalid image format: {}", format));
@@ -303,7 +324,7 @@ impl AppConfig {
         if self.db.url.is_empty() {
             errors.push("db.url cannot be empty".to_string());
         }
-        if self.db.pool_size <= 0 {
+        if self.db.pool_size == 0 {
             errors.push("db.pool_size must be greater than 0".to_string());
         }
         if self.db.pool_size > 1000 {
@@ -317,7 +338,10 @@ impl AppConfig {
 
         // If there are validation errors, panic with all of them
         if !errors.is_empty() {
-            panic!("Configuration validation failed:\n  - {}", errors.join("\n  - "));
+            panic!(
+                "Configuration validation failed:\n  - {}",
+                errors.join("\n  - ")
+            );
         }
     }
 }

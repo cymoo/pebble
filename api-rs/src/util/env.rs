@@ -43,9 +43,10 @@ where
     T::Err: std::fmt::Debug,
 {
     match env::var(key) {
-        Ok(val) => val.parse()
+        Ok(val) => val
+            .parse()
             .map_err(|_| anyhow!(format!("Failed to parse {} env var", key))),
-        Err(_) => Ok(default)
+        Err(_) => Ok(default),
     }
 }
 
@@ -57,9 +58,14 @@ where
     T::Err: Into<anyhow::Error>,
 {
     match env::var(key) {
-        Ok(val) => val.split(',')
-            .map(|s| s.trim().parse().map_err(Into::into)
-                .context(format!("Failed to parse {} env var", key)))
+        Ok(val) => val
+            .split(',')
+            .map(|s| {
+                s.trim()
+                    .parse()
+                    .map_err(Into::into)
+                    .context(format!("Failed to parse {} env var", key))
+            })
             .collect(),
         Err(_) => Ok(default),
     }
@@ -70,8 +76,7 @@ where
 /// If the variable is not set, returns `default`. If parsing fails, returns an error.
 pub fn get_size_from_env_or(key: &str, default: u64) -> Result<u64> {
     match env::var(key) {
-        Ok(val) => parse_size(&val)
-            .ok_or(anyhow!(format!("Failed to parse {} env var", key))),
+        Ok(val) => parse_size(&val).ok_or(anyhow!(format!("Failed to parse {} env var", key))),
         Err(_) => Ok(default),
     }
 }
@@ -86,7 +91,10 @@ pub fn get_bool_from_env_or(key: &str, default: bool) -> Result<bool> {
             match value.as_str() {
                 "true" | "1" | "yes" | "on" => Ok(true),
                 "false" | "0" | "no" | "off" => Ok(false),
-                _ => Err(anyhow!(format!("Failed to parse {} env var as `bool`", key)))
+                _ => Err(anyhow!(format!(
+                    "Failed to parse {} env var as `bool`",
+                    key
+                ))),
             }
         }
         Err(_) => Ok(default),
@@ -173,5 +181,4 @@ mod tests {
         assert_eq!(parse_size("5 g"), None);
         assert_eq!(parse_size("abc"), None);
     }
-
 }

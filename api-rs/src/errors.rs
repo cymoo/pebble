@@ -72,18 +72,15 @@ impl ApiError {
     fn message(&self) -> Option<String> {
         use super::ApiError::*;
         match self {
-            BadRequest(msg) | NotFound(msg) | TooManyRequests(msg) | Unauthorized(msg) | ServerError(msg) => {
-                Some(msg.clone())
-            }
+            BadRequest(msg) | NotFound(msg) | TooManyRequests(msg) | Unauthorized(msg)
+            | ServerError(msg) => Some(msg.clone()),
             PathError(_, message) => Some(message.clone()),
             QueryRejection(error) => Some(error.body_text()),
             JsonRejection(error) => Some(error.body_text()),
             FormRejection(error) => Some(error.body_text()),
             MultiPartError(error) => Some(error.body_text()),
             Sqlx(_) | Anyhow(_) => None,
-            ValidationError(err) => {
-                Some(err.to_string().replace('\n', "; "))
-            }
+            ValidationError(err) => Some(err.to_string().replace('\n', "; ")),
             Any(msg) => msg.message.clone(),
         }
     }
@@ -95,8 +92,13 @@ impl ApiError {
     fn to_json(&self, code: u16, error: &str, message: Option<&str>) -> Response {
         (
             StatusCode::from_u16(code).unwrap(),
-            Json(ErrorMessage { code, error: error.to_string(), message: message.map(String::from) })
-        ).into_response()
+            Json(ErrorMessage {
+                code,
+                error: error.to_string(),
+                message: message.map(String::from),
+            }),
+        )
+            .into_response()
     }
 }
 
@@ -109,37 +111,29 @@ impl IntoResponse for ApiError {
             Sqlx(ref error) => {
                 tracing::error!("sqlx error: {:?}", error);
                 match error {
-                    sqlx::Error::Database(dbe) if dbe.constraint().is_some() => {
-                        match dbe.kind() {
-                            UniqueViolation => {
-                                self.to_json(409, "Conflict", Some("Unique value already in use"))
-                            }
-                            ForeignKeyViolation => {
-                                self.to_json(400, "Bad Request", Some("Missing related record"))
-                            }
-                            NotNullViolation => {
-                                self.to_json(400, "Bad Request", Some("Missing required field"))
-                            }
-                            _ => {
-                                self.to_json(400, "Bad Request", Some("Invalid input value"))
-                            }
+                    sqlx::Error::Database(dbe) if dbe.constraint().is_some() => match dbe.kind() {
+                        UniqueViolation => {
+                            self.to_json(409, "Conflict", Some("Unique value already in use"))
                         }
-                    }
+                        ForeignKeyViolation => {
+                            self.to_json(400, "Bad Request", Some("Missing related record"))
+                        }
+                        NotNullViolation => {
+                            self.to_json(400, "Bad Request", Some("Missing required field"))
+                        }
+                        _ => self.to_json(400, "Bad Request", Some("Invalid input value")),
+                    },
                     sqlx::Error::RowNotFound => {
                         self.to_json(404, "Not Found", Some("Data not found"))
                     }
-                    _ => {
-                        self.to_default_json()
-                    }
+                    _ => self.to_default_json(),
                 }
             }
             Anyhow(ref error) => {
                 tracing::error!("generic error: {:?}", error);
                 self.to_default_json()
             }
-            _ => {
-                self.to_default_json()
-            }
+            _ => self.to_default_json(),
         }
     }
 }
@@ -191,15 +185,21 @@ impl From<JsonRejection> for ApiError {
 }
 
 impl From<FormRejection> for ApiError {
-    fn from(rejection: FormRejection) -> Self { ApiError::FormRejection(rejection) }
+    fn from(rejection: FormRejection) -> Self {
+        ApiError::FormRejection(rejection)
+    }
 }
 
 impl From<MultipartError> for ApiError {
-    fn from(err: MultipartError) -> Self { ApiError::MultiPartError(err) }
+    fn from(err: MultipartError) -> Self {
+        ApiError::MultiPartError(err)
+    }
 }
 
 impl From<ValidationErrors> for ApiError {
-    fn from(err: ValidationErrors) -> Self { ApiError::ValidationError(err) }
+    fn from(err: ValidationErrors) -> Self {
+        ApiError::ValidationError(err)
+    }
 }
 
 pub fn bad_request(msg: &str) -> ApiError {
@@ -211,5 +211,9 @@ pub fn not_found(msg: &str) -> ApiError {
 }
 
 pub fn any_error(code: u16, error: &str, message: Option<&str>) -> ApiError {
-    ApiError::Any(ErrorMessage { code, error: error.to_string(), message: message.map(String::from) })
+    ApiError::Any(ErrorMessage {
+        code,
+        error: error.to_string(),
+        message: message.map(String::from),
+    })
 }

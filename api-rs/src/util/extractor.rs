@@ -37,7 +37,7 @@ impl<T, S> FromRequestParts<S> for ValidatedQuery<T>
 where
     T: DeserializeOwned + Validate,
     S: Send + Sync,
-    Query<T>: FromRequestParts<S, Rejection=ApiError>,
+    Query<T>: FromRequestParts<S, Rejection = ApiError>,
 {
     type Rejection = ApiError;
 
@@ -56,7 +56,7 @@ impl<T, S> FromRequest<S> for ValidatedForm<T>
 where
     T: DeserializeOwned + Validate,
     S: Send + Sync,
-    Form<T>: FromRequest<S, Rejection=ApiError>,
+    Form<T>: FromRequest<S, Rejection = ApiError>,
 {
     type Rejection = ApiError;
 
@@ -75,7 +75,7 @@ impl<T, S> FromRequest<S> for ValidatedJson<T>
 where
     T: DeserializeOwned + Validate,
     S: Send + Sync,
-    Json<T>: FromRequest<S, Rejection=ApiError>,
+    Json<T>: FromRequest<S, Rejection = ApiError>,
 {
     type Rejection = ApiError;
 
@@ -91,15 +91,15 @@ pub struct Path<T>(pub T);
 
 impl<S, T> FromRequestParts<S> for Path<T>
 where
-// these trait bounds are copied from `impl FromRequest for axum::extract::path::Path`
+    // these trait bounds are copied from `impl FromRequest for axum::extract::path::Path`
     T: DeserializeOwned + Send,
     S: Send + Sync,
 {
     type Rejection = ApiError;
 
     async fn from_request_parts(parts: &mut Parts, state: &S) -> Result<Self, Self::Rejection> {
-        use ApiError::PathError;
         use axum::extract::path::ErrorKind::*;
+        use ApiError::PathError;
 
         match axum::extract::Path::<T>::from_request_parts(parts, state).await {
             Ok(value) => Ok(Self(value.0)),
@@ -109,12 +109,11 @@ where
                         let kind = inner.into_kind();
 
                         match &kind {
-                            WrongNumberOfParameters { .. } |
-                            ParseErrorAtKey { .. } |
-                            ParseErrorAtIndex { .. } |
-                            ParseError { .. } |
-                            InvalidUtf8InPathParam { .. } =>
-                                PathError(400, kind.to_string()),
+                            WrongNumberOfParameters { .. }
+                            | ParseErrorAtKey { .. }
+                            | ParseErrorAtIndex { .. }
+                            | ParseError { .. }
+                            | InvalidUtf8InPathParam { .. } => PathError(400, kind.to_string()),
 
                             UnsupportedType { .. } => {
                                 // this error is caused by the programmer using an unsupported type

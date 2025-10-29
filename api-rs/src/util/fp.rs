@@ -1,4 +1,3 @@
-
 /// The Pipe trait provides a method to pipe a value through a transformation.
 ///
 /// This trait allows for a more functional programming style by enabling

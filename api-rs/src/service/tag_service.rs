@@ -94,10 +94,10 @@ impl Tag {
     }
 
     pub async fn find_or_create(tx: &mut Transaction<'_, Sqlite>, name: &str) -> ApiResult<Tag> {
-        let tag = if let Some(tag) = Tag::find_by_name(tx, &name).await? {
+        let tag = if let Some(tag) = Tag::find_by_name(tx, name).await? {
             tag
         } else {
-            Tag::create(tx, &name).await?
+            Tag::create(tx, name).await?
         };
         Ok(tag)
     }
@@ -368,13 +368,26 @@ impl Tag {
     }
 }
 
-
 /// Replaces the starting substring `from` in `s` with `to` if `s` starts with `from`.
 pub fn replace_from_start(s: &str, from: &str, to: &str) -> String {
-    if s.starts_with(from) {
-        let remainder = &s[from.len()..];
+    if let Some(remainder) = s.strip_prefix(from) {
         format!("{}{}", to, remainder)
     } else {
         s.to_string()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::replace_from_start;
+    #[test]
+    fn test_replace_from_start() {
+        assert_eq!(
+            replace_from_start("tag/subtag", "tag", "newtag"),
+            "newtag/subtag"
+        );
+        assert_eq!(replace_from_start("tag", "tag", "newtag"), "newtag");
+        assert_eq!(replace_from_start("othertag", "tag", "newtag"), "othertag");
+        assert_eq!(replace_from_start("taggy", "tag", "newtag"), "newtaggy");
     }
 }

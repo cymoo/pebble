@@ -7,7 +7,9 @@ use std::collections::HashSet;
 use std::hash::Hash;
 
 impl RD {
-    pub async fn get_connection(&self) -> anyhow::Result<PooledConnection<'_, RedisConnectionManager>> {
+    pub async fn get_connection(
+        &self,
+    ) -> anyhow::Result<PooledConnection<'_, RedisConnectionManager>> {
         let conn = self.pool.get().await?;
         Ok(conn)
     }
@@ -33,7 +35,10 @@ impl RD {
         Ok(value)
     }
 
-    pub async fn get_object<T, K: ToRedisArgs + Send + Sync>(&self, key: K) -> anyhow::Result<Option<T>>
+    pub async fn get_object<T, K: ToRedisArgs + Send + Sync>(
+        &self,
+        key: K,
+    ) -> anyhow::Result<Option<T>>
     where
         T: for<'de> Deserialize<'de>,
     {
@@ -45,13 +50,19 @@ impl RD {
         }
     }
 
-    pub async fn mget<T: FromRedisValue, K: ToRedisArgs + Send + Sync>(&self, key: K) -> anyhow::Result<Vec<Option<T>>> {
+    pub async fn mget<T: FromRedisValue, K: ToRedisArgs + Send + Sync>(
+        &self,
+        key: K,
+    ) -> anyhow::Result<Vec<Option<T>>> {
         let mut conn = self.get_connection().await?;
         let values: Vec<Option<T>> = conn.mget(key).await?;
         Ok(values)
     }
 
-    pub async fn mget_object<T, K: ToRedisArgs + Send + Sync>(&self, key: K) -> anyhow::Result<Vec<Option<T>>>
+    pub async fn mget_object<T, K: ToRedisArgs + Send + Sync>(
+        &self,
+        key: K,
+    ) -> anyhow::Result<Vec<Option<T>>>
     where
         T: for<'de> Deserialize<'de>,
     {
@@ -70,7 +81,12 @@ impl RD {
     }
 
     //noinspection DuplicatedCode
-    pub async fn set<T, K: ToRedisArgs + Send + Sync>(&self, key: K, value: T, expire_seconds: Option<u64>) -> anyhow::Result<()>
+    pub async fn set<T, K: ToRedisArgs + Send + Sync>(
+        &self,
+        key: K,
+        value: T,
+        expire_seconds: Option<u64>,
+    ) -> anyhow::Result<()>
     where
         T: ToRedisArgs + Send + Sync,
     {
@@ -84,7 +100,12 @@ impl RD {
     }
 
     //noinspection DuplicatedCode
-    pub async fn set_object<T, K: ToRedisArgs + Send + Sync>(&self, key: K, value: &T, expire_seconds: Option<u64>) -> anyhow::Result<()>
+    pub async fn set_object<T, K: ToRedisArgs + Send + Sync>(
+        &self,
+        key: K,
+        value: &T,
+        expire_seconds: Option<u64>,
+    ) -> anyhow::Result<()>
     where
         T: Serialize,
     {
@@ -110,7 +131,10 @@ impl RD {
         Ok(value)
     }
 
-    pub async fn smembers<T, K: ToRedisArgs + Send + Sync>(&self, key: K) -> anyhow::Result<HashSet<T>>
+    pub async fn smembers<T, K: ToRedisArgs + Send + Sync>(
+        &self,
+        key: K,
+    ) -> anyhow::Result<HashSet<T>>
     where
         T: FromRedisValue + Hash + Eq,
     {
@@ -119,7 +143,10 @@ impl RD {
         Ok(members)
     }
 
-    pub async fn keys<K: ToRedisArgs + Send + Sync>(&self, pattern: K) -> anyhow::Result<Vec<String>> {
+    pub async fn keys<K: ToRedisArgs + Send + Sync>(
+        &self,
+        pattern: K,
+    ) -> anyhow::Result<Vec<String>> {
         let mut conn = self.get_connection().await?;
         let keys: Vec<String> = conn.keys(pattern).await?;
         Ok(keys)
@@ -138,10 +165,10 @@ impl RD {
     {
         let mut conn = self.get_connection().await?;
         let mut pipe = redis::pipe();
-        let mut pipe = pipe.atomic();
-        callback(&mut pipe);
+        let pipe = pipe.atomic();
+        callback(pipe);
         let rv = pipe.query_async(&mut *conn).await;
 
-        rv.map_err(|e| anyhow::Error::from(e))
+        rv.map_err(anyhow::Error::from)
     }
 }

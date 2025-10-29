@@ -36,7 +36,6 @@ pub struct AppState {
     pub fts: Arc<FullTextSearch>,
 }
 
-
 // Application router creation
 // Note: The order of layers is important.
 pub async fn create_app(state: AppState) -> Router {
@@ -52,8 +51,7 @@ pub async fn create_app(state: AppState) -> Router {
 
     let uploads_route = Router::new().nest_service(
         &config.upload.base_url,
-        ServeDir::new(config.upload.base_path.clone())
-            .not_found_service(handle_404.into_service()),
+        ServeDir::new(config.upload.base_path.clone()).not_found_service(handle_404.into_service()),
     );
 
     // The order of the layers is important.
@@ -111,15 +109,6 @@ impl AppState {
             db,
             fts,
             rd: rd.clone(),
-        }
-    }
-
-    pub fn clone(&self) -> Self {
-        Self {
-            config: self.config.clone(),
-            db: self.db.clone(),
-            rd: self.rd.clone(),
-            fts: self.fts.clone(),
         }
     }
 }

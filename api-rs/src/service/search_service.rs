@@ -36,7 +36,6 @@ pub trait Tokenizer: Send + Sync {
                 let token = token.trim();
                 !token.is_empty() && !STOP_WORDS.contains(token)
             })
-            .map(String::from)
             .collect()
     }
 }
@@ -252,7 +251,7 @@ impl FullTextSearch {
         for (&id, token_frequency) in ids.iter().zip(token_frequencies.iter()) {
             let token_freq = token_frequency
                 .as_ref()
-                .expect(&format!("Token frequency of doc `{}` not found", id));
+                .unwrap_or_else(|| panic!("Token frequency of doc `{}` not found", id));
 
             let mut score = 0.0;
             let mut matching_terms = 0;
@@ -308,7 +307,6 @@ impl FullTextSearch {
     }
 
     pub async fn clear_all_indexes(&self) -> Result<()> {
-
         let keys: Vec<String> = self.rd.keys(format!("{}*", self.key_prefix)).await?;
         if !keys.is_empty() {
             self.rd.del(&keys).await?;

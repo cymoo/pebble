@@ -61,9 +61,7 @@ fn get_cookie(request: &Request, name: &str) -> Option<String> {
     let cookie_str = cookie_header.to_str().ok()?;
 
     cookie_str.split(';').find_map(|s| {
-        let mut parts = s.trim().splitn(2, '=');
-        let cookie_name = parts.next()?;
-        let cookie_value = parts.next()?;
+        let (cookie_name, cookie_value) = s.trim().split_once('=')?;
 
         if cookie_name == name {
             Some(cookie_value.to_string())

@@ -1,5 +1,7 @@
 use crate::errors::{ApiError, ApiResult};
-use crate::model::post::{CreateResponse, Post, CreatePostRequest, FilterPostRequest, PostRow, UpdatePostRequest};
+use crate::model::post::{
+    CreatePostRequest, CreateResponse, FilterPostRequest, Post, PostRow, UpdatePostRequest,
+};
 use crate::model::tag::Tag;
 use chrono::{DateTime, FixedOffset, Utc};
 use regex::Regex;
@@ -7,10 +9,7 @@ use sqlx::{query, query_as, QueryBuilder, Sqlite, SqlitePool, Transaction};
 use std::collections::{HashMap, HashSet};
 
 impl Post {
-    pub async fn find_with_parent(
-        pool: &SqlitePool,
-        id: i64,
-    ) -> ApiResult<Post> {
+    pub async fn find_with_parent(pool: &SqlitePool, id: i64) -> ApiResult<Post> {
         let row = Post::find_by_id(pool, id).await?.ok_or(post_not_found())?;
         let mut post = Post::from(row);
 
@@ -31,14 +30,11 @@ impl Post {
             "SELECT * FROM posts WHERE id = ? AND deleted_at IS NULL",
             id
         )
-            .fetch_optional(pool)
-            .await?)
+        .fetch_optional(pool)
+        .await?)
     }
 
-    pub async fn find_by_ids(
-        pool: &SqlitePool,
-        ids: &[i64],
-    ) -> ApiResult<Vec<Post>> {
+    pub async fn find_by_ids(pool: &SqlitePool, ids: &[i64]) -> ApiResult<Vec<Post>> {
         let ids = serde_json::to_string(&ids).unwrap();
         let rows = sqlx::query_as!(
             PostRow,
@@ -50,8 +46,8 @@ impl Post {
             "#,
             ids,
         )
-            .fetch_all(pool)
-            .await?;
+        .fetch_all(pool)
+        .await?;
 
         // Convert rows to Post structs
         let mut posts: Vec<Post> = rows.into_iter().map(Post::from).collect();
@@ -69,8 +65,8 @@ impl Post {
             "SELECT * FROM posts WHERE parent_id = ? AND deleted_at IS NULL",
             parent_id
         )
-            .fetch_all(pool)
-            .await?)
+        .fetch_all(pool)
+        .await?)
     }
 
     pub async fn get_count(pool: &SqlitePool) -> ApiResult<i64> {
@@ -81,8 +77,8 @@ impl Post {
             WHERE deleted_at IS NULL
             "#
         )
-            .fetch_one(pool)
-            .await?;
+        .fetch_one(pool)
+        .await?;
 
         Ok(result.count)
     }
@@ -95,8 +91,8 @@ impl Post {
             WHERE deleted_at IS NULL
             "#
         )
-            .fetch_one(pool)
-            .await?;
+        .fetch_one(pool)
+        .await?;
 
         Ok(result.count)
     }
@@ -127,11 +123,11 @@ impl Post {
             start_ts,
             end_ts,
         )
-            .fetch_all(pool)
-            .await?
-            .into_iter()
-            .map(|row| { (row.local_day.unwrap(), row.count) })
-            .collect();
+        .fetch_all(pool)
+        .await?
+        .into_iter()
+        .map(|row| (row.local_day.unwrap(), row.count))
+        .collect();
 
         // Calculate the start and end of local days
         let days = (end_date.date_naive() - start_date.date_naive()).num_days() + 1;
@@ -154,7 +150,8 @@ impl Post {
             SELECT DISTINCT p.* FROM posts p
             INNER JOIN tag_post_assoc tp ON p.id = tp.post_id
             INNER JOIN tags t ON tp.tag_id = t.id
-            "#)
+            "#,
+            )
         } else {
             QueryBuilder::<Sqlite>::new("SELECT p.* FROM posts p")
         };
@@ -164,7 +161,9 @@ impl Post {
         // Tag filter
         if let Some(ref tag) = options.tag {
             builder.push(" AND (t.name = ").push_bind(tag);
-            builder.push(" OR t.name LIKE ").push_bind(format!("{}/%", tag));
+            builder
+                .push(" OR t.name LIKE ")
+                .push_bind(format!("{}/%", tag));
             builder.push(" ) ");
         }
 
@@ -208,13 +207,17 @@ impl Post {
             });
         }
 
-        let order_by = format!("p.{}", options.order_by.to_string());
+        let order_by = format!("p.{}", options.order_by);
 
         // Cursor based pagination
         if let Some(cursor) = options.cursor {
-            builder.push(
-                &format!(" AND {} {} ", order_by, if options.ascending { ">" } else { "<" }),
-            ).push_bind(cursor);
+            builder
+                .push(format!(
+                    " AND {} {} ",
+                    order_by,
+                    if options.ascending { ">" } else { "<" }
+                ))
+                .push_bind(cursor);
         }
 
         let direction = if options.ascending { "ASC" } else { "DESC" };
@@ -222,7 +225,8 @@ impl Post {
         builder.push(format!(" ORDER BY {order_by} {direction} LIMIT {per_page}"));
 
         // Execute query and process results
-        let mut posts = builder.build_query_as::<PostRow>()
+        let mut posts = builder
+            .build_query_as::<PostRow>()
             .fetch_all(pool)
             .await?
             .into_iter()
@@ -235,40 +239,39 @@ impl Post {
         Ok(posts)
     }
 
-    pub async fn create(
-        pool: &SqlitePool,
-        post: &CreatePostRequest,
-    ) -> ApiResult<CreateResponse> {
+    pub async fn create(pool: &SqlitePool, post: &CreatePostRequest) -> ApiResult<CreateResponse> {
         let now = Utc::now().timestamp_millis();
 
         // Start transaction
         let mut tx = pool.begin().await?;
 
-        let files = post.files.as_ref().map(|files| serde_json::to_value(&files).unwrap());
+        let files = post
+            .files
+            .as_ref()
+            .map(|files| serde_json::to_value(files).unwrap());
         let color = post.color.as_ref().map(|color| color.to_string());
         let shared = post.shared.unwrap_or(false);
 
-
         // Insert the post
         let result = sqlx::query!(
-        r#"
+            r#"
         INSERT INTO posts (
             content, files, color, shared,
             parent_id, created_at, updated_at, children_count
         )
         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         "#,
-        post.content,
-        files,
-        color,
-        shared,
-        post.parent_id,
-        now,
-        now,
-        0,
-    )
-            .execute(&mut *tx)
-            .await?;
+            post.content,
+            files,
+            color,
+            shared,
+            post.parent_id,
+            now,
+            now,
+            0,
+        )
+        .execute(&mut *tx)
+        .await?;
 
         let post_id = result.last_insert_rowid();
 
@@ -297,10 +300,7 @@ impl Post {
         })
     }
 
-    pub async fn update(
-        pool: &SqlitePool,
-        post: &UpdatePostRequest,
-    ) -> ApiResult<()> {
+    pub async fn update(pool: &SqlitePool, post: &UpdatePostRequest) -> ApiResult<()> {
         let now = Utc::now().timestamp_millis();
 
         let mut builder = QueryBuilder::<Sqlite>::new("UPDATE posts SET ");
@@ -324,17 +324,18 @@ impl Post {
 
         post.files.if_present(|files| {
             builder.push(", ");
-            builder.push("files = ")
-                .push_bind(files.as_ref()
-                    .map(|files| serde_json::to_string(&files).unwrap()));
+            builder.push("files = ").push_bind(
+                files
+                    .as_ref()
+                    .map(|files| serde_json::to_string(&files).unwrap()),
+            );
         });
 
         post.color.if_present(|color| {
             builder.push(", ");
-            builder.push("color = ")
-                .push_bind(color.as_ref().map(|color| {
-                    color.to_string()
-                }));
+            builder
+                .push("color = ")
+                .push_bind(color.as_ref().map(|color| color.to_string()));
         });
 
         builder.push(" WHERE id = ").push_bind(post.id);
@@ -349,8 +350,10 @@ impl Post {
                 "#,
                 post.id
             )
-                .fetch_optional(&mut *tx).await?
-                .ok_or(post_not_found())?.parent_id;
+            .fetch_optional(&mut *tx)
+            .await?
+            .ok_or(post_not_found())?
+            .parent_id;
 
             let parent_id = *post.parent_id.get();
 
@@ -399,9 +402,9 @@ impl Post {
             now,
             id
         )
-            .fetch_optional(&mut *tx)
-            .await?
-            .ok_or(post_not_found())?;
+        .fetch_optional(&mut *tx)
+        .await?
+        .ok_or(post_not_found())?;
 
         if let Some(parent_id) = post.parent_id {
             Post::update_children_count(&mut tx, parent_id, false).await?;
@@ -424,9 +427,9 @@ impl Post {
             "#,
             id
         )
-            .fetch_optional(&mut *tx)
-            .await?
-            .ok_or(post_not_found())?;
+        .fetch_optional(&mut *tx)
+        .await?
+        .ok_or(post_not_found())?;
 
         if let Some(parent_id) = post.parent_id {
             Post::update_children_count(&mut tx, parent_id, true).await?;
@@ -444,8 +447,8 @@ impl Post {
             "#,
             id
         )
-            .execute(pool)
-            .await?;
+        .execute(pool)
+        .await?;
 
         Ok(())
     }
@@ -458,8 +461,11 @@ impl Post {
             RETURNING id
             "#
         )
-            .fetch_all(pool).await?
-            .into_iter().map(|x| x.id).collect();
+        .fetch_all(pool)
+        .await?
+        .into_iter()
+        .map(|x| x.id)
+        .collect();
 
         Ok(deleted_ids)
     }
@@ -479,8 +485,8 @@ impl Post {
                 "#,
                 post_id
             )
-                .execute(&mut **tx)
-                .await?;
+            .execute(&mut **tx)
+            .await?;
         }
 
         // Insert new relationships
@@ -493,8 +499,8 @@ impl Post {
                 post_id,
                 tag.id
             )
-                .execute(&mut **tx)
-                .await?;
+            .execute(&mut **tx)
+            .await?;
         }
 
         Ok(())
@@ -511,10 +517,7 @@ impl Post {
             "UPDATE posts SET children_count = children_count - 1 WHERE id = $1"
         };
 
-        sqlx::query(sql)
-            .bind(parent_id)
-            .execute(&mut **tx)
-            .await?;
+        sqlx::query(sql).bind(parent_id).execute(&mut **tx).await?;
 
         Ok(())
     }
@@ -535,7 +538,9 @@ impl Post {
             WHERE tp.post_id IN (SELECT value FROM json_each(?1))
             "#,
             post_ids
-        ).fetch_all(pool).await?;
+        )
+        .fetch_all(pool)
+        .await?;
 
         let mut tags: HashMap<i64, Vec<String>> = HashMap::new();
         for row in rows {
@@ -549,17 +554,14 @@ impl Post {
         Ok(())
     }
 
-    async fn attach_parents(pool: &SqlitePool, posts: &mut Vec<Post>) -> ApiResult<()> {
+    async fn attach_parents(pool: &SqlitePool, posts: &mut [Post]) -> ApiResult<()> {
         // Early return if posts is empty
         if posts.is_empty() {
             return Ok(());
         }
 
         // Collect parent IDs
-        let parent_ids: Vec<i64> = posts
-            .iter()
-            .filter_map(|post| post.row.parent_id)
-            .collect();
+        let parent_ids: Vec<i64> = posts.iter().filter_map(|post| post.row.parent_id).collect();
 
         if parent_ids.is_empty() {
             return Ok(());
@@ -578,8 +580,8 @@ impl Post {
             "#,
             parent_ids
         )
-            .fetch_all(pool)
-            .await?;
+        .fetch_all(pool)
+        .await?;
 
         // Create a map of parent posts
         let parents: HashMap<i64, Post> = parent_rows

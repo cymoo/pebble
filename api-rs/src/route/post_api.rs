@@ -6,21 +6,20 @@ use crate::model::post::*;
 use crate::model::tag::*;
 use crate::service::auth_service::AuthService;
 use crate::service::upload_service::FileUploadService;
-use crate::util::fp::Pipe;
 use crate::util::extractor::{Json, Query, ValidatedJson, ValidatedQuery};
+use crate::util::fp::Pipe;
 use crate::AppState;
+use anyhow::Result;
 use axum::extract::{Multipart, State};
 use axum::http::StatusCode;
 use axum::response::Html;
 use axum::routing::{get, post};
 use axum::{middleware, Router};
-use std::collections::HashMap;
 use chrono::{DateTime, FixedOffset, NaiveDate, NaiveTime, TimeZone};
 use regex::Regex;
 use std::borrow::Cow;
-use anyhow::Result;
+use std::collections::HashMap;
 use tracing::error;
-
 
 pub fn create_routes(rd_pool: RedisPool) -> Router<AppState> {
     Router::new()
@@ -358,7 +357,7 @@ pub fn parse_date_with_timezone(
         } else {
             NaiveTime::from_hms_opt(0, 0, 0)
         }
-            .expect("Invalid time components"),
+        .expect("Invalid time components"),
     );
 
     // Create timezone offset and convert local time
@@ -368,7 +367,6 @@ pub fn parse_date_with_timezone(
         .earliest()
         .ok_or_else(|| anyhow::anyhow!("Invalid datetime conversion"))
 }
-
 
 /// Check if a character is Chinese
 fn is_chinese_character(c: char) -> bool {
@@ -380,7 +378,10 @@ fn token_to_pattern(token: &str) -> String {
     let escaped = regex::escape(token);
     if token.chars().any(is_chinese_character) {
         escaped
-    } else if token.chars().all(|c| c.is_ascii_alphanumeric() || c.is_ascii_whitespace()) {
+    } else if token
+        .chars()
+        .all(|c| c.is_ascii_alphanumeric() || c.is_ascii_whitespace())
+    {
         // Only add word boundaries for pure alphanumeric tokens
         format!(r"\b{}\b", escaped)
     } else {
@@ -405,7 +406,7 @@ pub fn mark_tokens_in_html(html: &str, tokens: &[String]) -> String {
 
     // Sort tokens by length in descending order
     let mut sorted_tokens = tokens.to_vec();
-    sorted_tokens.sort_by(|a, b| b.len().cmp(&a.len()));
+    sorted_tokens.sort_by_key(|x| std::cmp::Reverse(x.len()));
 
     // Create the regex pattern
     let patterns: Vec<String> = sorted_tokens
@@ -415,7 +416,8 @@ pub fn mark_tokens_in_html(html: &str, tokens: &[String]) -> String {
 
     // Combine patterns with HTML tag pattern
     let pattern = format!(r"(<[^>]*>)|({})", patterns.join("|"));
-    let re = Regex::new(&pattern).expect(&format!("Failed to compile regex from: {}", pattern));
+    let re = Regex::new(&pattern)
+        .unwrap_or_else(|_| panic!("Failed to compile regex from: {}", pattern));
 
     // Process the text
     let result = re.replace_all(html, |caps: &regex::Captures| {
@@ -431,7 +433,6 @@ pub fn mark_tokens_in_html(html: &str, tokens: &[String]) -> String {
 
     result.into_owned()
 }
-
 
 #[cfg(test)]
 mod tests {
@@ -475,7 +476,10 @@ mod tests {
         let text = "Hello world, this is a test.";
         let tokens = vec!["test".to_string(), "world".to_string()];
         let result = mark_tokens_in_html(text, &tokens);
-        assert_eq!(result, "Hello <mark>world</mark>, this is a <mark>test</mark>.");
+        assert_eq!(
+            result,
+            "Hello <mark>world</mark>, this is a <mark>test</mark>."
+        );
     }
 
     #[test]

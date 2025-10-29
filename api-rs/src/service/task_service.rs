@@ -12,10 +12,10 @@ pub async fn start_jobs(state: AppState) -> Result<(), Box<dyn Error + Send + Sy
             info!("[Daily] Checking the posts to be deleted...");
 
             let thirty_days_ago = (Utc::now() - Duration::days(30)).timestamp_millis();
-            let rv = sqlx::query!(
-                "DELETE FROM posts WHERE deleted_at < $1",
-                thirty_days_ago,
-            ).execute(&db).await.ok();
+            let rv = sqlx::query!("DELETE FROM posts WHERE deleted_at < $1", thirty_days_ago,)
+                .execute(&db)
+                .await
+                .ok();
 
             if let Some(rv) = rv {
                 if rv.rows_affected() > 0 {

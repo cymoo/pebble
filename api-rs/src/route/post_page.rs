@@ -34,7 +34,10 @@ struct PostMetaData {
     created_at: String,
 }
 
-async fn post_list(State(state): State<AppState>, Extension(env): Extension<Environment<'_>>) -> HtmlResult {
+async fn post_list(
+    State(state): State<AppState>,
+    Extension(env): Extension<Environment<'_>>,
+) -> HtmlResult {
     let posts = sqlx::query_as!(
         PostRow,
         r#"
@@ -42,7 +45,9 @@ async fn post_list(State(state): State<AppState>, Extension(env): Extension<Envi
         WHERE shared = true AND deleted_at IS NULL
         ORDER BY created_at DESC
         "#
-    ).fetch_all(&state.db.pool).await?;
+    )
+    .fetch_all(&state.db.pool)
+    .await?;
 
     let mut result = Vec::new();
 
@@ -65,7 +70,11 @@ async fn post_list(State(state): State<AppState>, Extension(env): Extension<Envi
     })?))
 }
 
-async fn post_item(State(state): State<AppState>, Path(id): Path<i64>, Extension(env): Extension<Environment<'_>>) -> HtmlResult {
+async fn post_item(
+    State(state): State<AppState>,
+    Path(id): Path<i64>,
+    Extension(env): Extension<Environment<'_>>,
+) -> HtmlResult {
     let post = sqlx::query_as!(
         PostRow,
         r#"
@@ -73,25 +82,28 @@ async fn post_item(State(state): State<AppState>, Path(id): Path<i64>, Extension
         WHERE id = ? AND deleted_at IS NULL AND shared IS TRUE
         "#,
         id
-    ).fetch_optional(&state.db.pool).await?;
+    )
+    .fetch_optional(&state.db.pool)
+    .await?;
 
-    let post = post.as_ref()
+    let post = post
+        .as_ref()
         .filter(|p| p.deleted_at.is_none())
         .ok_or(HtmlError::NotFound)?;
 
     let (title, _) = extract_header_and_description_from_html(&post.content);
 
     let images: Vec<FileInfo> = match post.files {
-        Some(ref files) => {
-            serde_json::from_str(files).expect("JSON decode error")
-        }
-        None => vec![]
+        Some(ref files) => serde_json::from_str(files).expect("JSON decode error"),
+        None => vec![],
     };
 
     let about_url = get_env_or("ABOUT_URL", "".to_string())?;
     let template = env.get_template("post-item.html")?;
 
-    Ok(Html(template.render(context! { about_url, post, title, images })?))
+    Ok(Html(
+        template.render(context! { about_url, post, title, images })?,
+    ))
 }
 
 #[derive(Debug)]
@@ -140,13 +152,13 @@ impl IntoResponse for HtmlError {
     }
 }
 
-static PAGE_404: &'static str = include_str!("../../templates/404.html");
-static PAGE_500: &'static str = include_str!("../../templates/500.html");
+static PAGE_404: &str = include_str!("../../templates/404.html");
+static PAGE_500: &str = include_str!("../../templates/500.html");
 
 lazy_static! {
-    static ref HEADER_BOLD_PARAGRAPH_PATTERN: Regex = Regex::new(
-        r#"<h[1-3][^>]*>(.*?)</h[1-3]>\s*(?:<p[^>]*><strong>(.*?)</strong></p>)?"#
-    ).unwrap();
+    static ref HEADER_BOLD_PARAGRAPH_PATTERN: Regex =
+        Regex::new(r#"<h[1-3][^>]*>(.*?)</h[1-3]>\s*(?:<p[^>]*><strong>(.*?)</strong></p>)?"#)
+            .unwrap();
     static ref STRONG_TAG_PATTERN: Regex = Regex::new(r"</?strong>").unwrap();
 }
 
@@ -154,7 +166,10 @@ fn extract_header_and_description_from_html(html: &str) -> (Option<String>, Opti
     if let Some(caps) = HEADER_BOLD_PARAGRAPH_PATTERN.captures(html) {
         let title = caps.get(1).map(|m| m.as_str().to_string());
         let bold_paragraph = caps.get(2).map(|m| m.as_str().to_string());
-        (title, bold_paragraph.map(|s| STRONG_TAG_PATTERN.replace_all(s.as_str(), "").to_string()))
+        (
+            title,
+            bold_paragraph.map(|s| STRONG_TAG_PATTERN.replace_all(s.as_str(), "").to_string()),
+        )
     } else {
         (None, None)
     }
@@ -174,7 +189,8 @@ mod tests {
         let html = r#"
             <h1>Title</h1>
             <p><strong>Description</strong></p>
-        "#.trim();
+        "#
+        .trim();
 
         let (title, bold_paragraph) = extract_header_and_description_from_html(html);
 
@@ -188,7 +204,8 @@ mod tests {
             <h1>Title</h1>
             <p>Description</p>
             <p>Content</p>
-        "#.trim();
+        "#
+        .trim();
 
         let (title, bold_paragraph) = extract_header_and_description_from_html(html);
 
@@ -202,7 +219,8 @@ mod tests {
             <h1 class="header">Title</h1>
             <p>Content</p>
             <p><strong>Description</strong></p>
-        "#.trim();
+        "#
+        .trim();
 
         let (title, bold_paragraph) = extract_header_and_description_from_html(html);
 
@@ -214,7 +232,8 @@ mod tests {
     fn test_only_header() {
         let html = r#"
             <h1>Title</h1>
-        "#.trim();
+        "#
+        .trim();
 
         let (title, bold_paragraph) = extract_header_and_description_from_html(html);
 
@@ -226,7 +245,8 @@ mod tests {
     fn test_only_bold_paragraph() {
         let html = r#"
             <p><strong>Bold Description</strong></p>
-        "#.trim();
+        "#
+        .trim();
 
         let (title, bold_paragraph) = extract_header_and_description_from_html(html);
 
@@ -240,7 +260,8 @@ mod tests {
             <p>Content</p>
             <h2>Title</h2>
             <p><strong>Description</strong></p>
-        "#.trim();
+        "#
+        .trim();
 
         let (title, bold_paragraph) = extract_header_and_description_from_html(html);
 

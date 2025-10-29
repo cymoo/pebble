@@ -36,7 +36,9 @@ pub async fn limit_request(
 
     let below_limit = check_rate_limit(&pool, &key, expires, max_count).await?;
     if !below_limit {
-        return Err(TooManyRequests("Too many attempts, try again later".to_owned()));
+        return Err(TooManyRequests(
+            "Too many attempts, try again later".to_owned(),
+        ));
     }
 
     Ok(next.run(req).await)
@@ -68,15 +70,17 @@ pub async fn check_rate_limit(
     let rv: [u64; 1] = redis::pipe()
         .atomic()
         .set_options(
-            &key,
+            key,
             0,
             SetOptions::default()
                 .with_expiration(EX(expires))
                 .conditional_set(NX),
         )
         .ignore()
-        .incr(&key, 1)
-        .query_async(&mut *conn).await.context("Redis Error")?;
+        .incr(key, 1)
+        .query_async(&mut *conn)
+        .await
+        .context("Redis Error")?;
 
     Ok(rv[0] <= max_count)
 }

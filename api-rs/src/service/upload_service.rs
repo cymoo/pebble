@@ -7,17 +7,17 @@ use exif::{In, Reader, Tag};
 use futures_util::TryStreamExt;
 use image::DynamicImage;
 use image::ImageReader;
+use regex::Regex;
 use std::borrow::Cow;
 use std::io;
 use std::io::Cursor;
 use std::path::{Path, PathBuf};
-use regex::Regex;
-use uuid::Uuid;
 use tokio::fs;
 use tokio::fs::File;
 use tokio::io::BufWriter;
 use tokio_util::io::StreamReader;
 use tracing::error;
+use uuid::Uuid;
 
 pub struct FileUploadService {
     config: UploadConfig,
@@ -29,12 +29,15 @@ impl FileUploadService {
     }
 
     pub async fn stream_to_file(&self, field: Field<'_>) -> ApiResult<FileInfo> {
-        let file_name = field.file_name()
+        let file_name = field
+            .file_name()
             .ok_or(ApiError::BadRequest("Invalid filename".into()))?;
-        let content_type = field.content_type()
-            .ok_or(ApiError::BadRequest("Invalid file type".into()))?.to_owned();
+        let content_type = field
+            .content_type()
+            .ok_or(ApiError::BadRequest("Invalid file type".into()))?
+            .to_owned();
 
-        let file_name = generate_secure_filename(&file_name, 8);
+        let file_name = generate_secure_filename(file_name, 8);
         let upload_dir = self.config.base_path.clone();
         let file_path = Path::new(&upload_dir).join(file_name);
 
@@ -43,25 +46,34 @@ impl FileUploadService {
         let body_reader = StreamReader::new(body_with_io_error);
         futures::pin_mut!(body_reader);
 
-        let file = File::create(&file_path).await.context("Cannot create file")?;
+        let file = File::create(&file_path)
+            .await
+            .context("Cannot create file")?;
         let mut buf_writer = BufWriter::new(file);
 
         // Copy the body into the file.
-        tokio::io::copy(&mut body_reader, &mut buf_writer).await.map_err(|err| {
-            std::fs::remove_file(&file_path)
-                .map_err(|e| error!("Cannot remove file: {}", e)).ok();
+        tokio::io::copy(&mut body_reader, &mut buf_writer)
+            .await
+            .map_err(|err| {
+                std::fs::remove_file(&file_path)
+                    .map_err(|e| error!("Cannot remove file: {}", e))
+                    .ok();
 
-            if let Ok(err) = err.downcast::<MultipartError>() {
-                ApiError::MultiPartError(err)
-            } else {
-                ApiError::Anyhow(anyhow!("cannot save file"))
-            }
-        })?;
+                if let Ok(err) = err.downcast::<MultipartError>() {
+                    ApiError::MultiPartError(err)
+                } else {
+                    ApiError::Anyhow(anyhow!("cannot save file"))
+                }
+            })?;
 
         if self.is_image(&content_type) {
-            self.process_image_file(&file_path, &content_type).await.map_err(ApiError::from)
+            self.process_image_file(&file_path, &content_type)
+                .await
+                .map_err(ApiError::from)
         } else {
-            self.process_regular_file(&file_path).await.map_err(ApiError::from)
+            self.process_regular_file(&file_path)
+                .await
+                .map_err(ApiError::from)
         }
     }
 
@@ -89,9 +101,15 @@ impl FileUploadService {
         };
 
         // Generate thumbnail
-        let thumb_path = self.generate_thumbnail(filepath, &img).context("Cannot create thumbnail")?;
+        let thumb_path = self
+            .generate_thumbnail(filepath, &img)
+            .context("Cannot create thumbnail")?;
 
-        let thumb_url = format!("{}/{}", self.config.base_url, Self::get_filename(&*thumb_path));
+        let thumb_url = format!(
+            "{}/{}",
+            self.config.base_url,
+            Self::get_filename(&thumb_path)
+        );
 
         let url = format!("{}/{}", self.config.base_url, Self::get_filename(filepath));
 
@@ -120,17 +138,13 @@ impl FileUploadService {
 
         cursor.set_position(0);
 
-        let mut img = ImageReader::new(cursor)
-            .with_guessed_format()?
-            .decode()?;
+        let mut img = ImageReader::new(cursor).with_guessed_format()?.decode()?;
 
         img = match orientation {
             Some(6) => img.rotate90(),
             Some(3) => img.rotate180(),
             Some(8) => img.rotate270(),
-            _ => {
-                img
-            }
+            _ => img,
         };
 
         if orientation.is_some() {
@@ -140,9 +154,11 @@ impl FileUploadService {
     }
 
     fn needs_exif_rotation(content_type: &str) -> bool {
-        let format = content_type.strip_prefix("image/")
+        let format = content_type
+            .strip_prefix("image/")
             .unwrap_or("")
-            .to_string().to_lowercase();
+            .to_string()
+            .to_lowercase();
         match format.as_str() {
             "jpeg" | "jpg" | "jif" => true,
             "png" | "gif" | "webp" | "avif" | "svg" => false,
@@ -154,19 +170,18 @@ impl FileUploadService {
         let thumb_filename = format!("thumb_{}", Self::get_filename(original_path));
         let thumb_path = PathBuf::from(&self.config.base_path).join(&thumb_filename);
 
-        let thumbnail = img.thumbnail(
-            self.config.thumb_width,
-            self.config.thumb_width,
-        );
+        let thumbnail = img.thumbnail(self.config.thumb_width, self.config.thumb_width);
 
         thumbnail.save(&thumb_path)?;
         Ok(thumb_path)
     }
 
     fn is_image(&self, content_type: &str) -> bool {
-        let format = content_type.strip_prefix("image/")
+        let format = content_type
+            .strip_prefix("image/")
             .unwrap_or("")
-            .to_string().to_lowercase();
+            .to_string()
+            .to_lowercase();
         self.config.image_formats.contains(&format)
     }
 
@@ -194,16 +209,17 @@ pub fn generate_secure_filename(filename: &str, uuid_length: usize) -> String {
         panic!("filename is empty");
     }
 
-    if uuid_length < 8 || uuid_length > 32 {
+    if !(8..=32).contains(&uuid_length) {
         panic!("uuid length must be between 8 and 32");
     }
 
     let invalid_chars_regex = Regex::new(r"[^\w\-.\u4e00-\u9fa5]+").unwrap();
-    let sanitized_name = invalid_chars_regex.replace_all(&filename.trim(), "_");
+    let sanitized_name = invalid_chars_regex.replace_all(filename.trim(), "_");
 
-    let (base, ext) = split_filename(&*sanitized_name);
+    let (base, ext) = split_filename(&sanitized_name);
 
-    let uuid = Uuid::new_v4().to_string()
+    let uuid = Uuid::new_v4()
+        .to_string()
         .chars()
         .take(uuid_length)
         .collect::<String>();
@@ -233,12 +249,11 @@ pub fn split_filename(filename: &str) -> (String, String) {
         panic!("filename is empty");
     }
 
-    if filename.starts_with('.') {
-        let remaining = &filename[1..];
-        match remaining.rfind('.') {
+    if let Some(remainder) = filename.strip_prefix('.') {
+        match remainder.rfind('.') {
             Some(i) => (
-                format!(".{}", &remaining[..i]),
-                remaining[i + 1..].to_string().to_lowercase(),
+                format!(".{}", &remainder[..i]),
+                remainder[i + 1..].to_string().to_lowercase(),
             ),
             None => (filename.to_string(), String::new()),
         }
