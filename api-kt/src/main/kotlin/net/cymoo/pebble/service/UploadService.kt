@@ -3,7 +3,7 @@ package net.cymoo.pebble.service
 import com.drew.imaging.ImageMetadataReader
 import com.drew.metadata.exif.ExifIFD0Directory
 import net.coobird.thumbnailator.Thumbnails
-import net.cymoo.pebble.config.FileUploadConfig
+import net.cymoo.pebble.config.UploadConfig
 import net.cymoo.pebble.exception.BadRequestException
 import net.cymoo.pebble.model.FileInfo
 import org.springframework.stereotype.Service
@@ -18,7 +18,7 @@ import java.util.*
 import javax.imageio.ImageIO
 
 @Service
-class FileUploadService(private val uploadConfig: FileUploadConfig) {
+class UploadService(private val uploadConfig: UploadConfig) {
 
     fun handleFileUpload(file: MultipartFile): FileInfo {
         if (file.isEmpty) {

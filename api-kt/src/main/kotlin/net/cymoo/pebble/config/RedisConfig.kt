@@ -15,10 +15,10 @@ typealias RedisPool = GenericObjectPool<StatefulRedisConnection<String, String>>
 
 @ConfigurationProperties("spring.data.redis")
 data class RedisConfig(
-    val url: String = "redis://localhost:6379/0",
-    val timeout: Long = 3,
-    val maxTotal: Int = 20,
-    val maxIdle: Int = 5,
+    val url: String,
+    val timeout: Long,
+    val maxTotal: Int,
+    val maxIdle: Int,
 ) {
     private lateinit var client: RedisClient
     private lateinit var pool: RedisPool

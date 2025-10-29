@@ -84,7 +84,7 @@ func Load() *Config {
 	config.AppName = env.GetString("APP_NAME", "Pebble")
 	config.AppVersion = env.GetString("APP_VERSION", "1.0.0")
 
-	config.PostsPerPage = env.GetInt("POSTS_PER_PAGE", 30)
+	config.PostsPerPage = env.GetInt("POSTS_PER_PAGE", 20)
 
 	config.StaticURL = env.GetString("STATIC_URL", "/static")
 	// If StaticPath is not set, then static files will be served from embedded FS

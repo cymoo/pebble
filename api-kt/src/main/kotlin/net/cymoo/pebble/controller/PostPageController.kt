@@ -1,9 +1,9 @@
 package net.cymoo.pebble.controller
 
 import com.fasterxml.jackson.databind.ObjectMapper
+import net.cymoo.pebble.config.AppConfig
 import net.cymoo.pebble.model.FileInfo
 import net.cymoo.pebble.service.PostService
-import org.springframework.core.env.Environment
 import org.springframework.stereotype.Controller
 import org.springframework.ui.Model
 import org.springframework.web.bind.annotation.GetMapping
@@ -13,9 +13,9 @@ import org.springframework.web.bind.annotation.RequestMapping
 @Controller
 @RequestMapping("/shared")
 class PostSharedController(
+    private val appConfig: AppConfig,
     private val postService: PostService,
     private val objectMapper: ObjectMapper,
-    private val env: Environment
 ) {
     @GetMapping
     fun index(model: Model): String {
@@ -30,7 +30,7 @@ class PostSharedController(
         }
 
         model.addAttribute("posts", posts)
-        model.addAttribute("aboutUrl", env.getProperty("app.about-url"))
+        model.addAttribute("aboutUrl", appConfig.aboutUrl)
         return "post-list.html"
     }
 
@@ -45,7 +45,7 @@ class PostSharedController(
         model.addAttribute("post", post)
         model.addAttribute("title", title)
         model.addAttribute("images", images)
-        model.addAttribute("aboutUrl", env.getProperty("app.about-url"))
+        model.addAttribute("aboutUrl", appConfig.aboutUrl)
         return "post-item.html"
     }
 }

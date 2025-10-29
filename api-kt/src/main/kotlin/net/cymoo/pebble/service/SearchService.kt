@@ -2,7 +2,7 @@ package net.cymoo.pebble.service
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.hankcs.hanlp.tokenizer.IndexTokenizer
-import org.springframework.beans.factory.annotation.Value
+import net.cymoo.pebble.config.AppConfig
 import org.springframework.stereotype.Service
 import kotlin.math.log10
 import kotlin.math.max
@@ -43,12 +43,13 @@ class TextAnalyzer {
 
 @Service
 class SearchService(
+    appConfig: AppConfig,
     private val redisService: RedisService,
     private val objectMapper: ObjectMapper,
 
-    @Value("\${app.search.key-prefix:}")
-    private val keyPrefix: String,
-) {
+    ) {
+    private val keyPrefix = appConfig.search.keyPrefix
+
     private val textAnalyzer = TextAnalyzer()
 
     fun isIndexed(id: Int): Boolean =

@@ -7,7 +7,7 @@ import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 
 @Configuration
-class ValidationConfig {
+class ValidatorConfig {
     @Bean
     fun validator(): Validator {
         return Validation.byDefaultProvider()

@@ -2,6 +2,7 @@ package net.cymoo.pebble.controller
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import net.cymoo.pebble.annotation.AuthRequired
+import net.cymoo.pebble.config.AppConfig
 import net.cymoo.pebble.exception.AuthenticationException
 import net.cymoo.pebble.exception.NotFoundException
 import net.cymoo.pebble.model.*
@@ -23,9 +24,10 @@ import kotlin.math.abs
 @Validated
 @RequestMapping("/api")
 class PostApiController(
+    private val appConfig: AppConfig,
     private val postService: PostService,
     private val tagService: TagService,
-    private val uploadService: FileUploadService,
+    private val uploadService: UploadService,
     private val searchService: SearchService,
     private val taskService: TaskService,
     private val authService: AuthService,
@@ -158,7 +160,7 @@ class PostApiController(
 
     @GetMapping("/get-posts")
     fun getPosts(@Validated @ModelAttribute queries: FilterPostRequest): PostPagination {
-        val posts = postService.filterPosts(queries)
+        val posts = postService.filterPosts(queries, appConfig.postsPerPage)
         return PostPagination(
             posts = posts,
             cursor = if (posts.isEmpty()) -1 else posts.last().createdAt,

@@ -81,7 +81,7 @@ impl AppConfig {
         let app_name = get_env_or("APP_NAME", "Pebble".to_string()).unwrap();
         let app_version = get_env_or("APP_VERSION", "1.0.0".to_string()).unwrap();
 
-        let posts_per_page = get_env_or("POSTS_PER_PAGE", 30).unwrap();
+        let posts_per_page = get_env_or("POSTS_PER_PAGE", 20).unwrap();
         let static_url = get_env_or("STATIC_URL", "/static".to_string()).unwrap();
         let static_path = get_env_or("STATIC_PATH", "./static".to_string()).unwrap();
 

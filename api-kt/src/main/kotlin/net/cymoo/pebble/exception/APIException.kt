@@ -2,20 +2,20 @@ package net.cymoo.pebble.exception
 
 import com.fasterxml.jackson.annotation.JsonInclude
 
-open class ApiException(
+open class APIException(
     val code: Int,
     val error: String,
     override val message: String? = null,
 ) : RuntimeException(message)
 
 class NotFoundException(message: String?) :
-    ApiException(404, "Not Found", message)
+    APIException(404, "Not Found", message)
 
 class BadRequestException(message: String?) :
-    ApiException(400, "Bad Request", message)
+    APIException(400, "Bad Request", message)
 
 class AuthenticationException(message: String?) :
-    ApiException(401, "Unauthorized", message)
+    APIException(401, "Unauthorized", message)
 
 
 data class ErrorResponse(

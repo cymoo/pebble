@@ -23,7 +23,7 @@ class Config:
     APP_VERSION: str = '1.0.0'
 
     # Application settings
-    POSTS_PER_PAGE: int = 30
+    POSTS_PER_PAGE: int = 20
     ABOUT_URL: str | None = None
 
     # Database

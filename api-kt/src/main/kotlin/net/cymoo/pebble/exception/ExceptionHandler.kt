@@ -35,9 +35,9 @@ import java.time.LocalDateTime
 class ExceptionHandler {
     private val logger = LoggerFactory.getLogger(this::class.java)
 
-    @ExceptionHandler(ApiException::class)
+    @ExceptionHandler(APIException::class)
     fun handleApiException(
-        ex: ApiException,
+        ex: APIException,
         request: HttpServletRequest
     ): ResponseEntity<ErrorResponse> {
         val errorResponse = ErrorResponse(

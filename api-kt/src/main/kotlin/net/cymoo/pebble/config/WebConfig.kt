@@ -1,5 +1,6 @@
 package net.cymoo.pebble.config
 
+import jakarta.annotation.PostConstruct
 import net.cymoo.pebble.interceptor.AuthInterceptor
 import net.cymoo.pebble.service.AuthService
 import org.springframework.boot.context.properties.ConfigurationProperties
@@ -10,28 +11,29 @@ import org.springframework.web.servlet.config.annotation.CorsRegistry
 import org.springframework.web.servlet.config.annotation.InterceptorRegistry
 import org.springframework.web.servlet.config.annotation.ResourceHandlerRegistry
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer
+import java.nio.file.Files
+import java.nio.file.Paths
+import kotlin.io.path.exists
 
 @Configuration
 // @EnableWebMvc
 class WebConfig(
     private val cors: CorsProperties,
-    private val uploadConfig: FileUploadConfig,
+    private val uploadConfig: UploadConfig,
     private val authService: AuthService
 ) : WebMvcConfigurer {
     override fun addCorsMappings(registry: CorsRegistry) {
         val (origins, methods, headers, allowCredentials, maxAge) = cors
 
-        registry.addMapping("/**")
+        registry.addMapping("/api/**")
             .allowedOrigins(*origins.toTypedArray())
             .allowedMethods(*methods.toTypedArray())
             .allowedHeaders(*headers.toTypedArray())
             .allowCredentials(allowCredentials)
-            // No need to preflight (send OPTIONS request) within a certain period of time
             .maxAge(maxAge)
 
     }
 
-    // https://www.baeldung.com/spring-mvc-static-resources
     override fun addResourceHandlers(registry: ResourceHandlerRegistry) {
         val (uploadUrl, uploadDir) = uploadConfig
         registry.addResourceHandler("/$uploadUrl/**")
@@ -55,7 +57,7 @@ class WebConfig(
     }
 }
 
-@ConfigurationProperties(prefix = "app.cors")
+@ConfigurationProperties(prefix = "web.cors")
 data class CorsProperties(
     val allowedOrigins: List<String>,
     val allowedMethods: List<String>,
@@ -63,3 +65,19 @@ data class CorsProperties(
     val allowCredentials: Boolean,
     val maxAge: Long
 )
+
+@ConfigurationProperties(prefix = "web.upload")
+data class UploadConfig(
+    val uploadUrl: String,
+    val uploadDir: String,
+    val thumbnailSize: Int,
+    val imageFormats: List<String>
+) {
+    @PostConstruct
+    fun init() {
+        val path = Paths.get(uploadDir)
+        if (!path.exists()) {
+            Files.createDirectories(path)
+        }
+    }
+}
