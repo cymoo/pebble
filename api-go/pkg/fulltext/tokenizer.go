@@ -5,7 +5,7 @@ import (
 	"strings"
 	"sync"
 
-	t "github.com/cymoo/pebble/pkg/util/types"
+	t "github.com/cymoo/mote/pkg/util/types"
 	"github.com/go-ego/gse"
 )
 

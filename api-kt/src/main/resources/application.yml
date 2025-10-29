@@ -83,7 +83,7 @@ pebble:
 logging:
   level:
     org.jooq: WARN
-    site.daydream.pebble: DEBUG
+    site.daydream.mote: DEBUG
 management:
   endpoints:
     web:

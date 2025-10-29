@@ -22,10 +22,10 @@ Uncomment and modify any settings if you need to change from their defaults.
 ### Starting the Application
 
 ```bash
-PEBBLE_PASSWORD=xxx go run cmd/server/main.go
+MOTE_PASSWORD=xxx go run cmd/server/main.go
 ```
 
-NOTE: The `PEBBLE_PASSWORD` variable is used for login. Ensure it is complex and securely stored in production.
+NOTE: The `MOTE_PASSWORD` variable is used for login. Ensure it is complex and securely stored in production.
 
 ### Test
 

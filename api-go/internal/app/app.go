@@ -13,10 +13,10 @@ import (
 
 	"github.com/cymoo/mita"
 
-	"github.com/cymoo/pebble/assets"
-	"github.com/cymoo/pebble/internal/config"
-	"github.com/cymoo/pebble/internal/tasks"
-	"github.com/cymoo/pebble/pkg/fulltext"
+	"github.com/cymoo/mote/assets"
+	"github.com/cymoo/mote/internal/config"
+	"github.com/cymoo/mote/internal/tasks"
+	"github.com/cymoo/mote/pkg/fulltext"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"

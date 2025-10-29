@@ -28,10 +28,10 @@ It is preferably configured via environment variables, supporting multiple envir
 ### Starting the Application
 
 ```bash
-PEBBLE_PASSWORD=xxx cargo run
+MOTE_PASSWORD=xxx cargo run
 ```
 
-NOTE: The `PEBBLE_PASSWORD` variable is used for login. Ensure it is complex and securely stored in production.
+NOTE: The `MOTE_PASSWORD` variable is used for login. Ensure it is complex and securely stored in production.
 
 ### Auto Reloading
 

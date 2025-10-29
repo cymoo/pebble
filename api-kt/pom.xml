@@ -8,11 +8,11 @@
     <version>3.3.6</version>
     <relativePath/> <!-- lookup parent from repository -->
   </parent>
-  <groupId>net.cymoo</groupId>
-  <artifactId>pebble</artifactId>
+  <groupId>site.daydream</groupId>
+  <artifactId>mote</artifactId>
   <version>1.0.0</version>
-  <name>pebble</name>
-  <description>api for pebble notebook</description>
+  <name>mote</name>
+  <description>kotlin api for mote</description>
   <url/>
   <licenses>
     <!-- Empty override to prevent inheriting license information from the parent POM -->
@@ -183,6 +183,7 @@
   </dependencies>
 
   <build>
+    <finalName>mote</finalName>
     <sourceDirectory>${project.basedir}/src/main/kotlin</sourceDirectory>
     <testSourceDirectory>${project.basedir}/src/test/kotlin</testSourceDirectory>
     <plugins>
@@ -190,7 +191,7 @@
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-maven-plugin</artifactId>
         <configuration>
-          <mainClass>net.cymoo.pebble.ApplicationKt</mainClass>
+          <mainClass>site.daydream.mote.ApplicationKt</mainClass>
         </configuration>
       </plugin>
       <plugin>
@@ -248,7 +249,7 @@
               </forcedTypes>
             </database>
             <target>
-              <packageName>net.cymoo.pebble.generated</packageName>
+              <packageName>site.daydream.mote.generated</packageName>
               <directory>target/generated-sources/jooq</directory>
             </target>
           </generator>

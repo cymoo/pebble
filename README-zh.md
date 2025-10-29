@@ -1,6 +1,6 @@
-# Pebble
+# Mote
 
-Pebble 是一个简单的个人笔记本和博客。
+Mote 是一个简单的个人笔记本和博客。
 
 ![screenshot](./data/screenshot.png)
 
@@ -18,7 +18,7 @@ Pebble 是一个简单的个人笔记本和博客。
 
 ### 前端
 
-前端使用了 React，进入 [pebble](./pebble) 查看详情。
+前端使用了 React，进入 [frontend](./frontend) 查看详情。
 
 ### 后端
 
@@ -71,7 +71,7 @@ Pebble 是一个简单的个人笔记本和博客。
 
 * 基于 Slate 的富文本编辑器
 
-  沉没成本较高，我已经基于 [Slate](https://github.com/ianstormtaylor/slate) 写了 [约 3,000 行代码](pebble/src/components/editor)，它不完美，简洁优雅的 API 下是简陋的插件机制、莫名其妙的 Bug、欠佳的性能和升级的战战兢兢。
+  沉没成本较高，我已经基于 [Slate](https://github.com/ianstormtaylor/slate) 写了 [约 3,000 行代码](frontend/src/components/editor)，它不完美，简洁优雅的 API 下是简陋的插件机制、莫名其妙的 Bug、欠佳的性能和升级的战战兢兢。
 
   如果以后要重构，我可能会选择 [Tiptap](https://github.com/ueberdosis/tiptap) 与 [Lexical](https://github.com/facebook/lexical)。
 

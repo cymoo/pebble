@@ -12,7 +12,7 @@
 
 ```
 # 项目部署路径结构
-/var/www/pebble/
+/var/www/mote/
 ├── app.db                     # SQLite 数据库文件
 ├── uploads/                   # 上传的图片目录
 ├── releases/                  # 存放最近5个构建版本
@@ -21,7 +21,7 @@
 │       │   ├── .env             # 环境变量
 │       │   ├── static/          # 静态资源
 │       │   ├── templates/       # HTML 模板
-│       │   └── pebble           # API 二进制可执行文件
+│       │   └── mote           # API 二进制可执行文件
 │       └── web-dist/          # 前端构建产物
 │           ├── index.html       # 入口 HTML
 │           └── assets/          # 编译后的 JS/CSS/图片等资源
@@ -29,10 +29,10 @@
 
 # 系统配置文件路径
 /etc/
-├── pebble/
+├── mote/
 │   └── secure                  # 存放密码
 └── systemd/system/
-    └── pebble.service
+    └── mote.service
 ```
 
 ## 环境要求

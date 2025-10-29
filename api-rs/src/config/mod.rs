@@ -78,7 +78,7 @@ impl AppConfig {
     pub fn from_env() -> Self {
         load_dotenv();
 
-        let app_name = get_env_or("APP_NAME", "Pebble".to_string()).unwrap();
+        let app_name = get_env_or("APP_NAME", "mote".to_string()).unwrap();
         let app_version = get_env_or("APP_VERSION", "1.0.0".to_string()).unwrap();
 
         let posts_per_page = get_env_or("POSTS_PER_PAGE", 20).unwrap();

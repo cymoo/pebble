@@ -8,7 +8,7 @@ EMAIL="${EMAIL:?The EMAIL environment variable must be set}"
 SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)
 NGINX_TEMPLATE="${SCRIPT_DIR}/nginx.template"
 
-export WWW_ROOT=/var/www/pebble
+export WWW_ROOT=/var/www/mote
 export SERVER_NAME="$DOMAIN"
 export API_PORT=8000
 export MEMO_URL="/memo"

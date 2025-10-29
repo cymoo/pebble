@@ -12,7 +12,7 @@ After deployment:
 
 ```
 # Deployment directory structure
-/var/www/pebble/
+/var/www/mote/
 ├── app.db                     # SQLite database file
 ├── uploads/                   # Directory for uploaded images
 ├── releases/                  # Stores the last 5 build versions
@@ -21,7 +21,7 @@ After deployment:
 │       │   ├── .env             # Environment variables
 │       │   ├── static/          # Static resources
 │       │   ├── templates/       # HTML templates
-│       │   └── pebble           # API binary
+│       │   └── mote           # API binary
 │       └── web-dist/          # Frontend build artifacts
 │           ├── index.html       # Entry HTML
 │           └── assets/          # Compiled JS/CSS/images and other resources
@@ -29,10 +29,10 @@ After deployment:
 
 # System configuration file paths
 /etc/
-├── pebble/
+├── mote/
 │   └── secure                  # Stores passwords
 └── systemd/system/
-    └── pebble.service
+    └── mote.service
 ```
 
 ## Environment Requirements

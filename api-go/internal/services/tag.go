@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/cymoo/pebble/internal/models"
+	"github.com/cymoo/mote/internal/models"
 	"github.com/jmoiron/sqlx"
 )
 

@@ -10,9 +10,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/cymoo/pebble/internal/config"
-	e "github.com/cymoo/pebble/internal/errors"
-	"github.com/cymoo/pebble/internal/services"
+	"github.com/cymoo/mote/internal/config"
+	e "github.com/cymoo/mote/internal/errors"
+	"github.com/cymoo/mote/internal/services"
 	"github.com/redis/go-redis/v9"
 )
 

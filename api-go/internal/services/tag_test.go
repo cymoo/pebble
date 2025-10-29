@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/cymoo/pebble/internal/models"
+	"github.com/cymoo/mote/internal/models"
 	"github.com/jmoiron/sqlx"
 	_ "modernc.org/sqlite"
 )

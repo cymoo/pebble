@@ -4,13 +4,13 @@ set -eo pipefail
 
 # ==================== Configuration Section ====================
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-WWW_ROOT="/var/www/pebble"
+WWW_ROOT="/var/www/mote"
 CURRENT_LINK="${WWW_ROOT}/current"
 RELEASES_DIR="${WWW_ROOT}/releases"
 MAX_KEEP=5
 BUILD_TEMP=$(mktemp -d)
 
-PASSWORD_FILE="/etc/pebble/secure"
+PASSWORD_FILE="/etc/mote/secure"
 DATABASE_FILE="${WWW_ROOT}/app.db"
 
 export MEMO_URL="/memo"
@@ -44,7 +44,7 @@ if [ ! -f "${PASSWORD_FILE}" ]; then
     sudo mkdir -p "$(dirname "${PASSWORD_FILE}")"
 
     # Write password to file securely
-    echo "PEBBLE_PASSWORD=${password}" | sudo tee "${PASSWORD_FILE}" > /dev/null || {
+    echo "MOTE_PASSWORD=${password}" | sudo tee "${PASSWORD_FILE}" > /dev/null || {
         echo "Error: Failed to write password to file"
         exit 1
     }
@@ -57,7 +57,7 @@ fi
 
 # ==================== Build Phase ====================
 echo "[1/4] Building frontend..."
-cd "${PROJECT_ROOT}/pebble"
+cd "${PROJECT_ROOT}/frontend"
 npx yarn install --frozen-lockfile --silent
 VITE_MEMO_URL=$MEMO_URL VITE_BLOG_URL=$BLOG_URL npx vite build --logLevel error
 
@@ -81,8 +81,8 @@ cargo build --release
 # ==================== Prepare Artifacts ====================
 echo "[3/4] Preparing release.."
 mkdir -p "${BUILD_TEMP}/web-dist" "${BUILD_TEMP}/api-dist"
-cp -a "${PROJECT_ROOT}/pebble/dist/." "${BUILD_TEMP}/web-dist/"
-cp -a "${PROJECT_ROOT}/api-rs/target/release/pebble" \
+cp -a "${PROJECT_ROOT}/frontend/dist/." "${BUILD_TEMP}/web-dist/"
+cp -a "${PROJECT_ROOT}/api-rs/target/release/mote" \
      "${PROJECT_ROOT}/api-rs/.env" \
      "${PROJECT_ROOT}/api-rs/templates" \
      "${PROJECT_ROOT}/api-rs/static" \
@@ -102,14 +102,14 @@ ln -sfn "${RELEASE_DIR}" "${CURRENT_LINK}.tmp"
 mv -fT "${CURRENT_LINK}.tmp" "${CURRENT_LINK}"
 
 # ==================== Service Management ====================
-SERVICE_FILE="/etc/systemd/system/pebble.service"
+SERVICE_FILE="/etc/systemd/system/mote.service"
 
 should_restart_api() {
     # First deployment
     [ -z "${OLD_RELEASE}" ] && return 0
 
     # Compare binary and .env between old and new releases
-    ! cmp -s "${OLD_RELEASE}/api-dist/pebble" "${RELEASE_DIR}/api-dist/pebble" && return 0
+    ! cmp -s "${OLD_RELEASE}/api-dist/mote" "${RELEASE_DIR}/api-dist/mote" && return 0
     ! cmp -s "${OLD_RELEASE}/api-dist/.env" "${RELEASE_DIR}/api-dist/.env" && return 0
 
     return 1
@@ -118,7 +118,7 @@ should_restart_api() {
 # Define the new content to be written to the service file
 NEW_SERVICE_FILE_CONTENT=$(cat <<EOF
 [Unit]
-Description=Pebble Web Service
+Description=Mote Web Service
 After=network.target
 
 [Service]
@@ -132,7 +132,7 @@ Environment="REDIS_URL=${REDIS_URL}"
 Environment="DATABASE_URL=${DATABASE_URL}"
 Environment="UPLOAD_DIR=${UPLOAD_DIR}"
 EnvironmentFile=${PASSWORD_FILE}
-ExecStart=${CURRENT_LINK}/api-dist/pebble
+ExecStart=${CURRENT_LINK}/api-dist/mote
 Restart=always
 RestartSec=5
 StandardOutput=journal
@@ -159,15 +159,15 @@ if $SHOULD_UPDATE_SERVICE_FILE; then
 fi
 
 # Service state management
-if ! systemctl is-active pebble.service >/dev/null 2>&1; then
+if ! systemctl is-active mote.service >/dev/null 2>&1; then
     echo "Starting service..."
-    sudo systemctl enable --now pebble.service >/dev/null
+    sudo systemctl enable --now mote.service >/dev/null
 elif $SHOULD_UPDATE_SERVICE_FILE; then
     echo "Service configuration Changes detected, restarting service..."
-    sudo systemctl restart pebble.service
+    sudo systemctl restart mote.service
 elif should_restart_api; then
     echo "Api Changes detected, restarting service..."
-    sudo systemctl restart pebble.service
+    sudo systemctl restart mote.service
 else
     echo "No need to restart service"
 fi

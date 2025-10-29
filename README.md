@@ -1,8 +1,8 @@
-# Pebble
+# Mote
 
 [中文介绍](./README-zh.md)
 
-Pebble is a simple personal notebook and blog web APP.
+Mote is a simple personal notebook and blog web APP.
 
 ![screenshot](./data/screenshot-en.png)
 
@@ -20,7 +20,7 @@ Pebble is a simple personal notebook and blog web APP.
 
 ### Frontend
 
-The frontend is developed using React. Check the [pebble](./pebble) directory for details.
+The frontend is developed using React. Check the [frontend](./frontend) directory for details.
 
 ### Backend
 
@@ -76,7 +76,7 @@ This project provides a deployment example using Rust and Axum as the backend se
 
 * Slate-based rich text editor
 
-  The sunk cost is high, as I have already written approximately [3,000 lines](pebble/src/components/editor) of code based on [Slate](https://github.com/ianstormtaylor/slate).
+  The sunk cost is high, as I have already written approximately [3,000 lines](frontend/src/components/editor) of code based on [Slate](https://github.com/ianstormtaylor/slate).
 
   It is not perfect; beneath its simple and elegant API lies a rudimentary plugin mechanism, inexplicable bugs, subpar performance, and the fear of upgrading.
 

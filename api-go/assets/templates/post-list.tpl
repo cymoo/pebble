@@ -32,7 +32,7 @@
     color: hsl(var(--foreground) / 0.85);
   }
 </style>
-<title>Pebble</title>
+<title>mote</title>
 {{end}}
 
 {{define "content"}}

@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/cymoo/mita"
-	"github.com/cymoo/pebble/pkg/fulltext"
+	"github.com/cymoo/mote/pkg/fulltext"
 	"github.com/jmoiron/sqlx"
 )
 

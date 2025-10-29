@@ -1,7 +1,7 @@
 #[cfg(test)]
 mod tests {
     use jieba_rs::Jieba;
-    use pebble::service::search_service::Tokenizer;
+    use mote::service::search_service::Tokenizer;
 
     fn init_tokenizer() -> Jieba {
         Jieba::new()

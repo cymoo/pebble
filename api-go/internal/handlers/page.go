@@ -12,8 +12,8 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/cymoo/pebble/internal/models"
-	"github.com/cymoo/pebble/pkg/util/env"
+	"github.com/cymoo/mote/internal/models"
+	"github.com/cymoo/mote/pkg/util/env"
 	"github.com/go-chi/chi/v5"
 	"github.com/jmoiron/sqlx"
 )
@@ -152,7 +152,7 @@ func (h *PostPageHandler) PostItem(w http.ResponseWriter, r *http.Request) {
 
 	titleStr := title
 	if titleStr == "" {
-		titleStr = "Pebble"
+		titleStr = "mote"
 	}
 
 	data := map[string]any{

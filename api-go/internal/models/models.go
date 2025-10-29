@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	t "github.com/cymoo/pebble/pkg/util/types"
+	t "github.com/cymoo/mote/pkg/util/types"
 )
 
 // NullString is a custom type that serializes to null or string
