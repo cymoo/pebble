@@ -1,69 +1,73 @@
-# Deployment Guide
+# Deploy
 
-This deployment uses the Rust Axum as the backend and HTTPS is configured.
+## 部署结构
 
-After deployment:
+/opt/mote/                         # 部署根目录
+├── api/                           # 后端目录
+│   ├── go/                        # Go 后端
+│   │   ├── mote                   # 二进制文件
+│   │   ├── .env                   # 配置文件
+│   │   └── static/                # 静态资源(可选)
+│   ├── rust/                      # Rust 后端
+│   │   ├── mote                   # 二进制文件
+│   │   ├── .env                   # 配置文件
+│   │   └── static/                # 静态资源(可选)
+│   ├── python/                    # Python 后端
+│   │   ├── .venv/                 # 虚拟环境
+│   │   ├── app/                   # 应用代码
+│   │   ├── migrations/            # 数据库迁移
+│   │   ├── templates/             # 模板文件
+│   │   ├── static/                # 静态资源
+│   │   ├── wsgi.py                # WSGI 入口
+│   │   ├── requirements.txt       # Python 依赖
+│   │   └── .env                   # 配置文件
+│   ├── kotlin/                    # Kotlin 后端
+│   │   ├── mote.jar               # JAR 文件
+│   │   ├── resources/             # 资源文件
+│   │   └── .env                   # 配置文件
+│   └── current -> python/         # 软链接指向当前使用的后端
+│
+├── web/                            # 前端目录
+│   ├── build/                     # React 构建产物
+│   │   ├── index.html
+│   │   ├── assets/
+│   │   └── ...
+│   └── static/                    # 静态资源(可选)
+│
+├── data/                           # 数据目录 (权限: 700)
+│   └── app.db                     # SQLite 数据库
+│
+├── uploads/                        # 上传文件目录 (权限: 755)
+│   └── [用户上传的文件]
+│
+├── backups/                        # 备份目录
+│   ├── backup-20241030-120000.tar.gz
+│   ├── web-backup-20241030-110000/
+│   └── python-backup-20241029-100000/
+│
+└── config/                         # 配置目录
+    ├── .password                  # 登录密码 (权限: 600)
+    ├── nginx/
+    │   └── mote.conf              # Nginx 配置
+    └── systemd/
+        └── mote.service           # Systemd 服务文件
 
-- `/memo`   ->  Memo homepage
-- `/shared` ->  Blog homepage
-- `/`       ->  Blog homepage (redirect)
+## 系统服务文件
 
-## Directory Structure
+/etc/nginx/
+├── sites-available/
+│   └── mote.conf -> /opt/mote/config/nginx/mote.conf
+└── sites-enabled/
+    └── mote.conf -> /etc/nginx/sites-available/mote.conf
 
-```
-# Deployment directory structure
-/var/www/mote/
-├── app.db                     # SQLite database file
-├── uploads/                   # Directory for uploaded images
-├── releases/                  # Stores the last 5 build versions
-│   └── 2025-03-16_18-21-44/   # Example of build version directory
-│       ├── api-dist/          # Rust API build artifacts
-│       │   ├── .env             # Environment variables
-│       │   ├── static/          # Static resources
-│       │   ├── templates/       # HTML templates
-│       │   └── mote           # API binary
-│       └── web-dist/          # Frontend build artifacts
-│           ├── index.html       # Entry HTML
-│           └── assets/          # Compiled JS/CSS/images and other resources
-└── current -> releases/2025-03-16_18-21-44  # Symlink pointing to the latest version
+/etc/systemd/system/
+└── mote.service -> /opt/mote/config/systemd/mote.service
 
-# System configuration file paths
-/etc/
-├── mote/
-│   └── secure                  # Stores passwords
-└── systemd/system/
-    └── mote.service
-```
+## 日志位置
 
-## Environment Requirements
-
-- Linux server (I used Ubuntu 24.04, other systemd-based versions or distributions are also OK, but you may need to modify the package manager commands in the scripts)
-- Account with sudo privileges
-- Domain name with DNS resolution configured
-- Ports: 80 and 443
-
-## Deployment
-
-1. Install basic dependencies: Rust Toolchain, Node.js, and Redis. If they already exist, you can skip this step.
-
-```bash
-./init-env.sh
-```
-
-2. Build and run the backend service (a random password for login will be generated on the first run). Repeat this script if the code has been modified.
-
-```bash
-./start-service.sh
-```
-
-3. Configure HTTPS (apply for SSL certificate and set up auto-renewal) and Nginx. Run this script once for the first time. Repeat if the domain or Nginx template file is modified.
-
-```bash
-sudo DOMAIN=your.domain EMAIL=your@email.addr ./setup-nginx.sh
-```
-
-## Others
-
-1. Change login password: `sudo ./ch-pwd.sh`
-
-2. Stop the service and clean up build history: `sudo ./del-service.sh`. Note: It **will not** delete the database file and upload directory.
+系统日志:
+├── /var/log/nginx/
+│   ├── mote-access.log          # Nginx 访问日志
+│   └── mote-error.log           # Nginx 错误日志
+└── systemd journal
+    └── journalctl -u mote       # 后端服务日志

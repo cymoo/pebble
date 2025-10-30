@@ -7,12 +7,13 @@ EMAIL="${EMAIL:?The EMAIL environment variable must be set}"
 
 SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)
 NGINX_TEMPLATE="${SCRIPT_DIR}/nginx.template"
+source "${SCRIPT_DIR}/config.env"
 
-export WWW_ROOT=/var/www/mote
-export SERVER_NAME="$DOMAIN"
-export API_PORT=8000
-export MEMO_URL="/memo"
-export BLOG_URL="/shared"
+# export WWW_ROOT=/var/www/mote
+# export SERVER_NAME="$DOMAIN"
+# export API_PORT=8000
+# export MEMO_URL="/memo"
+# export BLOG_URL="/shared"
 
 # Check for root privileges
 if [[ $EUID -ne 0 ]]; then
