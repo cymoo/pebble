@@ -64,6 +64,7 @@ sudo cp -r dist/* "$FRONTEND_DEST/build/"
 
 # 设置权限
 log_info "设置权限..."
+ensure_user $APP_USER
 sudo chown -R "$APP_USER:$APP_USER" "$FRONTEND_DEST"
 sudo chmod -R 755 "$FRONTEND_DEST"
 

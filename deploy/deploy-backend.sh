@@ -16,17 +16,17 @@ if [ -z "$BACKEND_LANG" ]; then
     exit 1
 fi
 
-# 验证语言选择
-case "$BACKEND_LANG" in
-    rust|go|python|kotlin)
-        log_info "部署 $BACKEND_LANG 后端..."
-        ;;
-    *)
-        log_error "不支持的语言: $BACKEND_LANG"
-        log_error "支持的语言: rust, go, python, kotlin"
-        exit 1
-        ;;
-esac
+# # 验证语言选择
+# case "$BACKEND_LANG" in
+#     rust|go|python|kotlin)
+#         log_info "部署 $BACKEND_LANG 后端..."
+#         ;;
+#     *)
+#         log_error "不支持的语言: $BACKEND_LANG"
+#         log_error "支持的语言: rust, go, python, kotlin"
+#         exit 1
+#         ;;
+# esac
 
 # 定义源目录和目标目录
 case "$BACKEND_LANG" in
@@ -67,7 +67,7 @@ case "$BACKEND_LANG" in
         fi
         source "$HOME/.cargo/env"
         cargo build --release
-        BINARY_PATH="target/release/mote"
+        BINARY_PATH="target/release/${BINARY_NAME}"
         ;;
 
     go)
@@ -77,8 +77,8 @@ case "$BACKEND_LANG" in
             exit 1
         fi
         export PATH=$PATH:/usr/local/go/bin
-        go build -o mote .
-        BINARY_PATH="mote"
+        go build -o ${BINARY_NAME} ./cmd/server
+        BINARY_PATH="${BINARY_NAME}"
         ;;
 
     python)
@@ -94,22 +94,22 @@ case "$BACKEND_LANG" in
             exit 1
         fi
         mvn clean package -DskipTests
-        BINARY_PATH="target/mote-*.jar"
+        BINARY_PATH="target/${BINARY_NAME}-*.jar"
         ;;
 esac
 
 # 停止现有服务
-if sudo systemctl is-active --quiet mote; then
+if sudo systemctl is-active --quiet ${SERVICE_NAME}; then
     log_info "停止现有服务..."
-    sudo systemctl stop mote
+    sudo systemctl stop ${SERVICE_NAME}
 fi
 
-# 备份旧版本
-if [ -d "$DEST_DIR" ]; then
-    log_info "备份旧版本..."
-    BACKUP_NAME="${BACKEND_LANG}-backup-$(date +%Y%m%d-%H%M%S)"
-    sudo mv "$DEST_DIR" "$DEPLOY_ROOT/backups/$BACKUP_NAME"
-fi
+# # 备份旧版本
+# if [ -d "$DEST_DIR" ]; then
+#     log_info "备份旧版本..."
+#     BACKUP_NAME="${BACKEND_LANG}-backup-$(date +%Y%m%d-%H%M%S)"
+#     sudo mv "$DEST_DIR" "$DEPLOY_ROOT/backups/$BACKUP_NAME"
+# fi
 
 # 创建目标目录
 sudo mkdir -p "$DEST_DIR"
@@ -119,12 +119,13 @@ log_info "复制文件到: $DEST_DIR"
 case "$BACKEND_LANG" in
     rust|go)
         # 复制二进制文件
-        sudo cp "$BINARY_PATH" "$DEST_DIR/mote"
-        sudo chmod +x "$DEST_DIR/mote"
+        sudo cp "$BINARY_PATH" "$DEST_DIR/${BINARY_NAME}"
+        sudo chmod +x "$DEST_DIR/${BINARY_NAME}"
 
         # 复制静态资源
         if [ -d "static" ]; then
-            sudo cp -r static "$DEST_DIR/"
+            # sudo cp -r static "$DEST_DIR/"
+            sudo cp -r static "${WEB_DIR}/"
         fi
         ;;
 
@@ -145,29 +146,83 @@ case "$BACKEND_LANG" in
 
     kotlin)
         # 复制JAR文件
-        JAR_FILE=$(ls target/mote-*.jar | head -n 1)
-        sudo cp "$JAR_FILE" "$DEST_DIR/mote.jar"
+        JAR_FILE=$(ls target/${BINARY_NAME}-*.jar | head -n 1)
+        sudo cp "$JAR_FILE" "$DEST_DIR/${BINARY_NAME}.jar"
 
-        # 复制资源文件
+        # TODO: 需要复制资源文件吗？
         if [ -d "src/main/resources" ]; then
             sudo cp -r src/main/resources "$DEST_DIR/"
         fi
         ;;
 esac
 
-# 复制.env文件
-if [ -f ".env" ]; then
-    log_info "复制配置文件..."
-    sudo cp .env "$DEST_DIR/"
+log_info "生成环境配置文件..."
 
-    # 更新环境变量
-    sudo sed -i "s|DATABASE_URL=.*|DATABASE_URL=${DB_PATH}|g" "$DEST_DIR/.env" || true
-    sudo sed -i "s|UPLOAD_DIR=.*|UPLOAD_DIR=${UPLOADS_DIR}|g" "$DEST_DIR/.env" || true
-    sudo sed -i "s|PORT=.*|PORT=${BACKEND_PORT}|g" "$DEST_DIR/.env" || true
-fi
+BASE_ENV_TEMPLATE="""# 基础配置
+UPLOAD_PATH=${UPLOADS_DIR}
+HTTP_PORT=${BACKEND_PORT}
+LOG_REQUESTS=false
+"""
+
+# 根据语言添加特定的环境变量
+case "$BACKEND_LANG" in
+    rust)
+        LANGUAGE_SPECIFIC="""
+RUST_LOG=info
+DATABASE_URL=sqlite://${DB_PATH}
+"""
+        ;;
+    go)
+        LANGUAGE_SPECIFIC="""
+APP_ENV=prod
+DATABASE_URL=${DB_PATH}
+"""
+        ;;
+    python)
+        LANGUAGE_SPECIFIC="""
+FLASK_ENV=production
+DATABASE_URL=sqlite:///${DB_PATH}
+"
+        ;;
+    kotlin)
+        LANGUAGE_SPECIFIC="""
+SPRING_PROFILES_ACTIVE=prod
+DATABASE_URL=sqlite:${DB_PATH}
+"""
+        ;;
+    *)
+        log_error "不支持的语言: $BACKEND_LANG"
+        exit 1
+        ;;
+esac
+
+# 组合并生成环境配置文件
+ENV_CONTENT="$BASE_ENV_TEMPLATE
+$LANGUAGE_SPECIFIC"
+
+# 确保目标目录存在
+sudo mkdir -p "$DEST_DIR"
+
+# 写入环境文件
+sudo tee "${DEST_DIR}/.env" > /dev/null <<EOF
+$ENV_CONTENT
+EOF
+
+
+# # 复制.env文件
+# if [ -f ".env" ]; then
+#     log_info "复制配置文件..."
+#     sudo cp .env "$DEST_DIR/"
+
+#     # 更新环境变量
+#     sudo sed -i "s|DATABASE_URL=.*|DATABASE_URL=${DB_PATH}|g" "$DEST_DIR/.env" || true
+#     sudo sed -i "s|UPLOAD_DIR=.*|UPLOAD_DIR=${UPLOADS_DIR}|g" "$DEST_DIR/.env" || true
+#     sudo sed -i "s|PORT=.*|PORT=${BACKEND_PORT}|g" "$DEST_DIR/.env" || true
+# fi
 
 # 设置权限
 log_info "设置权限..."
+ensure_user $APP_USER
 sudo chown -R "$APP_USER:$APP_USER" "$DEST_DIR"
 sudo chmod -R 755 "$DEST_DIR"
 [ -f "$DEST_DIR/.env" ] && sudo chmod 600 "$DEST_DIR/.env"
@@ -178,42 +233,42 @@ sudo rm -f "$DEPLOY_ROOT/api/current"
 sudo ln -s "$DEST_DIR" "$DEPLOY_ROOT/api/current"
 
 # 配置systemd服务
-log_info "配置systemd服务..."
-bash "${SCRIPT_DIR}/setup-systemd.sh" "$BACKEND_LANG"
+# log_info "配置systemd服务..."
+# bash "${SCRIPT_DIR}/setup-systemd.sh" "$BACKEND_LANG"
 
 # 配置Nginx
-log_info "配置Nginx..."
-bash "${SCRIPT_DIR}/setup-nginx.sh"
+# log_info "配置Nginx..."
+# bash "${SCRIPT_DIR}/setup-nginx.sh"
 
 # 启动服务
-log_info "启动服务..."
-sudo systemctl daemon-reload
-sudo systemctl enable mote
-sudo systemctl start mote
+# log_info "启动服务..."
+# sudo systemctl daemon-reload
+# sudo systemctl enable ${SERVICE_NAME}
+# sudo systemctl start ${SERVICE_NAME}
 
 # 等待服务启动
 sleep 2
 
 # 检查服务状态
-if sudo systemctl is-active --quiet mote; then
-    log_success "$BACKEND_LANG 后端部署成功!"
-    log_info "服务状态:"
-    sudo systemctl status mote --no-pager | head -n 10
-    log_info "查看日志: make logs"
-else
-    log_error "服务启动失败!"
-    sudo systemctl status mote --no-pager
-    exit 1
-fi
+# if sudo systemctl is-active --quiet ${SERVICE_NAME}; then
+#     log_success "$BACKEND_LANG 后端部署成功!"
+#     log_info "服务状态:"
+#     sudo systemctl status ${SERVICE_NAME} --no-pager | head -n 10
+#     log_info "查看日志: make logs"
+# else
+#     log_error "服务启动失败!"
+#     sudo systemctl status ${SERVICE_NAME} --no-pager
+#     exit 1
+# fi
 
-# 启动Nginx
-if ! sudo systemctl is-active --quiet nginx; then
-    log_info "启动Nginx..."
-    sudo systemctl enable nginx
-    sudo systemctl start nginx
-fi
+# # 启动Nginx
+# if ! sudo systemctl is-active --quiet nginx; then
+#     log_info "启动Nginx..."
+#     sudo systemctl enable nginx
+#     sudo systemctl start nginx
+# fi
 
-log_success "部署完成!"
-log_info "后端位置: $DEST_DIR"
-log_info "当前后端: $BACKEND_LANG"
-log_info "访问地址: http://localhost"
+# log_success "部署完成!"
+# log_info "后端位置: $DEST_DIR"
+# log_info "当前后端: $BACKEND_LANG"
+# log_info "访问地址: http://localhost"
