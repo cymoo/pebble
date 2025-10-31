@@ -174,7 +174,8 @@ fn load_templates(env: &mut Environment<'_>) {
         // file.path() is the path relative to templates/, e.g., "index.html" or "posts/list.html"
         if let Some(name) = file.path().to_str() {
             // If you want to remove subdirectory prefixes, you can handle it here (e.g., keep only the filename)
-            let content = str::from_utf8(file.contents()).expect("Template is not valid utf-8");
+            let content =
+                std::str::from_utf8(file.contents()).expect("Template is not valid utf-8");
             env.add_template(name, content)
                 .unwrap_or_else(|e| panic!("Failed to add template {}: {}", name, e));
         }

@@ -30,7 +30,7 @@ fi
 
 # 定义源目录和目标目录
 case "$BACKEND_LANG" in
-    rust)
+    rust|rs)
         SRC_DIR="${PROJECT_ROOT}/api-rs"
         DEST_DIR="${DEPLOY_ROOT}/api/rust"
         ;;
@@ -38,11 +38,11 @@ case "$BACKEND_LANG" in
         SRC_DIR="${PROJECT_ROOT}/api-go"
         DEST_DIR="${DEPLOY_ROOT}/api/go"
         ;;
-    python)
+    python|py)
         SRC_DIR="${PROJECT_ROOT}/api-py"
         DEST_DIR="${DEPLOY_ROOT}/api/python"
         ;;
-    kotlin)
+    kotlin|kt)
         SRC_DIR="${PROJECT_ROOT}/api-kt"
         DEST_DIR="${DEPLOY_ROOT}/api/kotlin"
         ;;
@@ -59,7 +59,7 @@ log_info "构建 $BACKEND_LANG 后端..."
 cd "$SRC_DIR"
 
 case "$BACKEND_LANG" in
-    rust)
+    rust|rs)
         # Rust构建
         if [ ! -f "$HOME/.cargo/env" ]; then
             log_error "Rust未安装，请先运行 'make install'"
@@ -81,13 +81,13 @@ case "$BACKEND_LANG" in
         BINARY_PATH="${BINARY_NAME}"
         ;;
 
-    python)
+    python|py)
         # Python - 不需要编译
         log_info "准备Python环境..."
         BINARY_PATH=""
         ;;
 
-    kotlin)
+    kotlin|kt)
         # Kotlin构建
         if ! check_command mvn; then
             log_error "Maven未安装，请先运行 'make install'"
@@ -117,7 +117,7 @@ sudo mkdir -p "$DEST_DIR"
 # 复制文件
 log_info "复制文件到: $DEST_DIR"
 case "$BACKEND_LANG" in
-    rust|go)
+    rust|rs|go)
         # 复制二进制文件
         sudo cp "$BINARY_PATH" "$DEST_DIR/${BINARY_NAME}"
         sudo chmod +x "$DEST_DIR/${BINARY_NAME}"
@@ -129,7 +129,7 @@ case "$BACKEND_LANG" in
         fi
         ;;
 
-    python)
+    python|py)
         # 复制所有Python文件
         sudo cp -r . "$DEST_DIR/"
 
@@ -144,7 +144,7 @@ case "$BACKEND_LANG" in
         sudo -u "$APP_USER" "$DEST_DIR/.venv/bin/pip" install gunicorn
         ;;
 
-    kotlin)
+    kotlin|kt)
         # 复制JAR文件
         JAR_FILE=$(ls target/${BINARY_NAME}-*.jar | head -n 1)
         sudo cp "$JAR_FILE" "$DEST_DIR/${BINARY_NAME}.jar"
@@ -154,6 +154,10 @@ case "$BACKEND_LANG" in
             sudo cp -r src/main/resources "$DEST_DIR/"
         fi
         ;;
+    *)
+        log_error "不支持的语言: $BACKEND_LANG"
+        exit 1
+        ;;
 esac
 
 log_info "生成环境配置文件..."
@@ -161,12 +165,13 @@ log_info "生成环境配置文件..."
 BASE_ENV_TEMPLATE="""# 基础配置
 UPLOAD_PATH=${UPLOADS_DIR}
 HTTP_PORT=${BACKEND_PORT}
+HTTP_IP=${BACKEND_ADDR}
 LOG_REQUESTS=false
 """
 
 # 根据语言添加特定的环境变量
 case "$BACKEND_LANG" in
-    rust)
+    rust|rs)
         LANGUAGE_SPECIFIC="""
 RUST_LOG=info
 DATABASE_URL=sqlite://${DB_PATH}
@@ -178,13 +183,13 @@ APP_ENV=prod
 DATABASE_URL=${DB_PATH}
 """
         ;;
-    python)
+    python|py)
         LANGUAGE_SPECIFIC="""
 FLASK_ENV=production
 DATABASE_URL=sqlite:///${DB_PATH}
 "
         ;;
-    kotlin)
+    kotlin|kt)
         LANGUAGE_SPECIFIC="""
 SPRING_PROFILES_ACTIVE=prod
 DATABASE_URL=sqlite:${DB_PATH}
@@ -233,33 +238,33 @@ sudo rm -f "$DEPLOY_ROOT/api/current"
 sudo ln -s "$DEST_DIR" "$DEPLOY_ROOT/api/current"
 
 # 配置systemd服务
-# log_info "配置systemd服务..."
-# bash "${SCRIPT_DIR}/setup-systemd.sh" "$BACKEND_LANG"
+log_info "配置systemd服务..."
+bash "${SCRIPT_DIR}/setup-systemd.sh" "$BACKEND_LANG"
 
 # 配置Nginx
 # log_info "配置Nginx..."
 # bash "${SCRIPT_DIR}/setup-nginx.sh"
 
 # 启动服务
-# log_info "启动服务..."
-# sudo systemctl daemon-reload
-# sudo systemctl enable ${SERVICE_NAME}
-# sudo systemctl start ${SERVICE_NAME}
+log_info "启动服务..."
+sudo systemctl daemon-reload
+sudo systemctl enable ${SERVICE_NAME}
+sudo systemctl start ${SERVICE_NAME}
 
 # 等待服务启动
 sleep 2
 
 # 检查服务状态
-# if sudo systemctl is-active --quiet ${SERVICE_NAME}; then
-#     log_success "$BACKEND_LANG 后端部署成功!"
-#     log_info "服务状态:"
-#     sudo systemctl status ${SERVICE_NAME} --no-pager | head -n 10
-#     log_info "查看日志: make logs"
-# else
-#     log_error "服务启动失败!"
-#     sudo systemctl status ${SERVICE_NAME} --no-pager
-#     exit 1
-# fi
+if sudo systemctl is-active --quiet ${SERVICE_NAME}; then
+    log_success "$BACKEND_LANG 后端部署成功!"
+    log_info "服务状态:"
+    sudo systemctl status ${SERVICE_NAME} --no-pager | head -n 10
+    log_info "查看日志: make logs"
+else
+    log_error "服务启动失败!"
+    sudo systemctl status ${SERVICE_NAME} --no-pager
+    exit 1
+fi
 
 # # 启动Nginx
 # if ! sudo systemctl is-active --quiet nginx; then
@@ -268,7 +273,7 @@ sleep 2
 #     sudo systemctl start nginx
 # fi
 
-# log_success "部署完成!"
-# log_info "后端位置: $DEST_DIR"
-# log_info "当前后端: $BACKEND_LANG"
+log_success "部署完成!"
+log_info "后端位置: $DEST_DIR"
+log_info "当前后端: $BACKEND_LANG"
 # log_info "访问地址: http://localhost"

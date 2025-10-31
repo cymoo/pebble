@@ -17,13 +17,13 @@ log_info "创建子目录..."
 sudo mkdir -p "$DEPLOY_ROOT"/{api/{go,rust,python,kotlin},web,data,uploads,config/{nginx,systemd},backups}
 
 # 生成随机密码并保存
-PASSWORD_FILE="$DEPLOY_ROOT/config/.password"
-if [ ! -f "$PASSWORD_FILE" ]; then
+# PASSWORD_FILE="$DEPLOY_ROOT/config/.password"
+if [ ! -f "$SECRET_FILE" ]; then
     log_info "生成随机密码..."
     RANDOM_PASSWORD=$(openssl rand -base64 32 | tr -d "=+/" | cut -c1-24)
-    echo "$RANDOM_PASSWORD" | sudo tee "$PASSWORD_FILE" > /dev/null
-    sudo chmod 600 "$PASSWORD_FILE"
-    log_success "密码已保存到: $PASSWORD_FILE"
+    echo "MOTE_PASSWORD=$RANDOM_PASSWORD" | sudo tee "$SECRET_FILE" > /dev/null
+    sudo chmod 600 "$SECRET_FILE"
+    log_success "密码已保存到: $SECRET_FILE"
     log_warn "请记录此密码: $RANDOM_PASSWORD"
 else
     log_info "密码文件已存在"
