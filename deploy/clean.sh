@@ -16,24 +16,24 @@ fi
 log_warn "开始清理..."
 
 # 停止服务
-if sudo systemctl is-active --quiet mote; then
+if sudo systemctl is-active --quiet ${APP_NAME}; then
     log_info "停止服务..."
-    sudo systemctl stop mote
-    sudo systemctl disable mote
+    sudo systemctl stop ${APP_NAME}
+    sudo systemctl disable ${APP_NAME}
 fi
 
 # 移除systemd服务文件
-if [ -f "/etc/systemd/system/mote.service" ]; then
+if [ -f "/etc/systemd/system/${APP_NAME}.service" ]; then
     log_info "移除systemd服务..."
-    sudo rm -f /etc/systemd/system/mote.service
+    sudo rm -f /etc/systemd/system/${APP_NAME}.service
     sudo systemctl daemon-reload
 fi
 
 # 移除Nginx配置
-if [ -f "/etc/nginx/sites-enabled/mote.conf" ]; then
+if [ -f "/etc/nginx/sites-enabled/${APP_NAME}.conf" ]; then
     log_info "移除Nginx配置..."
-    sudo rm -f /etc/nginx/sites-enabled/mote.conf
-    sudo rm -f /etc/nginx/sites-available/mote.conf
+    sudo rm -f /etc/nginx/sites-enabled/${APP_NAME}.conf
+    sudo rm -f /etc/nginx/sites-available/${APP_NAME}.conf
     sudo systemctl reload nginx 2>/dev/null || true
 fi
 

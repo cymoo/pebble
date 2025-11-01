@@ -55,6 +55,9 @@ server {
         add_header Cache-Control "public, max-age=31536000, immutable";
         expires max;
         etag on;
+
+        # ...
+        try_files $uri $uri/ @backend;
     }
 
     # https://docs.nginx.com/nginx/admin-guide/security-controls/configuring-subrequest-authentication/
@@ -70,14 +73,14 @@ server {
 
     location = /api/auth {
         internal;
-        proxy_pass http://${BACKEND_ADDR}:${BACKEND_PORT};
+        proxy_pass http://${API_ADDR}:${API_PORT};
         proxy_pass_request_body off;
         proxy_set_header Content-Length "";
         proxy_set_header X-Original-URI $request_uri;
     }
 
     location @backend {
-        proxy_pass http://${BACKEND_ADDR}:${BACKEND_PORT};
+        proxy_pass http://${API_ADDR}:${API_PORT};
 
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;

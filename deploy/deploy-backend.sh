@@ -67,7 +67,7 @@ case "$BACKEND_LANG" in
         fi
         source "$HOME/.cargo/env"
         cargo build --release
-        BINARY_PATH="target/release/${BINARY_NAME}"
+        BINARY_PATH="target/release/mote"
         ;;
 
     go)
@@ -77,8 +77,8 @@ case "$BACKEND_LANG" in
             exit 1
         fi
         export PATH=$PATH:/usr/local/go/bin
-        go build -o ${BINARY_NAME} ./cmd/server
-        BINARY_PATH="${BINARY_NAME}"
+        go build -o mote ./cmd/server
+        BINARY_PATH="mote"
         ;;
 
     python|py)
@@ -94,7 +94,7 @@ case "$BACKEND_LANG" in
             exit 1
         fi
         mvn clean package -DskipTests
-        BINARY_PATH="target/${BINARY_NAME}-*.jar"
+        BINARY_PATH="target/mote-*.jar"
         ;;
 esac
 
@@ -119,8 +119,8 @@ log_info "复制文件到: $DEST_DIR"
 case "$BACKEND_LANG" in
     rust|rs|go)
         # 复制二进制文件
-        sudo cp "$BINARY_PATH" "$DEST_DIR/${BINARY_NAME}"
-        sudo chmod +x "$DEST_DIR/${BINARY_NAME}"
+        sudo mv "$BINARY_PATH" "$DEST_DIR/"
+        sudo chmod +x "$DEST_DIR/mote"
 
         # 复制静态资源
         if [ -d "static" ]; then
@@ -146,8 +146,8 @@ case "$BACKEND_LANG" in
 
     kotlin|kt)
         # 复制JAR文件
-        JAR_FILE=$(ls target/${BINARY_NAME}-*.jar | head -n 1)
-        sudo cp "$JAR_FILE" "$DEST_DIR/${BINARY_NAME}.jar"
+        JAR_FILE=$(ls target/mote-*.jar | head -n 1)
+        sudo mv "$JAR_FILE" "$DEST_DIR/mote.jar"
 
         # TODO: 需要复制资源文件吗？
         if [ -d "src/main/resources" ]; then
@@ -170,8 +170,8 @@ log_info "生成环境配置文件..."
 
 BASE_ENV_TEMPLATE="""# 基础配置
 UPLOAD_PATH=${UPLOADS_DIR}
-HTTP_PORT=${BACKEND_PORT}
-HTTP_IP=${BACKEND_ADDR}
+HTTP_PORT=${API_PORT}
+HTTP_IP=${API_ADDR}
 LOG_REQUESTS=false
 """
 
@@ -228,7 +228,7 @@ EOF
 #     # 更新环境变量
 #     sudo sed -i "s|DATABASE_URL=.*|DATABASE_URL=${DB_PATH}|g" "$DEST_DIR/.env" || true
 #     sudo sed -i "s|UPLOAD_DIR=.*|UPLOAD_DIR=${UPLOADS_DIR}|g" "$DEST_DIR/.env" || true
-#     sudo sed -i "s|PORT=.*|PORT=${BACKEND_PORT}|g" "$DEST_DIR/.env" || true
+#     sudo sed -i "s|PORT=.*|PORT=${API_PORT}|g" "$DEST_DIR/.env" || true
 # fi
 
 # 设置权限
@@ -252,10 +252,10 @@ bash "${SCRIPT_DIR}/setup-systemd.sh" "$BACKEND_LANG"
 # bash "${SCRIPT_DIR}/setup-nginx.sh"
 
 # 启动服务
-log_info "启动服务..."
-sudo systemctl daemon-reload
-sudo systemctl enable ${APP_NAME}
-sudo systemctl start ${APP_NAME}
+# log_info "启动服务..."
+# sudo systemctl daemon-reload
+# sudo systemctl enable ${APP_NAME}
+# sudo systemctl start ${APP_NAME}
 
 # 等待服务启动
 sleep 2
@@ -265,7 +265,6 @@ if sudo systemctl is-active --quiet ${APP_NAME}; then
     log_success "$BACKEND_LANG 后端部署成功!"
     log_info "服务状态:"
     sudo systemctl status ${APP_NAME} --no-pager | head -n 10
-    log_info "查看日志: make logs"
 else
     log_error "服务启动失败!"
     sudo systemctl status ${APP_NAME} --no-pager
@@ -280,6 +279,6 @@ fi
 # fi
 
 log_success "部署完成!"
-log_info "后端位置: $DEST_DIR"
-log_info "当前后端: $BACKEND_LANG"
+# log_info "后端位置: $DEST_DIR"
+# log_info "当前后端: $BACKEND_LANG"
 # log_info "访问地址: http://localhost"

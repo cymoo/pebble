@@ -37,9 +37,9 @@ fi
 log_info "切换到 $BACKEND_LANG 后端..."
 
 # 停止服务
-if sudo systemctl is-active --quiet mote; then
+if sudo systemctl is-active --quiet ${APP_NAME}; then
     log_info "停止服务..."
-    sudo systemctl stop mote
+    sudo systemctl stop ${APP_NAME}
 fi
 
 # 更新软链接
@@ -54,17 +54,17 @@ bash "${SCRIPT_DIR}/setup-systemd.sh" "$BACKEND_LANG"
 # 重启服务
 log_info "启动服务..."
 sudo systemctl daemon-reload
-sudo systemctl start mote
+sudo systemctl start ${APP_NAME}
 
 # 等待服务启动
 sleep 2
 
 # 检查服务状态
-if sudo systemctl is-active --quiet mote; then
+if sudo systemctl is-active --quiet ${APP_NAME}; then
     log_success "成功切换到 $BACKEND_LANG 后端!"
-    sudo systemctl status mote --no-pager | head -n 10
+    sudo systemctl status ${APP_NAME} --no-pager | head -n 10
 else
     log_error "服务启动失败!"
-    sudo systemctl status mote --no-pager
+    sudo systemctl status ${APP_NAME} --no-pager
     exit 1
 fi

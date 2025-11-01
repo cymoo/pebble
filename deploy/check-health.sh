@@ -40,7 +40,7 @@ fi
 
 # 检查后端服务
 log_info "检查后端服务..."
-if sudo systemctl is-active --quiet mote; then
+if sudo systemctl is-active --quiet ${APP_NAME}; then
     log_success "后端服务运行中"
 
     # 检查当前后端
@@ -57,10 +57,10 @@ fi
 
 # 检查端口监听
 log_info "检查端口监听..."
-if sudo netstat -tlnp 2>/dev/null | grep -q ":$BACKEND_PORT"; then
-    log_success "后端端口 $BACKEND_PORT 正在监听"
+if sudo netstat -tlnp 2>/dev/null | grep -q ":$API_PORT"; then
+    log_success "后端端口 $API_PORT 正在监听"
 else
-    log_error "后端端口 $BACKEND_PORT 未监听"
+    log_error "后端端口 $API_PORT 未监听"
     HEALTH_STATUS=1
 fi
 
@@ -84,7 +84,7 @@ if [ -f "$DB_PATH" ]; then
         HEALTH_STATUS=1
     fi
 else
-    log_warn "数据库文件不存在(首次部署正常)"
+    log_warn "数据库文件不存在: $DB_PATH (首次部署正常)"
 fi
 
 # 检查上传目录
@@ -121,8 +121,8 @@ fi
 log_info "执行HTTP健康检查..."
 if command -v curl &> /dev/null; then
     # 检查后端
-    if curl -sf "http://localhost:$BACKEND_PORT/health" > /dev/null 2>&1 || \
-       curl -sf "http://localhost:$BACKEND_PORT/api/health" > /dev/null 2>&1; then
+    if curl -sf "http://localhost:$API_PORT/health" > /dev/null 2>&1 || \
+       curl -sf "http://localhost:$API_PORT/api/health" > /dev/null 2>&1; then
         log_success "后端HTTP响应正常"
     else
         log_warn "后端HTTP响应失败(可能未实现/health端点)"

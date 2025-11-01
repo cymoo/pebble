@@ -21,15 +21,15 @@ log_info "生成systemd服务文件..."
 # 根据语言生成不同的ExecStart
 case "$BACKEND_LANG" in
     rust|rs|go)
-        EXEC_START="$DEPLOY_ROOT/api/current/${BINARY_NAME}"
+        EXEC_START="$DEPLOY_ROOT/api/current/mote"
         WORKING_DIR="$DEPLOY_ROOT/api/current"
         ;;
     python|py)
-        EXEC_START="$DEPLOY_ROOT/api/current/.venv/bin/gunicorn -k gevent -b ${BACKEND_ADDR}:$BACKEND_PORT wsgi:app"
+        EXEC_START="$DEPLOY_ROOT/api/current/.venv/bin/gunicorn -k gevent -b ${API_ADDR}:$API_PORT wsgi:app"
         WORKING_DIR="$DEPLOY_ROOT/api/current"
         ;;
     kotlin|kt)
-        EXEC_START="/usr/bin/java -jar $DEPLOY_ROOT/api/current/${BINARY_NAME}.jar"
+        EXEC_START="/usr/bin/java -jar $DEPLOY_ROOT/api/current/mote.jar"
         WORKING_DIR="$DEPLOY_ROOT/api/current"
         ;;
     *)
@@ -56,7 +56,7 @@ Restart=always
 RestartSec=5
 StandardOutput=journal
 StandardError=journal
-SyslogIdentifier=mote
+SyslogIdentifier=${APP_NAME}
 
 # 安全设置
 NoNewPrivileges=true
@@ -76,3 +76,8 @@ sudo ln -sf "$SERVICE_FILE" "$SYSTEMD_PATH"
 log_success "Systemd服务配置完成!"
 log_info "服务文件: $SERVICE_FILE"
 log_info "软链接: $SYSTEMD_PATH"
+
+log_info "启动服务..."
+sudo systemctl daemon-reload
+sudo systemctl enable ${APP_NAME}
+sudo systemctl start ${APP_NAME}

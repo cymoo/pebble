@@ -18,7 +18,7 @@ NGINX_TEMPLATE="${SCRIPT_DIR}/nginx.template"
 
 NGINX_CONFIG="${CONFIG_DIR}/nginx/${APP_NAME}.conf"
 NGINX_ENABLED="/etc/nginx/sites-enabled/${APP_NAME}.conf"
-NGINX_AVAILABLE="/etc/nginx/sites-available/${APP_NAME}.conf"
+# NGINX_AVAILABLE="/etc/nginx/sites-available/${APP_NAME}.conf"
 
 # Generate Nginx configuration
 log_info "Generating Nginx configuration..."
@@ -29,16 +29,16 @@ if [ ! -f "$NGINX_TEMPLATE" ]; then
     exit 1
 fi
 
-envsubst '$WEB_DIR $UPLOADS_DIR $SERVER_NAME $BACKEND_ADDR $BACKEND_PORT $MEMO_URL $BLOG_URL' < "$NGINX_TEMPLATE" | sudo tee "$NGINX_CONFIG" > /dev/null
+envsubst '$WEB_DIR $UPLOADS_DIR $SERVER_NAME $API_ADDR $API_PORT $MEMO_URL $BLOG_URL' < "$NGINX_TEMPLATE" | sudo tee "$NGINX_CONFIG" > /dev/null
 
-# 复制到nginx配置目录
-sudo cp "$NGINX_CONFIG" "$NGINX_AVAILABLE"
+# # 复制到nginx配置目录
+# sudo cp "$NGINX_CONFIG" "$NGINX_AVAILABLE"
 
 # 创建软链接
 if [ -L "$NGINX_ENABLED" ]; then
     sudo rm "$NGINX_ENABLED"
 fi
-sudo ln -s "$NGINX_AVAILABLE" "$NGINX_ENABLED"
+sudo ln -s "$NGINX_CONFIG" "$NGINX_ENABLED"
 
 # 删除默认配置
 if [ -f "/etc/nginx/sites-enabled/default" ]; then
@@ -70,12 +70,4 @@ log_info "配置文件: $NGINX_CONFIG"
 log_info "软链接: $NGINX_ENABLED"
 
 
-# Clean up temporary files for certbot validation if existed
-if [ -f /etc/nginx/conf.d/"${SERVER_NAME}"-temp.conf ]; then
-    log_info "Removing temporary Nginx configuration for certbot validation..."
-    rm -f /etc/nginx/conf.d/"${SERVER_NAME}"-temp.conf
-fi
-
 # nginx -t && systemctl reload nginx
-
-# log_success -e "\n=== Nginx configuration completed successfully ==="
