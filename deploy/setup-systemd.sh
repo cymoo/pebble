@@ -13,8 +13,8 @@ if [ -z "$BACKEND_LANG" ]; then
     exit 1
 fi
 
-SERVICE_FILE="$DEPLOY_ROOT/config/systemd/${SERVICE_NAME}.service"
-SYSTEMD_PATH="/etc/systemd/system/${SERVICE_NAME}.service"
+SERVICE_FILE="$DEPLOY_ROOT/config/systemd/${APP_NAME}.service"
+SYSTEMD_PATH="/etc/systemd/system/${APP_NAME}.service"
 
 log_info "生成systemd服务文件..."
 
@@ -41,7 +41,7 @@ esac
 # 生成服务文件
 sudo tee "$SERVICE_FILE" > /dev/null <<EOF
 [Unit]
-Description="$(capitalize "$SERVICE_NAME") Application ($(capitalize "$BACKEND_LANG") backend)"
+Description="$(capitalize "$APP_NAME") Application ($(capitalize "$BACKEND_LANG") backend)"
 After=network.target
 
 [Service]

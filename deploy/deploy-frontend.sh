@@ -69,7 +69,7 @@ sudo chown -R "$APP_USER:$APP_USER" "$FRONTEND_DEST"
 sudo chmod -R 755 "$FRONTEND_DEST"
 
 # 重载Nginx(如果已配置)
-if sudo systemctl is-active --quiet nginx && [ -f "/etc/nginx/sites-enabled/${SERVICE_NAME}.conf" ]; then
+if sudo systemctl is-active --quiet nginx && [ -f "/etc/nginx/sites-enabled/${APP_NAME}.conf" ]; then
     log_info "重载Nginx配置..."
     sudo nginx -t && sudo systemctl reload nginx
 fi

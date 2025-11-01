@@ -99,9 +99,9 @@ case "$BACKEND_LANG" in
 esac
 
 # 停止现有服务
-if sudo systemctl is-active --quiet ${SERVICE_NAME}; then
+if sudo systemctl is-active --quiet ${APP_NAME}; then
     log_info "停止现有服务..."
-    sudo systemctl stop ${SERVICE_NAME}
+    sudo systemctl stop ${APP_NAME}
 fi
 
 # # 备份旧版本
@@ -159,6 +159,12 @@ case "$BACKEND_LANG" in
         exit 1
         ;;
 esac
+
+# If static directory exists, set permissions
+if [ -d "$FRONTEND_DEST/static" ]; then
+    sudo chown -R "$APP_USER:$APP_USER" "$FRONTEND_DEST/static"
+    sudo chmod -R 755 "$FRONTEND_DEST/static"
+fi
 
 log_info "生成环境配置文件..."
 
@@ -248,21 +254,21 @@ bash "${SCRIPT_DIR}/setup-systemd.sh" "$BACKEND_LANG"
 # 启动服务
 log_info "启动服务..."
 sudo systemctl daemon-reload
-sudo systemctl enable ${SERVICE_NAME}
-sudo systemctl start ${SERVICE_NAME}
+sudo systemctl enable ${APP_NAME}
+sudo systemctl start ${APP_NAME}
 
 # 等待服务启动
 sleep 2
 
 # 检查服务状态
-if sudo systemctl is-active --quiet ${SERVICE_NAME}; then
+if sudo systemctl is-active --quiet ${APP_NAME}; then
     log_success "$BACKEND_LANG 后端部署成功!"
     log_info "服务状态:"
-    sudo systemctl status ${SERVICE_NAME} --no-pager | head -n 10
+    sudo systemctl status ${APP_NAME} --no-pager | head -n 10
     log_info "查看日志: make logs"
 else
     log_error "服务启动失败!"
-    sudo systemctl status ${SERVICE_NAME} --no-pager
+    sudo systemctl status ${APP_NAME} --no-pager
     exit 1
 fi
 
