@@ -35,7 +35,7 @@ npx yarn install --frozen-lockfile --silent
 # 构建前端
 log_info "构建前端..."
 # npm run build
-VITE_MEMO_URL=$MEMO_URL VITE_BLOG_URL=$BLOG_URL npx vite build --logLevel error
+VITE_MEMO_URL=$MEMO_URL VITE_BLOG_URL=$BLOG_URL VITE_MANIFEST_START_URL=$MEMO_URL npx vite build --logLevel error
 
 # 检查构建输出
 if [ ! -d "dist" ]; then
