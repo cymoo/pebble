@@ -21,7 +21,7 @@ server {
     charset utf-8;
     server_tokens off;
 
-    root ${WWW_ROOT}/current/web-dist;
+    root ${WEB_DIR}/build;
     index index.html;
 
     # https://stackoverflow.com/questions/58215104/whats-the-neterr-http2-protocol-error-about
@@ -51,7 +51,7 @@ server {
     }
 
     location /static {
-        alias ${WWW_ROOT}/current/api-dist/static;
+        alias ${WEB_DIR}/static;
         add_header Cache-Control "public, max-age=31536000, immutable";
         expires max;
         etag on;
@@ -59,7 +59,7 @@ server {
 
     # https://docs.nginx.com/nginx/admin-guide/security-controls/configuring-subrequest-authentication/
     location /uploads {
-        alias ${WWW_ROOT}/uploads;
+        alias ${UPLOADS_DIR};
         add_header Cache-Control "public, max-age=31536000, immutable";
         expires max;
         etag on;
@@ -70,14 +70,14 @@ server {
 
     location = /api/auth {
         internal;
-        proxy_pass http://127.0.0.1:${API_PORT};
+        proxy_pass http://${BACKEND_ADDR}:${BACKEND_PORT};
         proxy_pass_request_body off;
         proxy_set_header Content-Length "";
         proxy_set_header X-Original-URI $request_uri;
     }
 
     location @backend {
-        proxy_pass http://127.0.0.1:${API_PORT};
+        proxy_pass http://${}:${BACKEND_PORT};
 
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
